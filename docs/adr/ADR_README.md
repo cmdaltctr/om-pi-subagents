@@ -1,0 +1,32 @@
+# Architecture Decision Records
+
+This directory records significant architectural decisions made during development.
+
+## Index
+
+| ADR                                                                          | Title                                                         | Date       | Status   |
+| ---------------------------------------------------------------------------- | ------------------------------------------------------------- | ---------- | -------- |
+| [001](./001-keep-the-agent-mapping-outside-the-package.md)                   | Keep the agent mapping outside the package and ship no agents | 2026-10-01 | Accepted |
+| [002](./002-refuse-child-prompts-that-do-not-come-from-the-parent.md)        | Refuse child prompts that do not come from the parent         | 2026-10-01 | Accepted |
+| [003](./003-release-through-release-please-and-staged-trusted-publishing.md) | Release through Release Please and staged trusted publishing  | 2026-10-01 | Proposed |
+
+## Convention
+
+Each ADR follows this template:
+
+- **Context**: the problem, constraints and forces in play
+- **Decision**: what was chosen and why
+- **Consequences**: positive, negative and neutral outcomes
+- **Alternatives Considered**: options rejected
+- **References**: links to relevant files or documentation
+
+ADRs are immutable once the status is "Accepted". A superseded decision gets a "Superseded by ADR-00X" note.
+
+For platform findings and workarounds, see the [technical decision records](../tdr/TDR_README.md).
+
+## Creating a new ADR
+
+1. Copy an existing ADR.
+2. Number it in sequence with three digits.
+3. Set the status to "Proposed".
+4. Add a row to the index table.

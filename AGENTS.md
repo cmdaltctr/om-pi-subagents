@@ -68,7 +68,7 @@ Tooling tests live in `test/docs.test.ts`, `test/pi-bin.test.ts` and `test/setup
 | Persistence and results           | `store.test.ts`, `result.test.ts`, `notify.test.ts`, `persistence.test.ts`                 |
 | Real Pi and permissions           | `child-contract.test.ts`, `child-launch.test.ts`, `permissions.test.ts`, `startup.test.ts` |
 | Parent lifecycle and installation | Root `*.e2e.test.ts`, `cleanup.test.ts`, `supervisor.test.ts`                              |
-| Persona examples and parity       | `pilot.test.ts`, `ports.test.ts`, `ports.lint.test.ts`, `context7.test.ts`                 |
+| Packaging and shipped defaults    | `defaults.test.ts`, `test/release.test.ts`, `test/docs.test.ts`, `context7.test.ts`        |
 
 - Write a failing test before a fix. Confirm the failure tests the intended behaviour.
 - After a check passes, break its safeguard in a disposable copy and confirm failure.
@@ -76,7 +76,7 @@ Tooling tests live in `test/docs.test.ts`, `test/pi-bin.test.ts` and `test/setup
 - Reuse fixtures before adding another harness. Tests use a fake model and a local MCP server.
 - Real Pi tests use `OMPSS_PI_BIN`, then the pinned host CLI, then `pi` on PATH.
 - Skip CLI-dependent suites when Pi is missing. Keep independent tests enabled.
-- Legacy parity tests skip when operator-owned legacy files are absent. Report their skipped count.
+- Run tests on macOS and Linux. Do not depend on one platform's process tree, paths or event timing.
 - Use disposable directories and synthetic credentials. Leave real settings and run files untouched.
 - Run `bun run ci` before finishing. Commit, then run `bun run ci:clean`.
 
@@ -128,6 +128,7 @@ Do not bypass the hook without approval. GitHub Actions must pass its check and 
 ## Documentation
 
 Update `README.md` when setup, commands or supported behaviour change.
+Record architecture decisions in `docs/adr/` and platform findings or workarounds in `docs/tdr/`.
 Keep README example markers intact. `docs.e2e.test.ts` runs those examples through real Pi.
 `test/docs.test.ts` checks tooling claims against the scripts, hook, workflow and package manifest.
 Maintain the public guides in `docs/INSTALL.md`, `docs/USAGE.md` and `docs/UNINSTALL.md`.

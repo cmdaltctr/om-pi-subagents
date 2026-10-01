@@ -276,12 +276,11 @@ pull requests. Its actions use full commit SHA pins.
 
 Tests start real Pi 0.99.1 children with a local fake model and local MCP server.
 They use no live model or real credential. CLI-dependent suites skip when Pi is
-missing; independent tests still run. Legacy parity tests skip when the old
-operator-owned agent files are absent.
+missing; independent tests still run.
 
 Tests use `OMPSS_PI_BIN` first, then `.pi-host/node_modules/.bin/pi`, then `pi`
 on PATH. Set an explicit override only when testing another installation.
-`OMPSS_REGISTRY` selects an alternative registry for tests.
+`OMPSS_REGISTRY` selects another mapping file, for tests or for a second setup.
 
 Read [AGENTS.md](AGENTS.md) before changing the project.
 
@@ -290,3 +289,5 @@ Read [AGENTS.md](AGENTS.md) before changing the project.
 - [How to install](docs/INSTALL.md)
 - [How to use](docs/USAGE.md)
 - [How to uninstall](docs/UNINSTALL.md)
+- [Architecture decisions](docs/adr/ADR_README.md)
+- [Technical decisions](docs/tdr/TDR_README.md)
