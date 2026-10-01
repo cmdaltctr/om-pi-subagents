@@ -1,0 +1,11 @@
+schema: spec-driven
+
+context: |
+  OMPSS is a TypeScript Pi extension with source files at the repository root.
+  It launches one native RPC child per parent session and enforces exact tool names.
+  Pi host packages are wildcard peers, borrowed from ignored .pi-host/ for development.
+  Use Bun, Vitest, Oxlint and Oxfmt. Comments and documentation use plain British English.
+  Public guides are docs/INSTALL.md, docs/USAGE.md and docs/UNINSTALL.md.
+  Local reports and security evidence belong in ignored docs/local-docs/.
+  Preserve ownership, readiness, saved-output and confirmed-cleanup boundaries.
+  Do not install dependencies, create remotes or push without permission.

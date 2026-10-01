@@ -31,6 +31,25 @@ Keep these boundaries:
 Pi supplies `@earendil-works/pi-coding-agent` and `typebox` as peers. Keep host packages out of `dependencies`.
 The host setup also pins `@earendil-works/pi-ai` and `@earendil-works/pi-tui` in `.pi-host/`.
 
+## OpenSpec workflow
+
+Plan behaviour changes with OpenSpec (spec-driven schema, CLI `openspec`) before you write code.
+
+Use a change for a new feature, a change to user-visible behaviour, or a breaking change. Skip it for typo fixes, docs-only edits, dependency bumps, and bug fixes that restore specified behaviour.
+
+1. If the scope is unclear, investigate first with the `openspec-explore` skill. Do not edit code in this step.
+2. Create the change with the `openspec-propose` skill. It writes `proposal.md`, `design.md`, `tasks.md`, and `specs/<capability>/spec.md` under `openspec/changes/<name>/`.
+3. Run `openspec validate <name> --strict` and fix every finding.
+4. Stop and ask the user to approve the proposal. Do not implement in the same turn as the proposal.
+5. Implement with the `openspec-apply-change` skill. Mark each task `- [x]` in `tasks.md` when it is done and tested.
+6. If the plan changes during work, update the change artifacts with the `openspec-update-change` skill.
+7. Before you report completion, run the `openspec-verify-change` skill.
+8. Before you create the pull request, archive the completed change with the `openspec-archive-change` skill. Archiving moves it to `openspec/changes/archive/` and syncs its spec deltas into `openspec/specs/`. Archive only when every task is done and step 7 passes.
+
+Use `openspec list` for active changes and `openspec status --change <name>` for artifact status.
+
+Commit OpenSpec artifacts with the code change they describe. Commit the archive move in the same pull request as the change. A change that is only a proposal stays active until it is implemented.
+
 ## Commands and prerequisites
 
 Run commands from the repository root. Use Bun 1.4.2 and Node.js 22.12 or newer. Network access is required for installs.
