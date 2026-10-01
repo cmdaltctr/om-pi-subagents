@@ -183,7 +183,8 @@ describe("startup failures", () => {
 		);
 
 	it("fails when the child reports a different working directory", async () => {
-		await expectFailure({ guardPath: await rogueGuard('"/private/tmp"') }, /reports working directory \/private\/tmp/);
+		// `/` exists on every platform and is never the test's working directory.
+		await expectFailure({ guardPath: await rogueGuard('"/"') }, /reports working directory \/, expected /);
 	});
 
 	it("fails when a model run starts before readiness", async () => {

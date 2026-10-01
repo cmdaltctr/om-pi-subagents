@@ -25,9 +25,12 @@ const sleep = (ms: number) => new Promise((done) => setTimeout(done, ms));
 async function startTree(
 	options: { ignoreTerm?: boolean } = {},
 ): Promise<{ parent: ChildProcess; grandchild: number }> {
-	const grandchildCommand = options.ignoreTerm ? `sh -c "trap '' TERM; while true; do sleep 1; done"` : "sleep 300";
+	// Start `sleep` without a shell. Linux `sh` keeps itself as a second process; macOS `sh` replaces itself.
+	const [command, args] = options.ignoreTerm
+		? ["sh", ["-c", "trap '' TERM; while true; do sleep 1; done"]]
+		: ["sleep", ["300"]];
 	const script = `const { spawn } = require("node:child_process");
-    const child = spawn("sh", ["-c", ${JSON.stringify(grandchildCommand)}], { detached: true, stdio: "ignore" });
+    const child = spawn(${JSON.stringify(command)}, ${JSON.stringify(args)}, { detached: true, stdio: "ignore" });
     console.log(child.pid); setInterval(() => {}, 1000);`;
 	const parent = spawn(process.execPath, ["-e", script], { stdio: ["ignore", "pipe", "ignore"] });
 	const grandchild = await new Promise<number>((resolve) =>
@@ -37,7 +40,7 @@ async function startTree(
 		() => void (alive(grandchild) && process.kill(grandchild, "SIGKILL")),
 		() => void (parent.exitCode === null && parent.kill("SIGKILL")),
 	);
-	await sleep(150); // let `sh` exec
+	await sleep(150); // let the grandchild start
 	return { parent, grandchild };
 }
 

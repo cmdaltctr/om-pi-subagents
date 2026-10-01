@@ -204,7 +204,9 @@ describe.skipIf(!PI_AVAILABLE)("broken pipes", () => {
 
 		const final = await run.done(started.id);
 		expect(final.state).toBe("failed");
-		expect(final.error).toMatch(/child output closed/);
+		// macOS keeps the child alive, so the lost pipe is reported. On Linux the child dies on the broken
+		// pipe within the grace period, so the run reports the early exit instead. Both fail the run.
+		expect(final.error).toMatch(/child output closed|child exited without a settled result/);
 		expect(groupAlive(run.pids[0])).toBe(false);
 	});
 
