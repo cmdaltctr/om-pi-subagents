@@ -4,11 +4,12 @@ This guide unloads the extension while preserving its run files.
 
 ## Stop active runs
 
-1. Run `/ompss status`.
+1. Run `/ompss` to show current-session status.
 2. Cancel each active run with `/ompss cancel <run-id>`.
 3. Check its final state with `/ompss status <run-id>`.
 
 Quit Pi if you cannot issue commands. Shutdown stops children and waits for their cleanup.
+The run panel and status entry clear when the session ends.
 Investigate any cleanup error before removing the extension.
 
 ## Remove the package
@@ -33,4 +34,5 @@ Remove a directory only after confirming its processes have stopped and its outp
 ## Reinstall later
 
 1. Follow [installation](INSTALL.md).
-2. Run `/reload` and `/ompss list`.
+2. Check that each mapped agent declares a supported `thinking` value.
+3. Run `/reload` and `/ompss list`.

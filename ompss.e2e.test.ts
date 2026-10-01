@@ -39,7 +39,7 @@ async function setup(script: Turn[]) {
 	await writeFile(join(scratch, "personas/reader.md"), "You read.");
 	await writeFile(
 		join(scratch, "om-pi-subagents.yaml"),
-		"version: 1\nagents:\n  reader:\n    persona: ./personas/reader.md\n    tools: [read]\n",
+		"version: 1\nagents:\n  reader:\n    persona: ./personas/reader.md\n    tools: [read]\n    thinking: off\n",
 	);
 
 	const store = new RunStore(join(workspace.root, "store"));
@@ -68,7 +68,6 @@ async function setup(script: Turn[]) {
 			registerTool: (t: any) => tools.set(t.name, t),
 			registerCommand: (n: string, c: any) => commands.set(n, c),
 			on: () => undefined,
-			getThinkingLevel: () => "off",
 		} as any,
 		() => service,
 	);

@@ -40,7 +40,7 @@ async function startBusyChild(): Promise<{
 	await writeFile(join(extensionDir, "personas/reader.md"), "CHILD-PERSONA: you read.");
 	await writeFile(
 		join(extensionDir, "om-pi-subagents.yaml"),
-		"version: 1\nagents:\n  reader:\n    persona: ./personas/reader.md\n    tools: [read]\n",
+		"version: 1\nagents:\n  reader:\n    persona: ./personas/reader.md\n    tools: [read]\n    thinking: off\n",
 	);
 	const fixture = await startPi({
 		args: ["-e", INDEX],

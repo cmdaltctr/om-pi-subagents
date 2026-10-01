@@ -15,6 +15,7 @@ const agent: AgentSnapshot = {
 	personaPath: "p",
 	persona: "x",
 	tools: ["read"],
+	thinking: "off",
 	skills: [],
 	extensions: [],
 };

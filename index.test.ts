@@ -46,7 +46,6 @@ function loadExtension(register: (pi: any) => void = (pi) => ompss(pi)) {
 		registerTool: (tool: Tool) => tools.set(tool.name, tool),
 		registerCommand: (name: string, command: Command) => commands.set(name, command),
 		on: (event: string, handler: (event: unknown, ctx: Ctx) => unknown) => handlers.set(event, handler),
-		getThinkingLevel: () => "medium",
 	});
 	return { tools, commands, handlers };
 }
@@ -126,6 +125,18 @@ describe("registration", () => {
 });
 
 describe("default wiring with no mapping file", () => {
+	it("reports no runs for a bare command without reading the registry or starting a child", async () => {
+		vi.stubEnv("OMPSS_REGISTRY", "/nonexistent/registry.yaml");
+		try {
+			const notify = vi.fn();
+			await loadExtension().commands.get("ompss")!.handler("", ctx(notify));
+			expect(notify).toHaveBeenCalledExactlyOnceWith("No runs in this session.", "info");
+			for (const spy of Object.values(processSpies)) expect(spy).not.toHaveBeenCalled();
+		} finally {
+			vi.unstubAllEnvs();
+		}
+	});
+
 	it("lists zero personas through the command and the tool, with no process", async () => {
 		const agentDir = mkdtempSync(join(tmpdir(), "ompss-agent-"));
 		vi.stubEnv("PI_CODING_AGENT_DIR", agentDir);
@@ -161,12 +172,7 @@ describe("tool and command apply the same service calls", () => {
 			"run",
 			{ action: "run", agent: "reader", task: "look at src" },
 			"run reader look at src",
-			[
-				"run",
-				"session-1",
-				{ agent: "reader", task: "look at src" },
-				{ cwd: "/work", model: "p/m", thinking: "medium" },
-			],
+			["run", "session-1", { agent: "reader", task: "look at src" }, { cwd: "/work", model: "p/m" }],
 		],
 		["status of one run", { action: "status", runId: "abc" }, "status abc", ["status", "session-1", "abc"]],
 		["status of all runs", { action: "status" }, "status", ["status", "session-1", undefined]],
@@ -203,7 +209,14 @@ describe("tool and command apply the same service calls", () => {
 		expect(notify).toHaveBeenCalledWith("STATUS", "info");
 	});
 
-	it.each(["", "bogus", "run", "run reader", "cancel", "status a b"])(
+	it.each(["", "   ", "\n\t  \n"])("treats %j as current-session status", async (input) => {
+		const { notify, calls } = await run("command", {}, input);
+		expect(calls).toEqual([["status", "session-1", undefined]]);
+		expect(notify).toHaveBeenCalledExactlyOnceWith("STATUS", "info");
+		for (const spy of Object.values(processSpies)) expect(spy).not.toHaveBeenCalled();
+	});
+
+	it.each(["bogus", "run", "run reader", "cancel", "status a b"])(
 		"shows usage for the command input %j",
 		async (input) => {
 			const { notify, calls } = await run("command", {}, input);
@@ -228,8 +241,12 @@ describe("tool and command apply the same service calls", () => {
 });
 
 describe("SessionBinding", () => {
-	const session = (hasUI: boolean, setStatus = vi.fn()) =>
-		({ hasUI, ui: { setStatus }, sessionManager: { getSessionId: () => "session-1" } }) as never;
+	const session = (
+		hasUI: boolean,
+		setStatus: (key: string, text: string | undefined) => void = vi.fn(),
+		setWidget = vi.fn(),
+		owner = "session-1",
+	) => ({ hasUI, ui: { setStatus, setWidget }, sessionManager: { getSessionId: () => owner } }) as never;
 	const pi = (sendMessage = vi.fn()) => ({ sendMessage }) as never;
 
 	it("has no messenger before a session is bound", () => {
@@ -256,10 +273,79 @@ describe("SessionBinding", () => {
 		expect(binding.owner).toBe("session-1");
 	});
 
-	it("offers no status line without a UI", () => {
+	it("sets a string widget above the editor for its owner only", () => {
+		const binding = new SessionBinding();
+		const setWidget = vi.fn();
+		binding.bind(session(true, vi.fn(), setWidget));
+		binding.messenger(pi(), "session-1")!.setWidget!(["OMPSS: reader running"]);
+		expect(setWidget).toHaveBeenCalledWith("ompss", ["OMPSS: reader running"], { placement: "aboveEditor" });
+		expect(binding.messenger(pi(), "foreign")).toBeUndefined();
+	});
+
+	it("clears both displays before detaching and drops stale messenger callbacks", async () => {
+		const binding = new SessionBinding();
+		const setStatus = vi.fn();
+		const setWidget = vi.fn();
+		const sendMessage = vi.fn();
+		binding.bind(session(true, setStatus, setWidget));
+		const old = binding.messenger(pi(sendMessage))!;
+		binding.end();
+		expect(setStatus).toHaveBeenCalledExactlyOnceWith("ompss", undefined);
+		expect(setWidget).toHaveBeenCalledExactlyOnceWith("ompss", undefined);
+		old.setStatus!("late");
+		old.setWidget!(["late"]);
+		// A dropped send must reject, so the delivery record cannot claim success.
+		await expect(
+			old.send(
+				{ customType: "x", content: "late", display: true, details: {} },
+				{ deliverAs: "followUp", triggerTurn: true },
+			),
+		).rejects.toThrow("the owning session has ended");
+		expect(sendMessage).not.toHaveBeenCalled();
+		expect(setWidget).toHaveBeenCalledTimes(1);
+		expect(setStatus).toHaveBeenCalledTimes(1);
+	});
+
+	it("drops captured callbacks after rebinding to a different session", async () => {
+		const binding = new SessionBinding();
+		const setWidget = vi.fn();
+		const sendMessage = vi.fn();
+		binding.bind(session(true, vi.fn(), setWidget));
+		const old = binding.messenger(pi(sendMessage))!;
+		binding.bind(session(true, vi.fn(), vi.fn(), "replacement"));
+		old.setWidget!(["late"]);
+		await expect(
+			old.send(
+				{ customType: "x", content: "late", display: true, details: {} },
+				{ deliverAs: "followUp", triggerTurn: true },
+			),
+		).rejects.toThrow("the owning session has ended");
+		expect(setWidget).not.toHaveBeenCalled();
+		expect(sendMessage).not.toHaveBeenCalled();
+	});
+
+	it("still clears the widget and detaches when status clearing throws", () => {
+		const binding = new SessionBinding();
+		const setWidget = vi.fn();
+		binding.bind(
+			session(
+				true,
+				() => {
+					throw new Error("broken status");
+				},
+				setWidget,
+			),
+		);
+		expect(() => binding.end()).not.toThrow();
+		expect(setWidget).toHaveBeenCalledWith("ompss", undefined);
+		expect(binding.owner).toBeUndefined();
+	});
+
+	it("offers no status line or widget without a UI", () => {
 		const binding = new SessionBinding();
 		binding.bind(session(false));
 		expect(binding.messenger(pi())!.setStatus).toBeUndefined();
+		expect(binding.messenger(pi())!.setWidget).toBeUndefined();
 	});
 
 	it("drops the session when it ends and ignores a later bind", () => {

@@ -4,6 +4,7 @@
 import type { ChildProcess } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import type { Proc } from "./processes.ts";
+import type { RpcRecord } from "./rpc.ts";
 import { decide, ResultJudge } from "./result.ts";
 import type { RunOutcome, RunRequest, RunView, Supervisor, SupervisorHooks } from "./runs.ts";
 import { DEFAULT_STARTUP_DEADLINE_MS, stopGroup } from "./runner.ts";
@@ -20,7 +21,6 @@ export interface SupervisorDeps {
 	/** Absolute path of child-guard.ts. */
 	guardPath: string;
 	parentModel?: string;
-	parentThinking?: string;
 	env?: NodeJS.ProcessEnv;
 	/** Create the run's private files. Returns the persona file path and, optionally, the logs to stream into. */
 	prepare(run: RunView, request: RunRequest): Promise<{ personaFile: string; logs?: RunLogs }>;
@@ -30,6 +30,8 @@ export interface SupervisorDeps {
 	onChild?(run: RunView, child: ChildProcess): void;
 	/** Called once the child has passed the readiness gate, with the model it resolved. */
 	onReady?(run: RunView, info: { model?: string }): void;
+	/** Display-only task tool events. Startup replay is excluded. */
+	onProgress?(run: RunView, record: RpcRecord): void;
 	startupDeadlineMs?: number;
 	/** Fixed limit for the whole run, including start-up. */
 	totalDeadlineMs?: number;
@@ -81,7 +83,6 @@ export function createSupervisor(deps: SupervisorDeps): Supervisor {
 					runToken,
 					piBin: deps.piBin,
 					parentModel: request.parent?.model ?? deps.parentModel,
-					parentThinking: request.parent?.thinking ?? deps.parentThinking,
 					startupDeadlineMs: deps.startupDeadlineMs ?? DEFAULT_STARTUP_DEADLINE_MS,
 					env: deps.env,
 				},
@@ -99,10 +100,18 @@ export function createSupervisor(deps: SupervisorDeps): Supervisor {
 		const { child, channel, owned } = ready;
 		deps.onReady?.(run, { model: ready.readiness.model });
 		const judge = new ResultJudge(runToken);
+		let taskSubmitted = false;
 		const assessed = new Promise<void>((resolve) =>
 			channel.onRecord(
 				(record) => {
 					logs?.event(record);
+					if (taskSubmitted && (record.type === "tool_execution_start" || record.type === "tool_execution_end")) {
+						try {
+							deps.onProgress?.(run, record);
+						} catch {
+							// Display failures must not interrupt result judgement or cleanup.
+						}
+					}
 					judge.observe(record);
 					if (judge.assess() !== "pending") resolve();
 				},
@@ -114,6 +123,7 @@ export function createSupervisor(deps: SupervisorDeps): Supervisor {
 		judge.taskAccepted();
 		let acknowledged = false;
 		try {
+			taskSubmitted = true;
 			const response = await channel.request({ type: "prompt", message: request.task }, TASK_ACK_MS);
 			if (!response.success || response.data?.disposition !== "started") {
 				await stopGroup(child, channel.exited, graceMs, owned);

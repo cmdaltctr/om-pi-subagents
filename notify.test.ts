@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { createNotifier, MAX_OUTPUT_CHARS, RESULT_MESSAGE } from "./notify.ts";
 import type { RunView } from "./runs.ts";
 
@@ -120,6 +120,136 @@ describe("delivery record", () => {
 			recordDelivery: async () => Promise.reject(new Error("disk full")),
 		});
 		await expect(notifier.onTerminal(view())).resolves.toBeUndefined();
+	});
+});
+
+describe("panel delivery", () => {
+	function panelSetup() {
+		let owner: string | undefined = "s1";
+		const setWidget = vi.fn();
+		const setStatus = vi.fn();
+		const send = vi.fn(async () => undefined);
+		const readOutput = vi.fn(async (_run: RunView): Promise<string | undefined> => "THE ANSWER");
+		const recordDelivery = vi.fn(async () => undefined);
+		const notifier = createNotifier({
+			messenger: (requestedOwner = "s1") => (requestedOwner === owner ? { send, setWidget, setStatus } : undefined),
+			readOutput,
+			recordDelivery,
+			directoryFor: () => "/files",
+		});
+		return {
+			notifier,
+			setWidget,
+			setStatus,
+			send,
+			readOutput,
+			recordDelivery,
+			bind: (next: string | undefined) => {
+				owner = next;
+			},
+		};
+	}
+
+	it("keeps completed output visible and reads it once for both delivery paths", async () => {
+		const h = panelSetup();
+		h.notifier.onChange(view({ state: "running" }));
+		h.notifier.onChange(view());
+		await h.notifier.onTerminal(view());
+		expect(h.setWidget.mock.lastCall?.[0].join("\n")).toContain("completed");
+		expect(h.setWidget.mock.lastCall?.[0].join("\n")).toContain("THE ANSWER");
+		expect(h.send).toHaveBeenCalledTimes(1);
+		expect(h.readOutput).toHaveBeenCalledTimes(1);
+	});
+
+	it.each(["failed", "cancelled"] as const)("retains %s and preserves cancellation delivery rules", async (state) => {
+		const h = panelSetup();
+		h.notifier.onChange(view({ state }));
+		await h.notifier.onTerminal(view({ state }));
+		const text = h.setWidget.mock.lastCall?.[0].join("\n") ?? "";
+		expect(text).toContain(state);
+		if (state === "failed") expect(text).toContain("Partial output:");
+		else {
+			expect(h.send).not.toHaveBeenCalled();
+			expect(h.readOutput).not.toHaveBeenCalled();
+		}
+	});
+
+	it("keeps the final state when output cannot be read", async () => {
+		const h = panelSetup();
+		h.readOutput.mockRejectedValue(new Error("disk unavailable"));
+		h.notifier.onChange(view());
+		await h.notifier.onTerminal(view());
+		expect(h.setWidget.mock.lastCall?.[0]).toEqual(["OMPSS: reader completed"]);
+		expect(h.send).toHaveBeenCalledTimes(1);
+	});
+
+	it("drops foreign progress and uses the latest lifecycle snapshot for tools", () => {
+		const h = panelSetup();
+		h.notifier.onChange(view({ state: "running" }));
+		const count = h.setWidget.mock.calls.length;
+		h.notifier.onChange(view({ owner: "other" }));
+		h.notifier.onProgress(view({ owner: "other" }), {
+			type: "tool_execution_start",
+			toolCallId: "x",
+			toolName: "evil",
+		});
+		expect(h.setWidget).toHaveBeenCalledTimes(count);
+		h.notifier.onProgress(view({ state: "starting" }), {
+			type: "tool_execution_start",
+			toolCallId: "a",
+			toolName: "read",
+		});
+		expect(h.setWidget.mock.lastCall?.[0].join("\n")).toContain("reader running");
+		expect(h.setWidget.mock.lastCall?.[0]).toEqual(["OMPSS: reader running", "Tools: read"]);
+	});
+
+	it("does not let an old preview replace a newer run", async () => {
+		const h = panelSetup();
+		let release!: (text: string) => void;
+		h.readOutput.mockImplementation(
+			() =>
+				new Promise((resolve) => {
+					release = resolve;
+				}),
+		);
+		h.notifier.onChange(view());
+		const pending = h.notifier.onTerminal(view());
+		h.notifier.onChange(view({ id: "run-2", state: "starting" }));
+		release("OLD OUTPUT");
+		await pending;
+		expect(h.setWidget.mock.lastCall?.[0]).toEqual(["OMPSS: reader starting"]);
+	});
+
+	it.each([undefined, "replacement"])("rechecks ownership after an output read when owner becomes %s", async (next) => {
+		const h = panelSetup();
+		let release!: (text: string) => void;
+		h.readOutput.mockImplementation(
+			() =>
+				new Promise((resolve) => {
+					release = resolve;
+				}),
+		);
+		h.notifier.onChange(view());
+		const pending = h.notifier.onTerminal(view());
+		const count = h.setWidget.mock.calls.length;
+		h.bind(next);
+		release("OLD OUTPUT");
+		await pending;
+		expect(h.setWidget).toHaveBeenCalledTimes(count);
+		expect(h.send).not.toHaveBeenCalled();
+		expect(h.recordDelivery).toHaveBeenCalledWith(view(), { delivered: false, error: "the owning session has ended" });
+	});
+
+	it.each(["setStatus", "setWidget"] as const)("contains a throwing %s callback independently", async (callback) => {
+		const h = panelSetup();
+		h[callback].mockImplementation(() => {
+			throw new Error("UI failed");
+		});
+		expect(() => h.notifier.onChange(view({ state: "running" }))).not.toThrow();
+		await expect(h.notifier.onTerminal(view())).resolves.toBeUndefined();
+		expect(h.send).toHaveBeenCalledTimes(1);
+		expect(h.setWidget).toHaveBeenCalled();
+		expect(h.setStatus).toHaveBeenCalled();
 	});
 });
 

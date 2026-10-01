@@ -68,16 +68,44 @@ export class SessionBinding {
 	}
 
 	end(): void {
+		if (this.ended) return;
 		this.ended = true;
+		const ctx = this.ctx;
+		if (ctx?.hasUI) {
+			try {
+				ctx.ui.setStatus("ompss", undefined);
+			} catch {
+				/* Clearing one display must not block the other. */
+			}
+			try {
+				ctx.ui.setWidget("ompss", undefined);
+			} catch {
+				/* Detach even when the UI has gone. */
+			}
+		}
 		this.ctx = undefined;
 	}
 
-	messenger(pi: ExtensionAPI): Messenger | undefined {
+	messenger(pi: ExtensionAPI, owner = this.owner): Messenger | undefined {
 		const ctx = this.ctx;
-		if (!ctx) return undefined;
+		if (!ctx || this.ended || this.owner !== owner) return undefined;
+		const live = () => !this.ended && this.ctx === ctx && this.owner === owner;
 		return {
-			send: async (message, options) => void pi.sendMessage(message, options),
-			setStatus: ctx.hasUI ? (text) => ctx.ui.setStatus("ompss", text) : undefined,
+			send: async (message, options) => {
+				// Reject so the notifier records a failed delivery rather than a silent success.
+				if (!live()) throw new Error("the owning session has ended");
+				pi.sendMessage(message, options);
+			},
+			setStatus: ctx.hasUI
+				? (text) => {
+						if (live()) ctx.ui.setStatus("ompss", text);
+					}
+				: undefined,
+			setWidget: ctx.hasUI
+				? (lines) => {
+						if (live()) ctx.ui.setWidget("ompss", lines, { placement: "aboveEditor" });
+					}
+				: undefined,
 		};
 	}
 }
@@ -106,7 +134,7 @@ function createRuntime(pi: ExtensionAPI, binding: SessionBinding): OmpssService 
 	const store = new RunStore(join(agentDir, "ompss", "runs"));
 	const persistence = createPersistence(store);
 	const notifier = createNotifier({
-		messenger: () => binding.messenger(pi),
+		messenger: (owner) => binding.messenger(pi, owner),
 		readOutput: persistence.readOutput,
 		directoryFor: (run) => store.directoryFor(run.owner, run.id),
 		recordDelivery: persistence.recordDelivery,
@@ -118,6 +146,7 @@ function createRuntime(pi: ExtensionAPI, binding: SessionBinding): OmpssService 
 		persist: persistence.persist,
 		onChild: persistence.onChild,
 		onReady: persistence.onReady,
+		onProgress: notifier.onProgress,
 	});
 	const manager = new RunManager(supervisor, {
 		onChange: (view) => (persistence.onChange(view), notifier.onChange(view)),
@@ -148,12 +177,7 @@ export function registerOmpss(pi: ExtensionAPI, getService: () => OmpssService, 
 			const service = getService();
 			const actions = {
 				list: () => service.list(),
-				run: () =>
-					service.run(
-						owner,
-						{ agent: params.agent ?? "", task: params.task ?? "", cwd: params.cwd },
-						{ ...context, thinking: pi.getThinkingLevel() },
-					),
+				run: () => service.run(owner, { agent: params.agent ?? "", task: params.task ?? "", cwd: params.cwd }, context),
 				status: async () => service.status(owner, params.runId),
 				cancel: async () => service.cancel(owner, params.runId ?? ""),
 			};
@@ -175,13 +199,8 @@ export function registerOmpss(pi: ExtensionAPI, getService: () => OmpssService, 
 				let text: string;
 				const run = /^run\s+(\S+)\s+([\s\S]+)$/.exec(input);
 				if (input === "list") text = await service.list();
-				else if (run)
-					text = await service.run(
-						owner,
-						{ agent: run[1], task: run[2] },
-						{ ...context, thinking: pi.getThinkingLevel() },
-					);
-				else if (/^status(\s+\S+)?$/.test(input)) text = service.status(owner, input.split(/\s+/)[1]);
+				else if (run) text = await service.run(owner, { agent: run[1], task: run[2] }, context);
+				else if (input === "" || /^status(\s+\S+)?$/.test(input)) text = service.status(owner, input.split(/\s+/)[1]);
 				else if (/^cancel\s+\S+$/.test(input)) text = service.cancel(owner, input.split(/\s+/)[1]);
 				else return void ctx.ui.notify(USAGE, "warning");
 				ctx.ui.notify(text, "info");

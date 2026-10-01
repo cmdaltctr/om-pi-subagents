@@ -32,6 +32,7 @@ agents:
   reader:
     persona: ./personas/reader.md
     tools: [${tools}]
+    thinking: off
 `;
 
 describe("explicit settings", () => {

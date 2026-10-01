@@ -14,8 +14,8 @@ export interface RunRequest {
 	agent: AgentSnapshot;
 	task: string;
 	cwd: string;
-	/** The parent's model and thinking level, used when the YAML sets none. */
-	parent?: { model?: string; thinking?: string };
+	/** The parent's model, used when the YAML sets none. Thinking always comes from the agent snapshot. */
+	parent?: { model?: string };
 }
 
 /** A read-only copy of a run. Later changes never alter a view that was already returned. */

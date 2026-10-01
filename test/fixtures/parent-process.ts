@@ -9,6 +9,7 @@ const snapshot: AgentSnapshot = {
 	personaPath: "unused",
 	persona: "Persona.",
 	tools: config.tools,
+	thinking: "off",
 	skills: [],
 	extensions: [],
 };

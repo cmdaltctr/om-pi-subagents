@@ -20,7 +20,6 @@ export interface LaunchInput {
 	piBin: string;
 	/** `provider/id` of the parent's model, used when the YAML sets none. */
 	parentModel?: string;
-	parentThinking?: string;
 	/** Time allowed from spawn until the child is ready. Default 30 seconds. */
 	startupDeadlineMs?: number;
 	/** Base environment, default `process.env`. */
@@ -51,7 +50,6 @@ export function buildLaunch(input: LaunchInput): LaunchPlan {
 		...(tools.includes("codemode") ? ["builtin:codemode"] : []),
 	];
 	const model = snapshot.model ?? input.parentModel;
-	const thinking = snapshot.thinking ?? input.parentThinking;
 
 	const args = [
 		"--mode",
@@ -63,7 +61,8 @@ export function buildLaunch(input: LaunchInput): LaunchPlan {
 		"--no-themes",
 		"--no-approve",
 		...(model ? ["--model", model] : []),
-		...(thinking ? ["--thinking", thinking] : []),
+		"--thinking",
+		snapshot.thinking,
 		...[...builtins, input.guardPath, ...snapshot.extensions].flatMap((extension) => ["-e", extension]),
 		...snapshot.skills.flatMap((skill) => ["--skill", skill]),
 		"--append-system-prompt",

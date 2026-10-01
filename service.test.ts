@@ -19,9 +19,11 @@ agents:
   reader:
     persona: ./personas/reader.md
     tools: [read, grep]
+    thinking: off
   writer:
     persona: ./personas/writer.md
     tools: [read, bash]
+    thinking: off
     model: p/own
 `);
 });
@@ -81,9 +83,10 @@ describe("run", () => {
 		expect(calls[0].request).toMatchObject({
 			task: "look around",
 			cwd: dir,
-			parent: { model: "p/parent", thinking: "high" },
 			agent: { name: "reader", tools: ["read", "grep"] },
 		});
+		// Thinking comes from the agent's YAML only; the parent's level must never reach the run.
+		expect(calls[0].request.parent).toEqual({ model: "p/parent" });
 	});
 
 	it("uses an explicit absolute working directory", async () => {
@@ -129,7 +132,9 @@ describe("run", () => {
 	it("does not launch on a stale registry after a failed refresh", async () => {
 		const { service, supervisor } = setup();
 		await service.list();
-		await writeYaml("version: 1\nagents:\n  reader:\n    persona: ./personas/reader.md\n    tools: ['*']\n");
+		await writeYaml(
+			"version: 1\nagents:\n  reader:\n    persona: ./personas/reader.md\n    tools: ['*']\n    thinking: off\n",
+		);
 		await expect(service.run("s1", { agent: "reader", task: "t" }, context)).rejects.toThrow(/exact tool name/);
 		expect(supervisor).not.toHaveBeenCalled();
 	});

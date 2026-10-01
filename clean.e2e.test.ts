@@ -36,7 +36,7 @@ async function start() {
 	await writeFile(join(env.fixture.agentDir, "personas", "reader.md"), PERSONA);
 	await writeFile(
 		join(env.fixture.agentDir, "om-pi-subagents.yaml"),
-		"version: 1\nagents:\n  reader:\n    persona: ./personas/reader.md\n    tools: [read]\n",
+		"version: 1\nagents:\n  reader:\n    persona: ./personas/reader.md\n    tools: [read]\n    thinking: off\n",
 	);
 	await writeFile(join(env.fixture.cwd, "note.txt"), "NOTE-CONTENT-88");
 	return env;

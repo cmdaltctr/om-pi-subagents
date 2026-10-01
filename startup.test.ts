@@ -57,6 +57,7 @@ async function attempt(options: Attempt = {}): Promise<ReadyChild | StartupError
 		personaPath: "unused",
 		persona: "Persona.",
 		tools: options.tools ?? ["read"],
+		thinking: "off",
 		skills: [],
 		extensions: [],
 	};
