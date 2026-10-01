@@ -3,6 +3,7 @@
 	"version": "0.1.0",
 	"private": true,
 	"description": "Opinionated Modular Pi Subagents System (OMPSS): YAML-mapped personas run as native Pi child processes.",
+	"license": "MIT",
 	"type": "module",
 	"scripts": {
 		"setup:host": "./scripts/setup-host.sh",
