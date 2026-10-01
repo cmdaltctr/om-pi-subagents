@@ -13,13 +13,17 @@ OMPSS does not use `pi-subagents`. It does not import it, copy it, or need it.
 
 ## Set up
 
-1. Copy this directory to `~/.pi/agent/extensions/ompss/`.
-2. In that directory, run `bun install --production`. This installs the one runtime
-   dependency, `yaml`. Pi supplies its own packages.
-3. Run `/reload` in Pi.
-4. Run `/ompss list`. A new install answers `No personas mapped.`
+1. Install the package:
 
-Pi loads the extension because the directory has an `index.ts` file.
+   ```sh
+   pi install npm:om-pi-subagents
+   ```
+
+2. Run `/reload` in Pi.
+3. Run `/ompss list`. A new install answers `No personas mapped.`
+
+Pi supplies its own packages. The one runtime dependency is `yaml`. To load a
+local checkout instead, see [installation](docs/INSTALL.md).
 
 ## Add your first agent
 
@@ -175,10 +179,53 @@ Skills that promise these features need edits before you use them with OMPSS.
 ## Remove OMPSS
 
 1. Stop active runs with `/ompss cancel <run-id>`, or quit Pi.
-2. Move `~/.pi/agent/extensions/ompss/` out of the extensions directory.
+2. Run `pi remove npm:om-pi-subagents`.
 3. Run `/reload`.
 
-Run files stay in `~/.pi/agent/ompss/runs/` until you delete them.
+Run files stay in `~/.pi/agent/ompss/runs/` until you delete them. Your mapping
+in `~/.pi/agent/om-pi-subagents.yaml` and your personas also stay.
+
+## Release (maintainers)
+
+Releases go to npm as `om-pi-subagents`. [Release Please](https://github.com/googleapis/release-please) prepares each one. You never edit the version or the changelog by hand.
+
+1. Write commits and pull request titles in the [Conventional Commits](https://www.conventionalcommits.org) style: `feat:`, `fix:`, `perf:`, `docs:`. Add `!` for a breaking change, for example `feat!:`.
+2. Merge to `main`. Release Please opens or updates a pull request called "chore(main): release X.Y.Z". It bumps `version` in `package.json` and writes `CHANGELOG.md`.
+3. Read that pull request. Check the version and the changelog text. Its CI checks run.
+4. Merge it. Release Please tags the commit and creates a GitHub release.
+5. The publish job runs the full gate on that exact commit, then **stages** the version on npm. It is not installable yet. The job adds the approval steps to the GitHub release.
+6. Approve it with two-factor authentication:
+
+   ```sh
+   npm stage list om-pi-subagents
+   npm stage approve <stage-id>
+   ```
+
+   You can also use the Staged tab at https://www.npmjs.com/package/om-pi-subagents. To reject a version, run `npm stage reject <stage-id>`.
+
+What each commit type does before version 1.0.0:
+
+| Commit                                      | Version change                    |
+| ------------------------------------------- | --------------------------------- |
+| `fix:`, `perf:`                             | Patch, for example 0.1.0 to 0.1.1 |
+| `feat:`                                     | Minor, for example 0.1.0 to 0.2.0 |
+| `feat!:` or a `BREAKING CHANGE:` footer     | Minor. After 1.0.0 it is major.   |
+| `docs:`, `style:`, `test:`, `chore:`, `ci:` | No release                        |
+
+### One-time setup
+
+No npm token is used. npm trusts the release workflow through OIDC.
+
+1. Publish the first version by hand, then tag it and create its GitHub release, so Release Please counts from it.
+2. Create the release GitHub App with the manifest helper. It saves `RELEASE_APP_ID` and `RELEASE_APP_PRIVATE_KEY` as repository secrets. No key file is created.
+3. Create the `npm-publish` environment, limited to the `main` branch.
+4. Add the trusted publisher:
+
+   ```sh
+   npm trust github om-pi-subagents --file release.yml --repo cmdaltctr/om-pi-subagents --env npm-publish --allow-stage-publish
+   ```
+
+5. Switch the workflow on: `gh variable set RELEASE_PLEASE_ENABLED --body true`.
 
 ## Development tooling
 

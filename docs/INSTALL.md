@@ -1,6 +1,6 @@
 # How to install
 
-This guide loads a local copy of OMPSS into Pi. See [usage](USAGE.md) after installation.
+This guide installs OMPSS into Pi. See [usage](USAGE.md) after installation.
 
 ## Before you start
 
@@ -10,7 +10,15 @@ Development checks use Bun 1.4.2 and Node.js 22.12 or newer.
 Pi supplies its host packages. OMPSS installs `yaml` as its runtime dependency.
 Keep `bunfig.toml` beside `package.json` so Bun leaves host peers out of `node_modules`.
 
+## Install from npm
+
+1. Run `pi install npm:om-pi-subagents`.
+2. Start Pi, or run `/reload` in your existing session.
+3. Run `/ompss list`.
+
 ## Install a local copy
+
+Use this for development only.
 
 1. Copy the project into `~/.pi/agent/extensions/ompss/`.
 2. Open a terminal in that directory.
@@ -57,7 +65,7 @@ See [AGENTS.md](../AGENTS.md) for commands and module boundaries.
 
 ### `/ompss` is missing
 
-1. Check that `index.ts` is inside `~/.pi/agent/extensions/ompss/`.
+1. Run `pi list` and check that `om-pi-subagents` is there. For a local copy, check that `index.ts` is inside `~/.pi/agent/extensions/ompss/`.
 2. Run `/reload`.
 3. Read any extension-loading error before retrying.
 

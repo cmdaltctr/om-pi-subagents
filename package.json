@@ -1,10 +1,49 @@
 {
 	"name": "om-pi-subagents",
 	"version": "0.1.0",
-	"private": true,
 	"description": "Opinionated Modular Pi Subagents System (OMPSS): YAML-mapped personas run as native Pi child processes.",
+	"keywords": [
+		"ompss",
+		"opinionated",
+		"pi-extension",
+		"pi-package",
+		"subagents"
+	],
+	"homepage": "https://github.com/cmdaltctr/om-pi-subagents#readme",
+	"bugs": {
+		"url": "https://github.com/cmdaltctr/om-pi-subagents/issues"
+	},
 	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/cmdaltctr/om-pi-subagents.git"
+	},
+	"files": [
+		"child-guard.ts",
+		"config.ts",
+		"index.ts",
+		"notify.ts",
+		"persistence.ts",
+		"processes.ts",
+		"protocol.ts",
+		"result.ts",
+		"rpc.ts",
+		"runner.ts",
+		"runs.ts",
+		"service.ts",
+		"startup.ts",
+		"store.ts",
+		"supervisor.ts",
+		"docs/INSTALL.md",
+		"docs/USAGE.md",
+		"docs/UNINSTALL.md",
+		"CHANGELOG.md"
+	],
 	"type": "module",
+	"publishConfig": {
+		"access": "public",
+		"provenance": true
+	},
 	"scripts": {
 		"setup:host": "./scripts/setup-host.sh",
 		"format": "oxfmt --write",
@@ -41,5 +80,13 @@
 		"typebox": {
 			"optional": true
 		}
+	},
+	"engines": {
+		"node": ">=22"
+	},
+	"pi": {
+		"extensions": [
+			"./index.ts"
+		]
 	}
 }

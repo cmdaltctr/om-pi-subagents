@@ -119,6 +119,9 @@ Keep findings and suppression evidence in ignored `docs/local-docs/`. Never comm
 Ask before creating repositories, installing dependencies or pushing. Do not create remotes without permission.
 Use feature branches for later changes. Verify the repository and branch before commands that change state.
 Use Conventional Commits and British English. Keep formatting changes in a separate `style:` commit.
+Release Please reads commit messages. Use squash merges with a Conventional pull request title.
+Never edit `version`, `CHANGELOG.md` or `.release-please-manifest.json` by hand.
+Never run `npm publish`, `npm stage approve` or `npm stage reject`. Never create an npm token.
 Pull the latest changes before a permitted push. The pre-push hook checks a fresh clone of committed HEAD.
 Do not bypass the hook without approval. GitHub Actions must pass its check and audit jobs before merge.
 

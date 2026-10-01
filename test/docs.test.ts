@@ -27,6 +27,8 @@ describe("tooling agrees with the documentation", () => {
 			expect(existsSync(join(ROOT, `docs/${name}.md`))).toBe(true);
 		}
 		expect(read("docs/INSTALL.md")).toContain("bun install --production");
+		expect(read("docs/INSTALL.md")).toContain("pi install npm:om-pi-subagents");
+		expect(read("README.md")).toContain("pi install npm:om-pi-subagents");
 		expect(read("docs/INSTALL.md")).toContain("No personas mapped.");
 		expect(read("docs/USAGE.md")).toContain("/ompss run reader Summarise the README");
 		expect(read("docs/UNINSTALL.md")).toContain("~/.pi/agent/ompss/runs/");
