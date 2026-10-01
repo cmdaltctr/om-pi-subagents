@@ -43,7 +43,7 @@ export async function installExtension(options: Pick<FixtureOptions, "env"> = {}
 		home,
 		async cleanup() {
 			await fixture.dispose();
-			await rm(scratch, { recursive: true, force: true });
+			await rm(scratch, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
 		},
 	};
 }

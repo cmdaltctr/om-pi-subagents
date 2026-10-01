@@ -97,7 +97,8 @@ export async function createWorkspace(options: WorkspaceOptions = {}): Promise<W
 		},
 		async dispose() {
 			await model.close();
-			await rm(root, { recursive: true, force: true });
+			// Late writes from a stopping Pi can race the delete on Linux (ENOTEMPTY). rm retries those.
+			await rm(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
 		},
 	};
 }
