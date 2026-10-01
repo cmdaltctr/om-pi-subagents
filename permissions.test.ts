@@ -6,9 +6,11 @@ import { afterEach, describe as suite, expect, it } from "vitest";
 import { PI_AVAILABLE } from "./test/fixtures/pi-rpc.ts";
 const describe = suite.skipIf(!PI_AVAILABLE);
 import { childHarness } from "./test/fixtures/child.ts";
+import { INJECTED } from "./test/fixtures/prompt-injector-extension.ts";
 
 const RELAY = new URL("./test/fixtures/relay-extension.ts", import.meta.url).pathname;
 const LATE_TOOL = new URL("./test/fixtures/late-tool-extension.ts", import.meta.url).pathname;
+const INJECTOR = new URL("./test/fixtures/prompt-injector-extension.ts", import.meta.url).pathname;
 
 const harness = childHarness();
 afterEach(() => harness.cleanup());
@@ -44,6 +46,24 @@ describe("direct calls outside the approved list", () => {
 		});
 		expect(outcome.violations).toEqual([]);
 		expect(outcome.toolResults.join(" ")).toContain("NOTE-CONTENT-31");
+	});
+});
+
+// Only the parent may prompt a child. The guard refuses other prompts before Pi starts a model run, so the
+// outcome does not depend on when Pi reports the run.
+describe("a trusted extension sends its own prompt", () => {
+	it("refuses one sent at start-up, so the child is not ready and the model sees nothing", async () => {
+		const launch = harness.run({ tools: ["read"], extensions: [INJECTOR], env: { INJECT_AT: "start" } });
+		await expect(launch).rejects.toThrow(/child is not ready: a prompt from extension was refused/);
+		expect(harness.workspace()!.model.requests).toEqual([]);
+	});
+
+	it("refuses one sent after the task and records the violation, so no injected text reaches the model", async () => {
+		const outcome = await harness.run({ tools: ["read"], extensions: [INJECTOR], env: { INJECT_AT: "end" } });
+		const prompts = JSON.stringify(outcome.workspace.model.requests);
+		expect(prompts).toContain("go");
+		expect(prompts).not.toContain(INJECTED);
+		expect(outcome.violations).toEqual([{ token: "run-token", input: "extension" }]);
 	});
 });
 

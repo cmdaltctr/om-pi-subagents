@@ -70,7 +70,12 @@ export class ResultJudge {
 				break;
 			case "entry_appended":
 				if (record.entry?.customType === VIOLATION_ENTRY && record.entry.data?.token === this.token) {
-					this.fail(`permission violation: ${record.entry.data.tool} is not approved`);
+					const data = record.entry.data;
+					this.fail(
+						typeof data.input === "string"
+							? `permission violation: a prompt from ${data.input} was refused`
+							: `permission violation: ${data.tool} is not approved`,
+					);
 				}
 				break;
 		}

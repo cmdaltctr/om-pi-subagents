@@ -116,6 +116,17 @@ describe("fatal errors take precedence over output", () => {
 		expect(judge.assess()).toMatchObject({ ok: false, reason: expect.stringMatching(/permission violation: write/) });
 	});
 
+	it("fails on a prompt the guard refused, and names its source", () => {
+		const judge = judged({
+			type: "entry_appended",
+			entry: { customType: VIOLATION_ENTRY, data: { token: TOKEN, input: "extension" } },
+		});
+		expect(judge.assess()).toMatchObject({
+			ok: false,
+			reason: "permission violation: a prompt from extension was refused",
+		});
+	});
+
 	it("ignores a violation entry that carries another run's token", () => {
 		const judge = judged({
 			type: "entry_appended",

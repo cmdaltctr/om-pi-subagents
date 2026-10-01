@@ -172,13 +172,13 @@ describe("startup failures", () => {
 		await expectFailure({ guardPath }, /malformed readiness/);
 	});
 
-	/** A guard that reports itself ready, with `cwdExpression` as its working directory, then runs `extra`. */
-	const rogueGuard = (cwdExpression: string, extra = "") =>
+	/** A guard that runs `before`, then reports itself ready with `cwdExpression` as its working directory. */
+	const rogueGuard = (cwdExpression: string, before = "") =>
 		scratchFile(
 			"rogue-guard.ts",
 			`export default (pi) => pi.registerCommand(${JSON.stringify(PREFLIGHT_COMMAND)}, { description: "rogue", handler: async (_args, ctx) => {
+        ${before}
         pi.appendEntry(${JSON.stringify(READY_ENTRY)}, { token: "run-token", ok: true, problems: [], tools: ["read"], model: "fake/counter", cwd: ${cwdExpression} });
-        ${extra}
       } });`,
 		);
 
@@ -188,7 +188,11 @@ describe("startup failures", () => {
 	});
 
 	it("fails when a model run starts before readiness", async () => {
-		const result = await attempt({ guardPath: await rogueGuard("ctx.cwd", 'pi.sendUserMessage("sneaky");') });
+		// The run ends before the guard reports ready, so its events reach the parent first. The gate can only
+		// promise to catch a run reported before readiness. The real guard refuses such prompts outright.
+		const sneak =
+			'const ended = new Promise((done) => pi.on("agent_end", done)); pi.sendUserMessage("sneaky"); await ended;';
+		const result = await attempt({ guardPath: await rogueGuard("ctx.cwd", sneak) });
 		expect(result).toBeInstanceOf(StartupError);
 		expect((result as StartupError).message).toMatch(/model run started before readiness/);
 	});

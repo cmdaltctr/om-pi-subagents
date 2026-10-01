@@ -88,6 +88,9 @@ export function childHarness() {
 			return { workspace, child, violations, mcpCalls: log.split("\n").filter(Boolean), toolResults };
 		},
 
+		/** The current workspace, also after a launch that failed. */
+		workspace: () => workspace,
+
 		async cleanup(): Promise<void> {
 			if (child) await stopGroup(child.child, child.channel.exited);
 			await workspace?.dispose();

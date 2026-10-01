@@ -105,6 +105,10 @@ directory is right. It then blocks, at the moment of the call, every tool that
 is not on the list. This covers direct calls, tools found with `tool_search`,
 and calls made through another tool. A blocked call fails the run.
 
+Only the parent may prompt a child. The guard refuses any other prompt, such as
+one a trusted extension sends, before Pi starts a model run. A refused prompt
+before readiness stops the launch. A refused prompt later fails the run.
+
 This is a rule inside trusted Pi code. It is **not** an operating-system
 sandbox.
 

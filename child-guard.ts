@@ -71,6 +71,18 @@ export default function childGuard(pi: ExtensionAPI): void {
 		return { block: true, reason: `OMPSS: tool "${event.toolName}" is not approved for this agent` };
 	});
 
+	// Only the parent prompts a child, over RPC. Refuse every other prompt, such as one a trusted extension
+	// sends. Pi runs `input` before it starts a model run, so the refusal does not depend on event timing.
+	// Pi reports entries to the parent only once RPC output starts, so readiness also lists early refusals.
+	const refused: string[] = [];
+	pi.on("input", (event) => {
+		if (event.source === "rpc") return { action: "continue" };
+		refused.push(event.source);
+		const violation: Violation = { token: process.env.OMPSS_RUN_TOKEN ?? "", input: event.source };
+		pi.appendEntry(VIOLATION_ENTRY, violation);
+		return { action: "handled" };
+	});
+
 	// Pi rejects a call to an inactive tool before `tool_call`. The attempt is still evidence.
 	pi.on("tool_execution_start", (event) => {
 		if (!approved(event.toolName)) record(event.toolCallId, event.toolName);
@@ -96,6 +108,7 @@ export default function childGuard(pi: ExtensionAPI): void {
 				);
 			}
 
+			problems.push(...refused.map((source) => `a prompt from ${source} was refused`));
 			const readiness: Readiness = {
 				token,
 				ok: problems.length === 0,

@@ -24,10 +24,13 @@ export interface Readiness {
 	cwd: string;
 }
 
-/** Data of the private `ompss-violation` session entry, written when a tool call is blocked. */
+/** Data of the private `ompss-violation` session entry, written when a tool call or a prompt is blocked. */
 export interface Violation {
 	token: string;
-	tool: string;
+	/** The blocked tool. */
+	tool?: string;
+	/** The source of a refused prompt, such as `extension`. */
+	input?: string;
 }
 
 /** Validate an entry's data. Returns an error string for anything malformed or from another run. */
