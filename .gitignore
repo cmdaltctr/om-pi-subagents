@@ -1,0 +1,11 @@
+node_modules/
+.pi-host/
+.husky/_/
+*.tmp
+coverage/
+.DS_Store
+graphify-out/
+docs/local-docs/
+docs/VERIFICATION.md
+docs/TEST-SECURITY-SUPPRESSIONS.md
+docs/verifications.md
