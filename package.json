@@ -36,6 +36,7 @@
 		"store.ts",
 		"supervisor.ts",
 		"docs/INSTALL.md",
+		"docs/SETUP.md",
 		"docs/USAGE.md",
 		"docs/UNINSTALL.md",
 		"CHANGELOG.md"

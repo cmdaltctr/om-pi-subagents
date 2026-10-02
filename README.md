@@ -54,7 +54,8 @@ agents:
     thinking: off
 ```
 
-Then run `/reload` and `/ompss list`. The list now shows `reader`.
+Then run `/ompss list`. The list now shows `reader`. No reload is needed.
+For every field, persona tips and common errors, see [Set up agents](docs/SETUP.md).
 
 Start a run with `/ompss run reader Summarise the README`, or ask the parent
 model to call the `ompss` tool.
@@ -73,7 +74,7 @@ model to call the `ompss` tool.
 | `skills`     | no       | Paths to `SKILL.md` files. Paths may start with `~/`.           |
 | `extensions` | no       | Paths to trusted extensions. See "Provider extensions".         |
 
-OMPSS rejects unknown fields, duplicate names, aliases, and custom YAML tags.
+OMPSS rejects unknown fields, duplicate keys, aliases, and custom YAML tags.
 A bad file stops every launch until you fix it. OMPSS never runs on old
 settings after a failed load.
 
@@ -163,13 +164,13 @@ can use `/ompss` or the status line. OMPSS opens no extra Orca terminals.
 OMPSS saves each run in `~/.pi/agent/ompss/runs/<session-id>/<run-id>/`. The
 directory and the files are private to your user.
 
-| File                         | Content                                                            |
-| ---------------------------- | ------------------------------------------------------------------ |
-| `config.json`, `persona.md`  | The settings and persona the run started with, and the task.       |
-| `status.json`                | State, timestamps, error, and the child process id.                |
-| `events.jsonl`, `stderr.log` | Streamed evidence. Known credential fields are redacted.           |
-| `output.md`                  | The final answer. After a failure it starts with `PARTIAL OUTPUT`. |
-| `notification.json`          | Whether the result message reached the parent.                     |
+| File                         | Content                                                                                       |
+| ---------------------------- | --------------------------------------------------------------------------------------------- |
+| `config.json`, `persona.md`  | The settings and persona the run started with, and the task.                                  |
+| `status.json`                | State, timestamps, error, and the child process id.                                           |
+| `events.jsonl`, `stderr.log` | Streamed evidence. Known credential fields are redacted.                                      |
+| `output.md`                  | The final answer. Partial text from a failed or cancelled run starts with `> PARTIAL OUTPUT`. |
+| `notification.json`          | Whether the result message reached the parent.                                                |
 
 Personas, tasks, and outputs can hold sensitive text. OMPSS never deletes run
 directories. Remove old ones yourself.
@@ -309,6 +310,7 @@ Read [AGENTS.md](AGENTS.md) before changing the project.
 ## Documentation
 
 - [How to install](docs/INSTALL.md)
+- [Set up agents](docs/SETUP.md)
 - [How to use](docs/USAGE.md)
 - [How to uninstall](docs/UNINSTALL.md)
 - [Architecture decisions](docs/adr/ADR_README.md)
