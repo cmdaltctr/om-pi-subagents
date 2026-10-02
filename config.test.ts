@@ -28,6 +28,7 @@ agents:
   reader:
     persona: ./personas/reader.md
     tools: [read, grep]
+    thinking: off
 `;
 
 describe("catalogue", () => {
@@ -53,9 +54,11 @@ agents:
   x9-review:
     persona: ./personas/one.md
     tools: [read]
+    thinking: off
   zeta:
     persona: ./personas/two.md
     tools: []
+    thinking: off
 `,
 		);
 		const registry = await loadRegistry(yamlPath());
@@ -84,12 +87,26 @@ agents:
   writer:
     persona: ./personas/writer.md
     tools: [read, write]
+    thinking: off
 `,
 		);
 		const after = await loadRegistry(yamlPath());
 		expect([...after.keys()]).toEqual(["writer"]);
 		expect(after.get("reader")).toBeUndefined();
 	});
+});
+
+describe("explicit thinking", () => {
+	it.each(["off", "minimal", "low", "medium", "high", "xhigh", "max"])(
+		"accepts %s without requiring a model",
+		async (thinking) => {
+			await write("personas/reader.md", "Read things.");
+			await write("om-pi-subagents.yaml", reader.replace("thinking: off", `thinking: ${thinking}`));
+			const agent = (await loadRegistry(yamlPath())).get("reader")!;
+			expect(agent.thinking).toBe(thinking);
+			expect(agent.model).toBeUndefined();
+		},
+	);
 });
 
 describe("persona snapshot", () => {
@@ -107,7 +124,7 @@ describe("persona snapshot", () => {
 		const agent = (await loadRegistry(yamlPath())).get("reader")!;
 		expect(agent).toMatchObject({ name: "reader", tools: ["read", "grep"], skills: [], extensions: [] });
 		expect(agent.model).toBeUndefined();
-		expect(agent.thinking).toBeUndefined();
+		expect(agent.thinking).toBe("off");
 	});
 
 	it("gives the next load edited text and leaves the earlier snapshot unchanged", async () => {

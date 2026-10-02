@@ -85,6 +85,7 @@ export function supervisedHarness() {
 				personaPath: "unused",
 				persona: "Persona.",
 				tools: options.tools ?? ["read"],
+				thinking: "off",
 				skills: [],
 				extensions: options.extensions ?? [],
 			};

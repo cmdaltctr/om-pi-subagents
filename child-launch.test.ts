@@ -32,6 +32,7 @@ const snapshot: AgentSnapshot = {
 	personaPath: "unused",
 	persona: "PERSONA-MARKER-42",
 	tools: ["read", "grep"],
+	thinking: "off",
 	skills: [],
 	extensions: [],
 };

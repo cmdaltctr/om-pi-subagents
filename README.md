@@ -7,6 +7,7 @@ one YAML file and plain Markdown files. OMPSS ships no agents of its own.
 - The parent gets one tool, `ompss`, and one command, `/ompss`.
 - Each run is one child Pi process in the background.
 - One child can run at a time in each parent session.
+- A panel in the parent shows the run state and active child tools.
 - The result arrives as a follow-up message when the child finishes.
 
 OMPSS does not use `pi-subagents`. It does not import it, copy it, or need it.
@@ -50,6 +51,7 @@ agents:
   reader:
     persona: ./personas/reader.md
     tools: [read, grep, find, ls]
+    thinking: off
 ```
 
 Then run `/reload` and `/ompss list`. The list now shows `reader`.
@@ -67,13 +69,17 @@ model to call the `ompss` tool.
 | `persona`    | yes      | Path to a Markdown file inside this directory. No frontmatter.  |
 | `tools`      | yes      | Exact tool names. `[]` grants no tools. No wildcards.           |
 | `model`      | no       | `provider/id`. The default is the parent's model.               |
-| `thinking`   | no       | `off`, `minimal`, `low`, `medium`, `high`, `xhigh`, or `max`.   |
+| `thinking`   | yes      | `off`, `minimal`, `low`, `medium`, `high`, `xhigh`, or `max`.   |
 | `skills`     | no       | Paths to `SKILL.md` files. Paths may start with `~/`.           |
 | `extensions` | no       | Paths to trusted extensions. See "Provider extensions".         |
 
 OMPSS rejects unknown fields, duplicate names, aliases, and custom YAML tags.
 A bad file stops every launch until you fix it. OMPSS never runs on old
 settings after a failed load.
+
+Every agent needs explicit `thinking`. Add a supported value to older mappings
+before launching. OMPSS uses that value even when the parent has a different
+thinking level. An empty `agents: {}` registry remains valid.
 
 Edits take effect at the next launch. `/ompss list` reloads the file. A run
 that already started keeps the settings it started with.
@@ -135,6 +141,22 @@ extensions: [~/.pi/agent/extensions/my-provider/index.ts]
 Only list code you trust. It runs in the child with your permissions.
 If the model is not known to the child, the run fails before the task is sent.
 OMPSS does not choose another model for you.
+
+## Reading progress
+
+Run `/ompss` without arguments to see current-session status. Whitespace-only
+arguments also show status. A fresh session answers `No runs in this session.`
+Use `/ompss status <run-id>` for one run, or `/ompss cancel <run-id>` to stop it.
+
+The parent panel appears above the editor. It shows the agent, run state and
+active tool names. A finished run keeps its final state and up to 240 characters
+of saved output until another run starts or the session ends. Failed previews
+are labelled partial. Cancellation sends no automatic result message.
+
+The panel excludes tool arguments, raw tool results, thinking and stderr.
+Terminal controls are removed from displayed text. The full saved answer and
+result message stay on their existing paths. Clients without widget support
+can use `/ompss` or the status line. OMPSS opens no extra Orca terminals.
 
 ## Run files
 

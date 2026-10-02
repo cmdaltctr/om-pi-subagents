@@ -23,7 +23,6 @@ export interface RunContext {
 	/** Default working directory: the parent's. */
 	cwd: string;
 	model?: string;
-	thinking?: string;
 }
 
 const describeAgent = (agent: AgentSnapshot): string => {
@@ -89,7 +88,7 @@ export function createService({ registry, manager, directoryFor, flush, delivery
 					agent: registry.get(input.agent),
 					task,
 					cwd,
-					parent: { model: context.model, thinking: context.thinking },
+					parent: { model: context.model },
 				});
 				return `Started run ${run.id} (${run.agent}) in the background.\nFiles: ${directoryFor(owner, run.id)}\nCheck it with "ompss status ${run.id}". The result arrives as a follow-up message.`;
 			} catch (error) {

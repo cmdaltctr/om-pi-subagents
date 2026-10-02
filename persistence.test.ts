@@ -46,6 +46,7 @@ async function run(options: {
 		personaPath: "unused",
 		persona: "PERSONA TEXT",
 		tools: ["read"],
+		thinking: "off",
 		skills: [],
 		extensions: options.extensions ?? [],
 	};
@@ -127,7 +128,7 @@ describe("delivery result", () => {
 				startedAt: 1,
 			};
 			const prepared = await persistence.prepare(view, {
-				agent: { name: "a", personaPath: "p", persona: "x", tools: [], skills: [], extensions: [] },
+				agent: { name: "a", personaPath: "p", persona: "x", tools: [], thinking: "off", skills: [], extensions: [] },
 				task: "t",
 				cwd: "/w",
 			});
@@ -161,7 +162,7 @@ describe("flush", () => {
 				startedAt: 1,
 			};
 			const prepared = await persistence.prepare(view, {
-				agent: { name: "a", personaPath: "p", persona: "x", tools: [], skills: [], extensions: [] },
+				agent: { name: "a", personaPath: "p", persona: "x", tools: [], thinking: "off", skills: [], extensions: [] },
 				task: "t",
 				cwd: "/w",
 			});

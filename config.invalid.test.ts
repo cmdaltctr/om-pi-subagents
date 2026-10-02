@@ -44,7 +44,7 @@ async function config(agentLines: string, head = "version: 1\n"): Promise<string
 	return join(dir, "om-pi-subagents.yaml");
 }
 
-const valid = "    persona: ./personas/reader.md\n    tools: [read]\n";
+const valid = "    persona: ./personas/reader.md\n    tools: [read]\n    thinking: off\n";
 
 async function expectRejected(yamlPath: string, pattern: RegExp): Promise<void> {
 	const failure = await loadRegistry(yamlPath).then(
@@ -99,22 +99,38 @@ describe("agent settings", () => {
 	});
 
 	it("requires a tools list", async () => {
-		await expectRejected(await config("    persona: ./personas/reader.md\n"), /agents\.reader\.tools.*required/i);
+		await expectRejected(
+			await config("    persona: ./personas/reader.md\n    thinking: off\n"),
+			/agents\.reader\.tools.*required/i,
+		);
 	});
 
 	it.each(["*", "read*", "mcp:context7", "mcp__ctx__*", "read write", ""])(
 		"rejects non-exact tool %j",
 		async (tool) => {
 			await expectRejected(
-				await config(`    persona: ./personas/reader.md\n    tools: [${JSON.stringify(tool)}]\n`),
+				await config(`    persona: ./personas/reader.md\n    tools: [${JSON.stringify(tool)}]\n    thinking: off\n`),
 				/exact/i,
 			);
 		},
 	);
 
-	it("rejects an invalid thinking level", async () => {
-		await expectRejected(await config(`${valid}    thinking: turbo\n`), /agents\.reader\.thinking/);
+	it("requires an explicit thinking variant before any child starts", async () => {
+		await expectRejected(
+			await config(valid.replace("    thinking: off\n", "")),
+			/agents\.reader\.thinking.*(required|must be one of).*off/,
+		);
 	});
+
+	it.each(["turbo", "''", "null", "12", "true", "[]", "{}"])(
+		"rejects thinking %s with supported variants",
+		async (thinking) => {
+			await expectRejected(
+				await config(valid.replace("thinking: off", `thinking: ${thinking}`)),
+				/agents\.reader\.thinking.*off, minimal, low, medium, high, xhigh, max/,
+			);
+		},
+	);
 
 	it.each(["''", "[a]", "12"])("rejects invalid model %s", async (model) => {
 		await expectRejected(await config(`${valid}    model: ${model}\n`), /agents\.reader\.model/);
@@ -147,13 +163,18 @@ describe("persona file", () => {
 
 	it("rejects a traversal path outside the extension directory", async () => {
 		await write(outside, "evil.md", "Outside.");
-		const path = await config(`    persona: ../${outside.split("/").pop()}/evil.md\n    tools: [read]\n`);
+		const path = await config(
+			`    persona: ../${outside.split("/").pop()}/evil.md\n    tools: [read]\n    thinking: off\n`,
+		);
 		await expectRejected(path, /outside/i);
 	});
 
 	it("rejects an absolute path outside the extension directory", async () => {
 		await write(outside, "evil.md", "Outside.");
-		await expectRejected(await config(`    persona: ${join(outside, "evil.md")}\n    tools: [read]\n`), /outside/i);
+		await expectRejected(
+			await config(`    persona: ${join(outside, "evil.md")}\n    tools: [read]\n    thinking: off\n`),
+			/outside/i,
+		);
 	});
 
 	it("rejects a symbolic link that escapes the extension directory", async () => {

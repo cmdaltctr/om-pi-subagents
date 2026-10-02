@@ -29,6 +29,7 @@ async function attempt(extensions: string[]): Promise<ReadyChild | StartupError>
 		persona: "Persona.",
 		tools: ["read"],
 		model: "virt/m",
+		thinking: "off",
 		skills: [],
 		extensions,
 	};

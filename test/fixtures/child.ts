@@ -55,6 +55,7 @@ export function childHarness() {
 				personaPath: "unused",
 				persona: "Persona.",
 				tools: options.tools,
+				thinking: "off",
 				skills: [],
 				extensions: options.extensions ?? [],
 			};

@@ -22,6 +22,7 @@ afterEach(async () => {
 interface Timing {
 	childDelayMs?: number;
 	parentAckDelayMs?: number;
+	slowTool?: boolean;
 }
 
 /** Start a parent whose model launches a child with the ompss tool, then acknowledges the result. */
@@ -31,7 +32,7 @@ async function startParent(timing: Timing = {}): Promise<PiFixture> {
 	await writeFile(join(extensionDir, "personas/reader.md"), "CHILD-PERSONA: you read.");
 	await writeFile(
 		join(extensionDir, "om-pi-subagents.yaml"),
-		"version: 1\nagents:\n  reader:\n    persona: ./personas/reader.md\n    tools: [read]\n",
+		`version: 1\nagents:\n  reader:\n    persona: ./personas/reader.md\n    tools: [${timing.slowTool ? "bash" : "read"}]\n    thinking: off\n`,
 	);
 
 	pi = await startPi({
@@ -40,7 +41,11 @@ async function startParent(timing: Timing = {}): Promise<PiFixture> {
 	});
 	pi.model.script = (body): Turn => {
 		const text = JSON.stringify(body);
-		if (text.includes("CHILD-PERSONA")) return { text: "CHILD ANSWER", delayMs: timing.childDelayMs };
+		if (text.includes("CHILD-PERSONA")) {
+			if (timing.slowTool && !text.includes('"role":"tool"'))
+				return { tool: "bash", args: { command: "sleep 2; printf 'PRIVATE TOOL RESULT'" } };
+			return { text: "CHILD ANSWER", delayMs: timing.childDelayMs };
+		}
 		if (text.includes("OMPSS run")) return { text: "acknowledged" };
 		if (text.includes('"role":"tool"')) return { text: "launched", delayMs: timing.parentAckDelayMs };
 		return { tool: "ompss", args: { action: "run", agent: "reader", task: "look around" } };
@@ -84,6 +89,33 @@ describe("idle parent", () => {
 			expect.arrayContaining(["ompss: reader starting", "ompss: reader running"]),
 		);
 		expect(statuses.at(-1)!.statusText).toBeUndefined();
+	});
+});
+
+describe("live panel on real Pi", () => {
+	it("shows running child tools, excludes their bodies and retains the final preview", async () => {
+		const fixture = await startParent({ slowTool: true });
+		await fixture.send({ type: "prompt", message: "start" });
+		// The prompt response and the first tool event can share one pipe read, so the tool may first
+		// appear while the run is still starting. Wait for the running view with the tool still active.
+		const active = await fixture.waitFor(
+			(record) =>
+				record.type === "extension_ui_request" &&
+				record.method === "setWidget" &&
+				record.widgetKey === "ompss" &&
+				record.widgetLines?.join("\n") === "OMPSS: reader running\nTools: bash",
+		);
+		expect(active.widgetPlacement).toBe("aboveEditor");
+		await waitFor(() => settles(fixture) === 2);
+		const widgets = fixture.records.filter(
+			(record) =>
+				record.type === "extension_ui_request" && record.method === "setWidget" && record.widgetKey === "ompss",
+		);
+		expect(widgets.at(-1)!.widgetLines).toEqual(["OMPSS: reader completed", "Answer: CHILD ANSWER"]);
+		for (const record of widgets) {
+			expect(record.widgetLines.join("\n")).not.toMatch(/PRIVATE TOOL RESULT|sleep 2|printf/);
+		}
+		expect(JSON.stringify(fixture.model.requests.filter(isParent))).toContain("CHILD ANSWER");
 	});
 });
 

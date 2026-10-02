@@ -7,6 +7,7 @@ The parent receives the result when the child finishes.
 
 | Command                     | What it does                                                     |
 | --------------------------- | ---------------------------------------------------------------- |
+| `/ompss`                    | Show current-session status without launching a child.           |
 | `/ompss list`               | Reload and list mapped agents, tools and write-capable warnings. |
 | `/ompss run <agent> <task>` | Start one background run in the parent's working directory.      |
 | `/ompss status`             | Show runs belonging to the current parent session.               |
@@ -32,6 +33,7 @@ One child can run at a time per parent session. Separate parent sessions can eac
      reader:
        persona: ./personas/reader.md
        tools: [read, grep, find, ls]
+       thinking: off
    ```
 
 3. Run `/reload`.
@@ -39,6 +41,8 @@ One child can run at a time per parent session. Separate parent sessions can eac
 5. Start the agent with `/ompss run reader Summarise the README`.
 
 The agent uses the parent's model unless the mapping selects another model.
+Every mapped agent needs explicit `thinking`; it never inherits the parent's thinking level.
+Add a supported value to older mappings before launching. An empty `agents: {}` remains valid.
 The task cannot start with a slash, which Pi would treat as a command.
 
 ## Mapping fields
@@ -50,7 +54,7 @@ The task cannot start with a slash, which Pi would treat as a command.
 | `persona`    | Markdown file inside the registry directory, without frontmatter.        |
 | `tools`      | Exact allowed tool names. `[]` grants no tools. Wildcards are rejected.  |
 | `model`      | Optional `provider/id`. The parent model is the default.                 |
-| `thinking`   | Optional `off`, `minimal`, `low`, `medium`, `high`, `xhigh` or `max`.    |
+| `thinking`   | Required `off`, `minimal`, `low`, `medium`, `high`, `xhigh` or `max`.    |
 | `skills`     | Optional paths to `SKILL.md` files. Home-relative paths start with `~/`. |
 | `extensions` | Optional paths to trusted provider extensions.                           |
 
@@ -66,13 +70,24 @@ The MCP server must also be configured in Pi; listing its tools does not connect
 OMPSS launches children in RPC mode, which sends machine-readable messages through pipes.
 Those children have no interactive terminal of their own.
 
-The parent Pi interface shows a temporary status such as `ompss: reader running`.
-That status clears when the run finishes. The final result arrives in the parent conversation.
-Child tool calls are recorded in run files rather than streamed as parent tool calls.
+The parent panel appears above the editor and shows the agent, run state and active tool names.
+It tracks concurrent and nested calls by identifier. Startup tool activity stays outside this display.
+A fast tool can appear while the run still shows `starting`. It stays listed after the run shows `running`.
+The status line still shows a temporary entry such as `ompss: reader running`.
 
+The panel retains the final state until another run starts or the session ends.
+Completed and failed runs can show up to 240 characters of saved output.
+Failed output is labelled partial. Cancellation sends no automatic result message.
+The full result arrives separately in the parent conversation, with its own delivery record.
+If the session ends first, the result is not sent and the delivery record shows the failure.
+
+Displayed text excludes tool arguments, raw results, thinking and stderr. Terminal controls are removed.
+Child tool calls remain in the private run files; they do not become parent tool calls.
 OMPSS does not create Orca terminal tabs or separate agent panes.
-When the status is no longer visible, run `/ompss status` to see the recorded result.
-A live child-tool panel would require a separate UI feature.
+
+Use bare `/ompss` or `/ompss status` when a client does not show widgets.
+Whitespace-only arguments also show status. A fresh session reports `No runs in this session.`
+These status requests read no registry and start no child.
 
 ## Run states and files
 

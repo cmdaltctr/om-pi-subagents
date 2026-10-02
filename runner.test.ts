@@ -11,6 +11,7 @@ const snapshot = (overrides: Partial<AgentSnapshot> = {}): AgentSnapshot => ({
 	personaPath: "/ext/personas/reader.md",
 	persona: "Read things.",
 	tools: ["read", "grep"],
+	thinking: "off",
 	skills: [],
 	extensions: [],
 	...overrides,
@@ -89,15 +90,16 @@ describe("buildLaunch", () => {
 		expect(valuesOf(args, "-e")).toEqual(["/ext/child-guard.ts", "/e/provider.ts"]);
 	});
 
-	it("defaults model and thinking to the parent's, and lets YAML override them", () => {
-		const inherited = buildLaunch(input({}, { parentModel: "p/parent", parentThinking: "high" })).args;
-		expect([valueAfter(inherited, "--model"), valueAfter(inherited, "--thinking")]).toEqual(["p/parent", "high"]);
-		const overridden = buildLaunch(
-			input({ model: "p/own", thinking: "low" }, { parentModel: "p/parent", parentThinking: "high" }),
-		).args;
-		expect([valueAfter(overridden, "--model"), valueAfter(overridden, "--thinking")]).toEqual(["p/own", "low"]);
-		expect(buildLaunch(input()).args).not.toContain("--model");
-	});
+	it.each(["off", "minimal", "low", "medium", "high", "xhigh", "max"])(
+		"inherits only the model and keeps explicit thinking %s",
+		(thinking) => {
+			const inherited = buildLaunch(input({ thinking }, { parentModel: "p/parent" })).args;
+			expect([valueAfter(inherited, "--model"), valueAfter(inherited, "--thinking")]).toEqual(["p/parent", thinking]);
+			const overridden = buildLaunch(input({ model: "p/own", thinking: "low" }, { parentModel: "p/parent" })).args;
+			expect([valueAfter(overridden, "--model"), valueAfter(overridden, "--thinking")]).toEqual(["p/own", "low"]);
+			expect(buildLaunch(input()).args).not.toContain("--model");
+		},
+	);
 });
 
 describe("spawnChild", () => {

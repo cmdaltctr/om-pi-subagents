@@ -23,6 +23,7 @@
 		"config.ts",
 		"index.ts",
 		"notify.ts",
+		"panel.ts",
 		"persistence.ts",
 		"processes.ts",
 		"protocol.ts",

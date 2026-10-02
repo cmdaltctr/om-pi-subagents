@@ -42,6 +42,10 @@ You do not need `.pi-host/` to use the extension. Pi supplies those packages at 
 1. Follow the persona and YAML examples in [usage](USAGE.md).
 2. Run `/reload`.
 3. Run `/ompss list` to check the agent name and allowed tools.
+4. Run `/ompss` to see current-session status.
+
+Each agent must declare a supported `thinking` value. Add it to older mappings before launching.
+The `model` field stays optional. The parent panel shows active tools and retains a short final preview.
 
 ## Set up development tools
 
@@ -79,6 +83,7 @@ See [AGENTS.md](../AGENTS.md) for commands and module boundaries.
 
 1. Check the exact field named in the error.
 2. Edit `~/.pi/agent/om-pi-subagents.yaml` using the supported fields in [usage](USAGE.md).
+   For a missing `thinking` field, add `off`, `minimal`, `low`, `medium`, `high`, `xhigh` or `max`.
 3. Run `/ompss list` again.
 
 A missing or empty mapping file means no agents. Invalid settings block new launches until corrected.

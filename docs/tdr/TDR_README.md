@@ -9,9 +9,10 @@ TDRs record implementation-level findings: platform workarounds, debugging resul
 
 ## Index
 
-| TDR                                      | Title                                               | Date       | Status   |
-| ---------------------------------------- | --------------------------------------------------- | ---------- | -------- |
-| [001](./001-make-tests-pass-on-linux.md) | Make process, path and clean-up tests pass on Linux | 2026-10-01 | Accepted |
+| TDR                                                                   | Title                                                 | Date       | Status   |
+| --------------------------------------------------------------------- | ----------------------------------------------------- | ---------- | -------- |
+| [001](./001-make-tests-pass-on-linux.md)                              | Make process, path and clean-up tests pass on Linux   | 2026-10-01 | Accepted |
+| [002](./002-allow-tool-events-before-the-prompt-response-in-tests.md) | Allow tool events before the prompt response in tests | 2026-10-02 | Accepted |
 
 ## Status values
 

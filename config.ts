@@ -11,7 +11,7 @@ export interface AgentSnapshot {
 	readonly persona: string;
 	readonly tools: readonly string[];
 	readonly model?: string;
-	readonly thinking?: string;
+	readonly thinking: string;
 	readonly skills: readonly string[];
 	readonly extensions: readonly string[];
 }
@@ -133,7 +133,10 @@ async function buildSnapshot(name: string, raw: unknown, yamlDir: string): Promi
 	if (model !== undefined && (typeof model !== "string" || model.trim() === "")) {
 		throw new RegistryError(`${at}.model`, "must be a non-empty string");
 	}
-	if (thinking !== undefined && !THINKING_LEVELS.includes(thinking as string)) {
+	if (thinking === undefined) {
+		throw new RegistryError(`${at}.thinking`, `required; set one of ${THINKING_LEVELS.join(", ")}`);
+	}
+	if (typeof thinking !== "string" || !THINKING_LEVELS.includes(thinking)) {
 		throw new RegistryError(`${at}.thinking`, `must be one of ${THINKING_LEVELS.join(", ")}`);
 	}
 	const personaFile = await readPersona(`${at}.persona`, persona, yamlDir);
@@ -143,7 +146,7 @@ async function buildSnapshot(name: string, raw: unknown, yamlDir: string): Promi
 		persona: personaFile.text,
 		tools: Object.freeze(validateTools(`${at}.tools`, tools)),
 		model: model as string | undefined,
-		thinking: thinking as string | undefined,
+		thinking,
 		skills: Object.freeze(await resolveResources(`${at}.skills`, raw.skills, yamlDir, "file")),
 		extensions: Object.freeze(await resolveResources(`${at}.extensions`, raw.extensions, yamlDir, "any")),
 	});
