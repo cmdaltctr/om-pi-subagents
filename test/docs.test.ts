@@ -57,6 +57,11 @@ describe("tooling agrees with the documentation", () => {
 		}
 	});
 
+	it("leaves the Release Please changelog out of format checks", () => {
+		// Release Please writes its own layout, which oxfmt rejects. CHANGELOG.md must not be edited by hand.
+		expect(JSON.parse(read(".oxfmtrc.json")).ignorePatterns).toContain("CHANGELOG.md");
+	});
+
 	it("keeps verification and suppression reports local and ignored", () => {
 		expect(read(".gitignore")).toContain("docs/local-docs/");
 		expect(JSON.parse(read(".oxfmtrc.json")).ignorePatterns).toContain("docs/local-docs/**");
