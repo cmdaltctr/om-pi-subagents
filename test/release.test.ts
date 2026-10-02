@@ -62,7 +62,14 @@ describe("the package is ready to publish", () => {
 		const files = packedFiles();
 		expect(files).toContain("index.ts");
 		expect(files).toContain("package.json");
-		for (const required of ["README.md", "LICENSE", "docs/INSTALL.md", "docs/USAGE.md", "docs/UNINSTALL.md"])
+		for (const required of [
+			"README.md",
+			"LICENSE",
+			"docs/INSTALL.md",
+			"docs/SETUP.md",
+			"docs/USAGE.md",
+			"docs/UNINSTALL.md",
+		])
 			expect(files, required).toContain(required);
 		const allowed = /^([a-z-]+\.ts|docs\/[A-Z-]+\.md|README\.md|LICENSE|CHANGELOG\.md|package\.json)$/;
 		expect(files.filter((f) => !allowed.test(f))).toEqual([]);

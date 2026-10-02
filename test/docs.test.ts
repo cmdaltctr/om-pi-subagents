@@ -22,7 +22,7 @@ function projectFiles(directory = ROOT): string[] {
 
 describe("tooling agrees with the documentation", () => {
 	it("publishes installation, usage and uninstall guides", () => {
-		for (const name of ["INSTALL", "USAGE", "UNINSTALL"]) {
+		for (const name of ["INSTALL", "SETUP", "USAGE", "UNINSTALL"]) {
 			expect(read("README.md")).toContain(`(docs/${name}.md)`);
 			expect(existsSync(join(ROOT, `docs/${name}.md`))).toBe(true);
 		}
