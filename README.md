@@ -12,6 +12,17 @@ one YAML file and plain Markdown files. OMPSS ships no agents of its own.
 
 OMPSS does not use `pi-subagents`. It does not import it, copy it, or need it.
 
+## What to read
+
+| You want to                                                     | Read                                  |
+| --------------------------------------------------------------- | ------------------------------------- |
+| Install, update or pin a version                                | [How to install](docs/INSTALL.md)     |
+| Create agents: the YAML file, persona files and where they live | [Set up agents](docs/SETUP.md)        |
+| Run an agent, read progress and results                         | [How to use](docs/USAGE.md)           |
+| Remove OMPSS and the files you created                          | [How to uninstall](docs/UNINSTALL.md) |
+
+A new install has no agents. Read [Set up agents](docs/SETUP.md) before you run anything.
+
 ## Set up
 
 1. Install the package:
@@ -32,7 +43,12 @@ Each agent needs a Markdown persona and a YAML mapping. Both live in your Pi
 agent directory, `~/.pi/agent/`, so package updates never touch them. Persona
 paths are relative to the mapping file.
 
-Persona file `~/.pi/agent/personas/reader.md`:
+You create both. The install makes neither the mapping file nor the persona
+folder. Keep persona files in `~/.pi/agent/om-pi-subagents/personas/`. OMPSS
+reads only the files that your `persona:` lines name. For the full explanation,
+see [Set up agents](docs/SETUP.md#persona-persona-folder-and-ompss-the-difference).
+
+Persona file `~/.pi/agent/om-pi-subagents/personas/reader.md`:
 
 <!-- docs-test: persona -->
 
@@ -49,7 +65,7 @@ Mapping file `~/.pi/agent/om-pi-subagents.yaml`:
 version: 1
 agents:
   reader:
-    persona: ./personas/reader.md
+    persona: ./om-pi-subagents/personas/reader.md
     tools: [read, grep, find, ls]
     thinking: off
 ```
@@ -210,7 +226,9 @@ Skills that promise these features need edits before you use them with OMPSS.
 3. Run `/reload`.
 
 Run files stay in `~/.pi/agent/ompss/runs/` until you delete them. Your mapping
-in `~/.pi/agent/om-pi-subagents.yaml` and your personas also stay.
+in `~/.pi/agent/om-pi-subagents.yaml` and your persona folder also stay. You
+created them, so you remove them. For the steps, see
+[How to uninstall](docs/UNINSTALL.md#remove-your-own-files-optional).
 
 ## Release (maintainers)
 

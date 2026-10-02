@@ -126,7 +126,7 @@ Before, in 0.1.0:
 version: 1
 agents:
   reader:
-    persona: ./personas/reader.md
+    persona: ./om-pi-subagents/personas/reader.md
     tools: [read, grep, find, ls]
 ```
 
@@ -136,7 +136,7 @@ After, for 0.2.0:
 version: 1
 agents:
   reader:
-    persona: ./personas/reader.md
+    persona: ./om-pi-subagents/personas/reader.md
     tools: [read, grep, find, ls]
     thinking: off
 ```

@@ -24,10 +24,11 @@ Both live in your Pi agent directory. Run files go in a sub-folder of the same d
 
 ```text
 ~/.pi/agent/
-├── om-pi-subagents.yaml          # the mapping file
-├── personas/                     # persona files (any folder inside ~/.pi/agent/ works)
-│   ├── reader.md
-│   └── reviewer.md
+├── om-pi-subagents.yaml          # the mapping file. YOU create it
+├── om-pi-subagents/              # your files for this extension. YOU create it
+│   └── personas/                 # your persona files. YOU create it
+│       ├── reader.md
+│       └── reviewer.md
 ├── mcp.json                      # Pi's own MCP server list, if you use MCP tools
 └── ompss/
     └── runs/<session-id>/<run-id>/   # one private folder per run, written by OMPSS
@@ -40,6 +41,43 @@ Rules for these locations:
 - Persona paths are relative to the folder that holds the mapping file.
 - A persona must stay inside that folder after symbolic links are resolved. A path or link that leads outside it is rejected.
 - The package contains no mapping file and no personas. Package updates do not write to your agent directory.
+
+### Persona, persona folder and `ompss/`: the difference
+
+Several names look alike. Each one is a different thing.
+
+| Name                                    | What it is                                                           | Who creates it          | How OMPSS uses it                                                                                                               |
+| --------------------------------------- | -------------------------------------------------------------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `~/.pi/agent/om-pi-subagents.yaml`      | The mapping file. A file. It lists every agent.                      | You                     | Reads it to learn the agent names and their settings.                                                                           |
+| `~/.pi/agent/om-pi-subagents/`          | A folder for your files for this extension. It holds `personas/`.    | You, with `mkdir`       | Never reads the folder itself.                                                                                                  |
+| `~/.pi/agent/om-pi-subagents/personas/` | The persona folder. It holds your persona files.                     | You, with `mkdir`       | Never reads the folder itself. It reads only the files that `persona:` lines name.                                              |
+| Persona                                 | One Markdown file with the instructions for one agent.               | You                     | Reads it on `/ompss list` and `/ompss run`. Saves a copy as `persona.md`. Gives the copy to the child Pi as system prompt text. |
+| `persona:` field                        | One line under an agent in the YAML. It holds the path to a persona. | You                     | Joins the path to the YAML's folder. Reads that one file.                                                                       |
+| `~/.pi/agent/ompss/`                    | The run folder.                                                      | OMPSS, on the first run | Writes each run's files here. See [USAGE.md](USAGE.md).                                                                         |
+
+The mapping file and the `om-pi-subagents/` folder sit side by side and have almost the same name.
+The file is the list of agents. The folder holds the files that the list points to.
+
+Rules that follow from this:
+
+- Keep every persona in `~/.pi/agent/om-pi-subagents/personas/`. Every example in these docs uses this folder.
+- The package creates neither folder. You create both with `mkdir -p ~/.pi/agent/om-pi-subagents/personas`.
+- OMPSS does not scan the persona folder. A file in it that no `persona:` line names is ignored.
+- OMPSS itself accepts any path inside `~/.pi/agent/`. Use the path above so that your set-up matches the docs.
+- If you move the persona folder, edit every `persona:` line that uses it.
+
+### Where each `persona:` path points
+
+OMPSS takes the `persona:` text from the YAML exactly as you wrote it.
+It then joins that text to the folder that holds the mapping file. By default this folder is `~/.pi/agent/`.
+The folder where you start Pi has no effect.
+
+| `persona:` value in the YAML           | File OMPSS reads                                 |
+| -------------------------------------- | ------------------------------------------------ |
+| `./om-pi-subagents/personas/reader.md` | `~/.pi/agent/om-pi-subagents/personas/reader.md` |
+
+- If the folder or the file is missing, `/ompss list` fails with `agents.<name>.persona: cannot read <path>`. The `<path>` is the text from your YAML, not the full path.
+- To check which folder your YAML uses, run `grep persona: ~/.pi/agent/om-pi-subagents.yaml`.
 
 Two environment variables change these locations:
 
@@ -57,16 +95,16 @@ This procedure makes an agent called `reader`. It reads files and answers questi
 1. Install OMPSS. See [How to install](INSTALL.md).
 2. Run `/reload` in Pi.
 3. Open a terminal.
-4. Make the personas folder:
+4. Make the persona folder:
 
    ```sh
-   mkdir -p ~/.pi/agent/personas
+   mkdir -p ~/.pi/agent/om-pi-subagents/personas
    ```
 
 5. Write the persona file:
 
    ```sh
-   cat > ~/.pi/agent/personas/reader.md <<'EOF'
+   cat > ~/.pi/agent/om-pi-subagents/personas/reader.md <<'EOF'
    You read files and answer questions about them.
    Give short answers. Name the file for every claim.
    EOF
@@ -79,7 +117,7 @@ This procedure makes an agent called `reader`. It reads files and answers questi
    version: 1
    agents:
      reader:
-       persona: ./personas/reader.md
+       persona: ./om-pi-subagents/personas/reader.md
        tools: [read, grep, find, ls]
        thinking: off
    EOF
@@ -118,6 +156,45 @@ A persona is plain Markdown text. OMPSS adds it to the end of the child Pi's sys
 Pi keeps its own system prompt and tool descriptions. Your persona comes after them.
 The task you give in `/ompss run` reaches the child as a separate message.
 
+### Settings go in the YAML file, not in the persona
+
+A persona file holds instructions only. Do not add YAML frontmatter to it.
+Frontmatter is a settings block between two `---` lines at the top of a Markdown file. Some other tools use it. OMPSS does not.
+
+| Where                              | What goes there                                                                |
+| ---------------------------------- | ------------------------------------------------------------------------------ |
+| Persona `.md` file                 | The instructions for the model, in plain Markdown only.                        |
+| `~/.pi/agent/om-pi-subagents.yaml` | `tools`, `model`, `thinking`, `skills`, `extensions`, and the `persona:` path. |
+
+Wrong. OMPSS rejects this persona file:
+
+```markdown
+---
+tools: [read, grep]
+thinking: high
+---
+
+You review code changes.
+```
+
+Right. The persona file has text only:
+
+```markdown
+You review code changes.
+```
+
+Right. The settings are in the mapping file:
+
+```yaml
+agents:
+  reviewer:
+    persona: ./om-pi-subagents/personas/reviewer.md
+    tools: [read, grep]
+    thinking: high
+```
+
+If a persona starts with `---`, `/ompss list` and `/ompss run` fail with `has frontmatter; put settings in om-pi-subagents.yaml`.
+
 ### What happens to the file
 
 1. OMPSS reads the persona when you run `/ompss list` or `/ompss run`.
@@ -149,7 +226,8 @@ Write to the model in the second person. Cover these points:
 
 ### Example
 
-A read-only code reviewer, saved as `~/.pi/agent/personas/reviewer.md`:
+A read-only code reviewer, saved as `~/.pi/agent/om-pi-subagents/personas/reviewer.md`.
+The file has no `---` block. Its settings (`tools`, `thinking`) are in the mapping file. See [Complete example](#complete-example).
 
 ```markdown
 You review code changes. You do not change files.
@@ -225,6 +303,19 @@ Valid: `reader`, `code-review`, `x9-review`. Invalid: `Reader`, `1reader`, `read
 
 Any other field is rejected. The child loads nothing else from your Pi set-up: no other extensions, skills, prompt templates or themes.
 
+### If a field is missing
+
+| Missing field                   | What happens                                                                                         | What to do                                                   |
+| ------------------------------- | ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| `model` only                    | The child uses the parent's current model. It keeps its own `thinking` value.                        | Add `model: provider/id` if this agent needs a fixed model.  |
+| `thinking` only                 | `/ompss list` and `/ompss run` reject the mapping. The child does not start, even if `model` is set. | Add a valid `thinking` level.                                |
+| Both `model` and `thinking`     | The missing `thinking` level blocks the mapping. No model is chosen and no child starts.             | Add `thinking`; leave `model` out to use the parent's model. |
+| `persona`                       | `/ompss list` and `/ompss run` report `agents.<name>.persona: required path`.                        | Add a path to a persona file.                                |
+| Persona file named by `persona` | `/ompss list` and `/ompss run` report `agents.<name>.persona: cannot read <path>`.                   | Create the file or correct its path.                         |
+
+A name under `agents` does not create a persona file. OMPSS checks the file each time you list or start an agent.
+An invalid mapping blocks launches until you fix it. See [Common errors and fixes](#common-errors-and-fixes).
+
 ### `tools`
 
 Write each tool by its exact name. Wildcards and patterns such as `*`, `read*` or `mcp__server__*` are rejected.
@@ -280,7 +371,7 @@ OMPSS passes the value to Pi as `--thinking`. Pi limits it to what the selected 
 
 Write the model as `provider/id`, the same form Pi uses. Run `pi --list-models` to see the names Pi knows.
 
-- Without `model`, the child uses the parent's current model.
+- Without `model`, the child uses the parent's current model. If the parent has no selected model, Pi uses its normal startup default in the child.
 - The model must be known to the child and have configured credentials. If not, the run fails before the task is sent.
 - OMPSS does not choose another model when this check fails.
 - A model from a custom provider needs the extension that registers it. Add that extension to `extensions`.
@@ -307,18 +398,18 @@ This file maps three agents: a read-only reviewer, a writer and a documentation 
 version: 1
 agents:
   reviewer:
-    persona: ./personas/reviewer.md
+    persona: ./om-pi-subagents/personas/reviewer.md
     tools: [read, grep, find, ls]
     thinking: medium
 
   writer:
-    persona: ./personas/writer.md
+    persona: ./om-pi-subagents/personas/writer.md
     tools: [read, grep, find, ls, edit, write]
     model: my-provider/my-model # replace with a name from `pi --list-models`
     thinking: low
 
   docs-researcher:
-    persona: ./personas/docs-researcher.md
+    persona: ./om-pi-subagents/personas/docs-researcher.md
     tools:
       - read
       - tool_search
@@ -371,7 +462,7 @@ OMPSS reports the first problem it finds. Fix it, then run `/ompss list` again.
 | `agents.<name>.<field>: unknown field`                                   | A misspelt or unsupported agent field, such as `toolz`         | Use only the fields in [Agent fields](#agent-fields).                                                    |
 | `invalid name; use [a-z][a-z0-9-]{0,63}`                                 | Capital letter, underscore, leading digit or too long          | Rename the agent. See [Agent names](#agent-names).                                                       |
 | `agents.<name>: must be a mapping`                                       | The agent has no fields under it                               | Indent its fields under the name.                                                                        |
-| `persona: required path`                                                 | No `persona` field, or it is empty                             | Add `persona: ./personas/<name>.md`.                                                                     |
+| `persona: required path`                                                 | No `persona` field, or it is empty                             | Add `persona: ./om-pi-subagents/personas/<name>.md`.                                                     |
 | `persona: cannot read <path>`                                            | The persona file does not exist                                | Create the file, or correct the path relative to the mapping folder.                                     |
 | `resolves outside the extension directory`                               | The path or a symbolic link leads outside the mapping folder   | Move the persona into the mapping file's folder.                                                         |
 | `cannot read <path> as a file`                                           | The path is a folder, or you have no read permission           | Point to a file. Check its permissions.                                                                  |
