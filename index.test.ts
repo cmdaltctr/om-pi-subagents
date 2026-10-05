@@ -46,6 +46,7 @@ function loadExtension(register: (pi: any) => void = (pi) => ompss(pi)) {
 		registerTool: (tool: Tool) => tools.set(tool.name, tool),
 		registerCommand: (name: string, command: Command) => commands.set(name, command),
 		on: (event: string, handler: (event: unknown, ctx: Ctx) => unknown) => handlers.set(event, handler),
+		registerEntryRenderer: vi.fn(),
 	});
 	return { tools, commands, handlers };
 }
@@ -77,7 +78,7 @@ describe("registration", () => {
 	it("registers the ompss tool and the /ompss command, and starts no process", () => {
 		const { tools, commands } = loadExtension();
 		expect([...tools.keys()]).toEqual(["ompss"]);
-		expect([...commands.keys()]).toEqual(["ompss"]);
+		expect([...commands.keys()]).toEqual(["ompss", "subagents-settings"]);
 		for (const [name, spy] of Object.entries(processSpies)) expect(spy, name).not.toHaveBeenCalled();
 	});
 

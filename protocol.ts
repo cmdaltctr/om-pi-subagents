@@ -20,6 +20,8 @@ export const READY_ENTRY = "ompss-ready";
 export const VIOLATION_ENTRY = "ompss-violation";
 /** Correlated evidence that this child's owned subtree could not be fully cleaned up. */
 export const CLEANUP_ENTRY = "ompss-cleanup-failed";
+/** Private display metadata carried by the existing child connection, never conversation messages. */
+export const OBSERVATION_ENTRY = "ompss-observation";
 
 /** Policy the parent passes to a child through OMPSS_POLICY. It holds no credentials. */
 export interface ChildPolicy {

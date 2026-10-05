@@ -11,6 +11,25 @@ import { installExtension, SOURCE, type Installed } from "./test/fixtures/instal
 import type { Turn } from "./test/fixtures/fake-model.ts";
 
 const PERSONA = "CLEAN-ENV-PERSONA: you read files.";
+// The OMPSS preference path shares the legacy name; package references remain forbidden.
+const LEGACY_SOURCE =
+	/(^|[^\w-])pi-subagents(?!",\s*"config\.json"\))|(?:from\s*|(?:import|require)\s*\(\s*)["'][^"']*subagent/;
+
+suite("legacy package source guard", () => {
+	it("allows the approved OMPSS display preference directory", () => {
+		expect('return join(configDir, "pi-subagents", "config.json");').not.toMatch(LEGACY_SOURCE);
+	});
+	it.each([
+		'import agent from "pi-subagents";',
+		'await import("pi-subagents");',
+		'await import("pi-subagents", "config.json");',
+		'require("pi-subagents", "config.json");',
+		'import agent from "./subagent.ts";',
+		'const packageName = "pi-subagents";',
+	])("still rejects legacy package references: %s", (source) => {
+		expect(source).toMatch(LEGACY_SOURCE);
+	});
+});
 let env: Installed | undefined;
 afterEach(async () => {
 	await env?.cleanup();
@@ -68,7 +87,7 @@ const walk = (root: string): string[] =>
 	);
 
 describe("the environment is clean", () => {
-	it("has no legacy package, settings or artefacts, and the extension never names pi-subagents", async () => {
+	it("has no legacy package, settings or artefacts, and rejects legacy source references", async () => {
 		const handle = await start();
 		const { installed, fixture, home } = handle;
 		expect(readdirSync(fixture.agentDir).sort()).toEqual(
@@ -90,9 +109,7 @@ describe("the environment is clean", () => {
 		);
 		expect(declared.filter((name) => /subagent/i.test(name))).toEqual([]);
 		for (const name of readdirSync(installed).filter((n) => n.endsWith(".ts")))
-			expect(readFileSync(join(installed, name), "utf8"), name).not.toMatch(
-				/(^|[^\w-])pi-subagents|from ["'][^"']*subagent/,
-			);
+			expect(readFileSync(join(installed, name), "utf8"), name).not.toMatch(LEGACY_SOURCE);
 	});
 });
 

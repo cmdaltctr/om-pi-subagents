@@ -9,27 +9,28 @@ This guide unloads the extension while preserving its run files.
 3. Check its final state with `/ompss status <run-id>`.
 
 Quit Pi if you cannot issue commands. Shutdown stops children and waits for their cleanup.
-The run panel and status entry clear when the session ends.
+The run panel and status entry clear when the session ends. Open inspectors close and pending detail reads stop.
 Investigate any cleanup error before removing the extension.
 
 ## Remove the package
 
 1. Run `pi remove npm:om-pi-subagents`. For a local copy, move `~/.pi/agent/extensions/ompss/` outside Pi's extensions directory.
 2. Start Pi again, or run `/reload`.
-3. Check that Pi no longer offers `ompss`, `/ompss` or `/skill:om-pi-subagents`.
+3. Check that Pi no longer offers `ompss`, `/ompss`, `/subagents-settings` or `/skill:om-pi-subagents`.
 
 Remove explicit child references to the package's skill or managed resources before deleting a local package folder.
 Other packages, including `om-pi-todo`, remain installed. Their task histories and preferences stay untouched.
 
 ## What remains
 
-| Item                               | What happens                                                            |
-| ---------------------------------- | ----------------------------------------------------------------------- |
-| `~/.pi/agent/ompss/runs/`          | Saved tasks, personas, events and answers remain.                       |
-| Parent Pi session history          | Existing tool calls and result messages remain.                         |
-| `~/.pi/agent/om-pi-subagents.yaml` | Your mapping remains for a later installation.                          |
-| `~/.pi/agent/om-pi-subagents/`     | Your persona files remain. See the next section to remove them.         |
-| Development checkout               | Remains unchanged, including its local tools and ignored host packages. |
+| Item                                    | What happens                                                                                                      |
+| --------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `~/.pi/agent/ompss/runs/`               | Saved tasks, personas, events and answers remain.                                                                 |
+| Parent Pi session history               | Existing tool calls and result messages remain.                                                                   |
+| `~/.pi/agent/om-pi-subagents.yaml`      | Your mapping remains for a later installation.                                                                    |
+| `~/.pi/agent/om-pi-subagents/`          | Your persona files remain. See the next section to remove them.                                                   |
+| Development checkout                    | Remains unchanged, including its local tools and ignored host packages.                                           |
+| `<config-dir>/pi-subagents/config.json` | Visible-agent preferences remain; absolute `XDG_CONFIG_HOME` selects the config directory, otherwise `~/.config`. |
 
 OMPSS never deletes saved run directories automatically.
 Review their contents before any optional cleanup; they can contain sensitive text.
@@ -47,6 +48,8 @@ Remove a directory only after confirming its processes have stopped and its outp
 5. Remove the mapping file: `rm ~/.pi/agent/om-pi-subagents.yaml`.
 
 Skip steps 4 and 5 if you plan to reinstall.
+The display preference is separate. Remove only `<config-dir>/pi-subagents/config.json` if you no longer need it.
+Leave todo preferences and Pi's `settings.json` unchanged.
 
 ## Reinstall later
 

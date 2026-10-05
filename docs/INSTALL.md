@@ -4,10 +4,10 @@ This guide installs OMPSS into Pi. After installation, [set up agents](SETUP.md)
 
 ## Before you start
 
-You need Pi and Bun. This project is tested with Pi 0.99.1.
+You need Pi and Bun. Native viewer tests cover Pi 0.99.1 and 1.0.2 in regular and fullscreen modes.
 Development checks use Bun 1.4.2 and Node.js 22.12 or newer.
 
-Pi supplies its host packages. OMPSS installs `yaml` as its runtime dependency.
+Pi supplies its host packages, including `@earendil-works/pi-tui`. OMPSS installs `yaml` as its runtime dependency.
 Keep `bunfig.toml` beside `package.json` so Bun leaves host peers out of `node_modules`.
 
 ## Install from npm
@@ -53,6 +53,8 @@ Your mapping lives in `~/.pi/agent/om-pi-subagents.yaml`, outside the package.
 Set `OMPSS_REGISTRY` to use another file.
 
 You do not need `.pi-host/` to use the extension. Pi supplies those packages at runtime.
+Keep the package's source modules together when copying it; the viewer and settings modules are required imports.
+After loading, use `/ompss inspect` for retained runs and `/subagents-settings` for operator preferences.
 
 ## Packaged skill and optional todo
 

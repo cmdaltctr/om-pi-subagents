@@ -5,7 +5,7 @@ import type { ChildProcess } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { resolve as resolvePath } from "node:path";
 import type { Proc } from "./processes.ts";
-import type { RpcRecord } from "./rpc.ts";
+import type { RpcChannel, RpcRecord } from "./rpc.ts";
 import { decide, ResultJudge } from "./result.ts";
 import type { RunOutcome, RunRequest, RunView, Supervisor, SupervisorHooks } from "./runs.ts";
 import { DEFAULT_STARTUP_DEADLINE_MS, stopGroup } from "./runner.ts";
@@ -33,6 +33,10 @@ export interface SupervisorDeps {
 	onReady?(run: RunView, info: { model?: string }): void;
 	/** Display-only task tool events. Startup replay is excluded. */
 	onProgress?(run: RunView, record: RpcRecord): void;
+	/** Install the independent display subscription after readiness; return its detach function. */
+	onObservation?(run: RunView, channel: RpcChannel, token: string): () => void;
+	/** Missing display evidence never changes result judgement. */
+	onDisplayFailure?(run: RunView): void;
 	startupDeadlineMs?: number;
 	/** Fixed limit for the whole run, including start-up. */
 	totalDeadlineMs?: number;
@@ -111,103 +115,127 @@ export function createSupervisor(deps: SupervisorDeps): Supervisor {
 
 		const { child, channel, owned } = ready;
 		deps.onReady?.(run, { model: ready.readiness.model });
-		const judge = new ResultJudge(runToken);
-		const cleanupProblem = (local?: string) => [local, judge.cleanupFailure()].filter(Boolean).join("; ") || undefined;
-		const stopWith = async (outcome: RunOutcome): Promise<RunOutcome> => {
-			// Abort while RPC subscriptions are live, so nested teardown can report unconfirmed cleanup.
-			await channel.request({ type: "abort" }, graceMs).catch(() => undefined);
-			const local = await stopGroup(child, channel.exited, graceMs, owned).catch(messageOf);
-			const error = cleanupProblem(local);
-			return error
-				? { ...failed(`${outcome.error ? `${outcome.error}; ` : ""}cleanup failed: ${error}`), cleanupFailed: true }
-				: outcome;
+		const displayFailed = () => {
+			try {
+				deps.onDisplayFailure?.(run);
+			} catch {
+				/* Missing display evidence cannot fail execution. */
+			}
 		};
-		let taskSubmitted = false;
-		const assessed = new Promise<void>((resolve) =>
-			channel.onRecord(
-				(record) => {
-					logs?.event(record);
-					if (taskSubmitted && (record.type === "tool_execution_start" || record.type === "tool_execution_end")) {
-						try {
-							deps.onProgress?.(run, record);
-						} catch {
-							// Display failures must not interrupt result judgement or cleanup.
-						}
-					}
-					judge.observe(record);
-					if (judge.assess() !== "pending") resolve();
-				},
-				{ replay: true },
-			),
-		);
-
-		// Accepting the task moves the run from `starting` to `running`.
-		judge.taskAccepted();
-		let acknowledged = false;
+		let detachObservation: (() => void) | undefined;
+		let detachAssessment: (() => void) | undefined;
 		try {
-			taskSubmitted = true;
-			const response = await channel.request({ type: "prompt", message: request.task }, TASK_ACK_MS);
-			if (!response.success || response.data?.disposition !== "started") {
-				return stopWith(
-					failed(`task was not accepted: ${response.error ?? `disposition ${response.data?.disposition}`}`),
+			try {
+				detachObservation = deps.onObservation?.(run, channel, runToken);
+			} catch {
+				displayFailed();
+			}
+			const judge = new ResultJudge(runToken);
+			const cleanupProblem = (local?: string) =>
+				[local, judge.cleanupFailure()].filter(Boolean).join("; ") || undefined;
+			const stopWith = async (outcome: RunOutcome): Promise<RunOutcome> => {
+				// Abort while RPC subscriptions are live, so nested teardown can report unconfirmed cleanup.
+				await channel.request({ type: "abort" }, graceMs).catch(() => undefined);
+				const local = await stopGroup(child, channel.exited, graceMs, owned).catch(messageOf);
+				const error = cleanupProblem(local);
+				return error
+					? { ...failed(`${outcome.error ? `${outcome.error}; ` : ""}cleanup failed: ${error}`), cleanupFailed: true }
+					: outcome;
+			};
+			let taskSubmitted = false;
+			const assessed = new Promise<void>((resolve) => {
+				detachAssessment = channel.onRecord(
+					(record) => {
+						logs?.event(record);
+						if (taskSubmitted && (record.type === "tool_execution_start" || record.type === "tool_execution_end")) {
+							try {
+								deps.onProgress?.(run, record);
+							} catch {
+								displayFailed();
+							}
+						}
+						judge.observe(record);
+						if (judge.assess() !== "pending") resolve();
+					},
+					{ replay: true },
 				);
+			});
+
+			// Accepting the task moves the run from `starting` to `running`.
+			judge.taskAccepted();
+			let acknowledged = false;
+			try {
+				taskSubmitted = true;
+				const response = await channel.request({ type: "prompt", message: request.task }, TASK_ACK_MS);
+				if (!response.success || response.data?.disposition !== "started") {
+					return await stopWith(
+						failed(`task was not accepted: ${response.error ?? `disposition ${response.data?.disposition}`}`),
+					);
+				}
+				acknowledged = true;
+			} catch (error) {
+				// A child that died before it answered is judged below, like any other early exit.
+				if (messageOf(error) !== "child exited") {
+					return await stopWith(stop.aborted ? abortOutcome() : failed(`task was not accepted: ${messageOf(error)}`));
+				}
 			}
-			acknowledged = true;
-		} catch (error) {
-			// A child that died before it answered is judged below, like any other early exit.
-			if (messageOf(error) !== "child exited") {
-				return stopWith(stop.aborted ? abortOutcome() : failed(`task was not accepted: ${messageOf(error)}`));
+			if (acknowledged) hooks.markRunning();
+
+			let storageReason: string | undefined;
+			void logs?.failure.then((reason) => (storageReason = reason));
+
+			const first = await Promise.race([
+				assessed.then(() => "assessed" as const),
+				new Promise<"storage">((resolve) => void logs?.failure.then(() => resolve("storage"))),
+				channel.exited.then(() => "exited" as const),
+				new Promise<"aborted">((resolve) =>
+					stop.aborted ? resolve("aborted") : stop.addEventListener("abort", () => resolve("aborted"), { once: true }),
+				),
+			]);
+			const assessment = judge.assess();
+
+			// Cancelled, out of time, or unable to save evidence, with nothing decided yet: keep what can be kept,
+			// stop the child, and report why.
+			if ((first === "aborted" || first === "storage") && assessment === "pending") {
+				hooks.markStopping();
+				const reason =
+					first === "storage"
+						? `could not save run files: ${storageReason}`
+						: (abortOutcome().error ?? "the run was cancelled");
+				const partial = judge.partial();
+				if (partial) await deps.persist(run, { kind: "partial", text: partial, reason }).catch(() => undefined);
+				return await stopWith(first === "storage" ? failed(reason) : abortOutcome());
 			}
-		}
-		if (acknowledged) hooks.markRunning();
 
-		let storageReason: string | undefined;
-		void logs?.failure.then((reason) => (storageReason = reason));
-
-		const first = await Promise.race([
-			assessed.then(() => "assessed" as const),
-			new Promise<"storage">((resolve) => void logs?.failure.then(() => resolve("storage"))),
-			channel.exited.then(() => "exited" as const),
-			new Promise<"aborted">((resolve) =>
-				stop.aborted ? resolve("aborted") : stop.addEventListener("abort", () => resolve("aborted"), { once: true }),
-			),
-		]);
-		const assessment = judge.assess();
-
-		// Cancelled, out of time, or unable to save evidence, with nothing decided yet: keep what can be kept,
-		// stop the child, and report why.
-		if ((first === "aborted" || first === "storage") && assessment === "pending") {
+			// From here an outcome is established. A later cancel or deadline cannot change it.
 			hooks.markStopping();
-			const reason =
-				first === "storage"
-					? `could not save run files: ${storageReason}`
-					: (abortOutcome().error ?? "the run was cancelled");
-			const partial = judge.partial();
-			if (partial) await deps.persist(run, { kind: "partial", text: partial, reason }).catch(() => undefined);
-			return stopWith(first === "storage" ? failed(reason) : abortOutcome());
-		}
-
-		// From here an outcome is established. A later cancel or deadline cannot change it.
-		hooks.markStopping();
-		let persistError: string | undefined;
-		if (assessment !== "pending") {
-			const result = assessment.ok
-				? { kind: "final" as const, text: assessment.output }
-				: judge.partial() && { kind: "partial" as const, text: judge.partial()!, reason: assessment.reason };
-			if (result) {
-				persistError = await deps.persist(run, result).then(() => undefined, messageOf);
+			let persistError: string | undefined;
+			if (assessment !== "pending") {
+				const result = assessment.ok
+					? { kind: "final" as const, text: assessment.output }
+					: judge.partial() && { kind: "partial" as const, text: judge.partial()!, reason: assessment.reason };
+				if (result) {
+					persistError = await deps.persist(run, result).then(() => undefined, messageOf);
+				}
 			}
+			if (assessment !== "pending" && assessment.ok) {
+				channel.end(); // a finished child shuts itself down when its input closes
+				await Promise.race([channel.exited, new Promise((done) => setTimeout(done, graceMs))]);
+			} else {
+				await channel.request({ type: "abort" }, graceMs).catch(() => undefined);
+			}
+			const localCleanup = await stopGroup(child, channel.exited, graceMs, owned).catch(messageOf);
+			const cleanupError = cleanupProblem(localCleanup);
+			const exit = await channel.exited;
+			persistError ??= storageReason && `could not save run files: ${storageReason}`;
+			return decide(assessment, { exit, persistError, cleanupError });
+		} finally {
+			try {
+				detachObservation?.();
+			} catch {
+				displayFailed();
+			}
+			detachAssessment?.();
 		}
-		if (assessment !== "pending" && assessment.ok) {
-			channel.end(); // a finished child shuts itself down when its input closes
-			await Promise.race([channel.exited, new Promise((done) => setTimeout(done, graceMs))]);
-		} else {
-			await channel.request({ type: "abort" }, graceMs).catch(() => undefined);
-		}
-		const localCleanup = await stopGroup(child, channel.exited, graceMs, owned).catch(messageOf);
-		const cleanupError = cleanupProblem(localCleanup);
-		const exit = await channel.exited;
-		persistError ??= storageReason && `could not save run files: ${storageReason}`;
-		return decide(assessment, { exit, persistError, cleanupError });
 	}
 }

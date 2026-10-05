@@ -8,10 +8,12 @@ OMPSS lets Pi hand a task to a specialist agent that you defined. The agent runs
 - [Quick start](#quick-start)
 - [Two ways to start a run](#two-ways-to-start-a-run)
 - [While a run works](#while-a-run-works)
+- [Agent trees and inspection](#agent-trees-and-inspection)
 - [Getting the result](#getting-the-result)
 - [Run states](#run-states)
 - [Cancelling, quitting and reloading](#cancelling-quitting-and-reloading)
 - [Rules and limits](#rules-and-limits)
+- [Operator settings](#operator-settings)
 - [Run files](#run-files)
 - [Troubleshooting](#troubleshooting)
 
@@ -62,6 +64,7 @@ You can type a slash command. You can also ask Pi in plain words, for example "A
 | `/ompss` or `/ompss status` | Shows all runs of this session. Starts nothing and reads no mapping. | `/ompss`                                       |
 | `/ompss status <run-id>`    | Shows one run, its folder and any error.                             | `/ompss status 3f2c9b1e-8a4d-...-1d5e6f7a8b9c` |
 | `/ompss cancel <run-id>`    | Stops that run and every process it started.                         | `/ompss cancel 3f2c9b1e-8a4d-...-1d5e6f7a8b9c` |
+| `/ompss inspect [run-id]`   | Views retained nodes in this session without changing a run.         | `/ompss inspect`                               |
 
 `/ompss list` marks an agent as `write-capable` when it may use `bash`, `powershell`, `write` or `edit`. An agent with its own model shows it too:
 
@@ -72,7 +75,7 @@ fixer: tools [read, edit, bash]; model my-provider/my-model; write-capable
 The task is everything after the agent name. It can be long. A command that OMPSS does not recognise shows this hint:
 
 ```text
-Usage: /ompss list | run <agent> <task> | status [run-id] | cancel <run-id>
+Usage: /ompss list | run <agent> <task> | status [run-id] | cancel <run-id> | inspect [run-id]
 ```
 
 ### The `ompss` tool
@@ -137,7 +140,7 @@ A fast tool can show while the state is still `starting`. This is normal. Tool c
 
 The panel shows only tool names and the short preview. It never shows tool arguments, tool results, the agent's thinking or error logs. OMPSS removes terminal control characters from the text.
 
-Up to four active direct-run summaries coexist. More active runs produce an overflow count.
+The visible-agent setting bounds active direct-run summaries, defaulting to four. More active runs produce an overflow count.
 This display bound does not restrict launches; `/ompss status` lists every direct owned run.
 Finishing one run leaves active siblings visible. When all runs end, the panel keeps the latest
 terminal summary until another launch or the session ends. Old previews cannot replace newer work.
@@ -160,6 +163,56 @@ run 3f2c9b1e-8a4d-4c7e-9b2a-1d5e6f7a8b9c: running
 A session with no runs answers `No runs in this session.`
 
 OMPSS opens no extra terminal tabs or panes, also in Orca. The agent has no terminal of its own. Pi talks to it through pipes in RPC mode (a machine-readable message format).
+
+## Agent trees and inspection
+
+Every interactive run has a native tree card. Tool launches use their result card; slash launches create a TUI entry.
+Pi's `app.tools.expand` action expands both. Ctrl+O is its default, and hints use your configured key.
+Other tool cards keep Pi's global expansion behaviour.
+
+Expanded cards indent descendants and show observed lifecycle states with active tool names.
+Identical agent names remain distinct through run ids. Each root keeps its own tree.
+The visible-agent setting bounds card rows and the compact widget. Hidden counts include retained nodes outside that bound.
+Status counts still include all active direct children.
+
+1. Run `/ompss inspect` to open the current session's retained nodes.
+2. Select a node with arrow keys.
+3. Press Enter to read its saved task and output.
+4. Use PageUp or PageDown to scroll the detail area.
+5. Press Escape to return to Pi's editor.
+
+You can also run `/ompss inspect <run-id>` to open a selected node directly.
+Fullscreen mode supports clicks on card rows and inspector rows. Regular mode uses keyboard input.
+The inspector includes retained hidden nodes and completed short runs. Resizing keeps the selection and focus.
+Closing the inspector releases its subscriptions and pending reads. The run continues.
+An empty session answers `No runs to inspect in this session.` without reading the mapping or display preferences.
+
+### Observation and control
+
+Inspection can follow validated descendants down to great-grandchildren when nesting permits them.
+Snapshots keep immediate-parent ownership through each verified RPC connection.
+Out-of-order evidence waits within a bounded backlog. Missing evidence, dropped records and overflow produce incomplete labels.
+Recovered temporary gaps clear; permanent loss stays labelled. An ancestor's terminal state never invents a descendant result.
+
+Viewing a descendant provides no control authority. Status and cancellation still belong to its immediate parent.
+Use `/ompss cancel <direct-run-id>` from that parent to stop its owned subtree.
+Inspection starts no process and sends no model turn. Results still arrive through the separate delivery path described below.
+Todo keeps its own widget, keys and stored preferences.
+
+### Private detail files
+
+The inspector reads only a selected node's validated `config.json` and `output.md`.
+It reads at most 64 KiB from each file, with one extra byte to detect truncation.
+Persona files, authentication files, raw event logs and stderr remain unopened.
+Terminal instructions and direction overrides are removed from displayed text.
+
+The detail area preserves full run ids, lineage and known model information.
+Missing files show unavailable information. Failed or cancelled output remains partial.
+Truncated output identifies its saved file. Open that file separately only when you need its full contents.
+Saved tasks and outputs can contain sensitive text. Avoid sharing inspector screenshots or RPC responses without checking them.
+
+Supported RPC clients receive bounded text, without terminal components or mouse input.
+Each response is capped at 64 KiB. JSON and print runs keep their existing result behaviour.
 
 ## Getting the result
 
@@ -271,6 +324,42 @@ session capacity reached (limits.maxConcurrentRuns: 4); active runs: <ids>. Wait
 
 A capacity of four through depth three can reach `4 + 16 + 64 = 84` descendants.
 There is no machine-wide budget. Concurrent writers need separate safe working directories or worktrees.
+
+### Operator settings
+
+1. Run `/subagents-settings` with no arguments.
+2. Select a setting from the menu.
+3. Enter a whole number.
+4. Read the value, destination and any load warning.
+5. Confirm the save, or decline it.
+6. Select Done to close the menu.
+
+Native selection, input and confirmation dialogs work in interactive Pi and supported RPC clients.
+The command starts no agent or model request. Clients without dialogs receive an error before any settings file access.
+
+| Menu item                           | Validation                                  | Save destination                            |
+| ----------------------------------- | ------------------------------------------- | ------------------------------------------- |
+| Maximum nesting depth               | Safe integer of at least 0; root depth is 0 | `limits.maxDepth` in registry YAML          |
+| Parallel direct children per parent | Safe integer of at least 1                  | `limits.maxConcurrentRuns` in registry YAML |
+| Visible agents                      | Safe integer from 1 to 256; default 4       | `<config-dir>/pi-subagents/config.json`     |
+
+Parallel agents and direct children share the same per-parent limit.
+The menu shows the selected registry path, including any `OMPSS_REGISTRY` override.
+The display config uses absolute `XDG_CONFIG_HOME`, otherwise `~/.config`.
+Unrelated JSON keys remain intact; OMPSS does not write todo preferences or Pi's `settings.json`.
+
+Cancelling an input or declining confirmation changes nothing for that setting.
+Earlier confirmed saves remain in effect. Confirming creation of a missing registry creates version one with `agents: {}`.
+YAML comments, agent mappings, resource paths and the other limit remain intact after a limit edit.
+
+Malformed or unreadable files must be corrected before saving. Invalid display config uses four visible agents in the cache.
+A file changed by another session or editor causes a conflict: reopen settings before saving.
+Writes use private temporary files and atomic replacement. A failed write leaves the destination and display cache unchanged.
+Short-lived locks apply to individual destinations and allow concurrent Pi sessions.
+
+New launches read saved execution limits afresh. Lower capacity leaves admitted work running until a slot becomes available.
+Depth zero blocks new launches. Raising depth applies to new branches; an existing branch retains its inherited ceiling.
+Each parent has its own capacity, so nested branching can multiply process and provider load.
 
 ### Blocked after a failed cleanup
 

@@ -7,7 +7,7 @@ const DISPLAY_TOOLS = 4;
 const DISPLAY_RUNS = 4;
 
 /** Remove terminal instructions and flatten text before putting it near the editor. */
-function plain(text: string, limit: number): string {
+export function plain(text: string, limit: number): string {
 	return (
 		stripVTControlCharacters(text)
 			// oxlint-disable-next-line no-control-regex -- Remove terminal controls and direction overrides from untrusted display text.
@@ -32,6 +32,8 @@ interface DisplaySession {
 export class RunPanel {
 	private readonly sessions = new Map<string, DisplaySession>();
 	private defaultOwner: string | undefined;
+
+	constructor(private readonly visibleAgents: () => number = () => DISPLAY_RUNS) {}
 
 	/** Apply one authoritative snapshot without replacing a sibling's display data. */
 	onChange(run: RunView): void {
@@ -93,7 +95,8 @@ export class RunPanel {
 		const session = owner ? this.sessions.get(owner) : undefined;
 		if (!session) return [];
 		const active = [...session.active.values()];
-		const displayed = active.length ? active.slice(0, DISPLAY_RUNS) : session.idle ? [session.idle] : [];
+		const bound = this.visibleAgents();
+		const displayed = active.length ? active.slice(0, bound) : session.idle ? [session.idle] : [];
 		const lines: string[] = [];
 		for (const { run, tools, preview } of displayed) {
 			lines.push(`OMPSS: ${plain(run.agent, MAX_NAME_CHARS)} ${run.state} (${plain(run.id, 128)})`);
@@ -104,7 +107,7 @@ export class RunPanel {
 			}
 			if (preview) lines.push(`${run.state === "failed" ? "Partial output" : "Answer"}: ${preview}`);
 		}
-		if (active.length > DISPLAY_RUNS) lines.push(`${active.length - DISPLAY_RUNS} additional active runs`);
+		if (active.length > bound) lines.push(`${active.length - bound} additional active runs`);
 		return lines;
 	}
 

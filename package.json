@@ -21,9 +21,15 @@
 	"files": [
 		"child-guard.ts",
 		"config.ts",
+		"details.ts",
 		"index.ts",
+		"inspector.ts",
 		"managed-child.ts",
 		"notify.ts",
+		"observation.ts",
+		"observation-validation.ts",
+		"observation-relay.ts",
+		"observation-transport.ts",
 		"panel.ts",
 		"persistence.ts",
 		"processes.ts",
@@ -33,10 +39,14 @@
 		"runner.ts",
 		"runs.ts",
 		"service.ts",
+		"settings.ts",
+		"settings-persistence.ts",
 		"startup.ts",
 		"store.ts",
 		"supervisor.ts",
 		"todo-bootstrap.ts",
+		"tree-card.ts",
+		"viewer.ts",
 		"skills/om-pi-subagents/SKILL.md",
 		"docs/INSTALL.md",
 		"docs/SETUP.md",
@@ -78,10 +88,14 @@
 	},
 	"peerDependencies": {
 		"@earendil-works/pi-coding-agent": "*",
+		"@earendil-works/pi-tui": "*",
 		"typebox": "*"
 	},
 	"peerDependenciesMeta": {
 		"@earendil-works/pi-coding-agent": {
+			"optional": true
+		},
+		"@earendil-works/pi-tui": {
 			"optional": true
 		},
 		"typebox": {

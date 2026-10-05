@@ -42,6 +42,7 @@ describe("tooling agrees with the documentation", () => {
 					properties = tool.parameters.properties;
 				},
 				registerCommand: () => {},
+				registerEntryRenderer: () => {},
 			} as never,
 			() => {
 				throw new Error("Documentation examples must not launch a run");

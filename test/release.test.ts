@@ -70,6 +70,16 @@ describe("the package is ready to publish", () => {
 			"docs/USAGE.md",
 			"docs/UNINSTALL.md",
 			"skills/om-pi-subagents/SKILL.md",
+			"settings.ts",
+			"settings-persistence.ts",
+			"observation.ts",
+			"observation-validation.ts",
+			"observation-relay.ts",
+			"observation-transport.ts",
+			"tree-card.ts",
+			"viewer.ts",
+			"inspector.ts",
+			"details.ts",
 		])
 			expect(files, required).toContain(required);
 		const allowed =
@@ -129,7 +139,13 @@ describe("the package is ready to publish", () => {
 
 	it("needs only yaml at runtime, and keeps Pi's packages as wildcard peers", () => {
 		expect(Object.keys(pkg.dependencies)).toEqual(["yaml"]);
-		expect(Object.keys(pkg.peerDependencies).sort()).toEqual(["@earendil-works/pi-coding-agent", "typebox"]);
+		expect(Object.keys(pkg.peerDependencies).sort()).toEqual([
+			"@earendil-works/pi-coding-agent",
+			"@earendil-works/pi-tui",
+			"typebox",
+		]);
+		for (const name of Object.keys(pkg.peerDependencies))
+			expect(pkg.peerDependenciesMeta[name]).toEqual({ optional: true });
 		for (const range of Object.values(pkg.peerDependencies)) expect(range).toBe("*");
 	});
 

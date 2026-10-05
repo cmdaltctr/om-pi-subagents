@@ -67,6 +67,7 @@ async function setup(script: Turn[]) {
 		{
 			registerTool: (t: any) => tools.set(t.name, t),
 			registerCommand: (n: string, c: any) => commands.set(n, c),
+			registerEntryRenderer: () => undefined,
 			on: () => undefined,
 		} as any,
 		() => service,

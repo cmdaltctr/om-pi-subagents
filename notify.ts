@@ -25,23 +25,28 @@ export interface NotifierDeps {
 	directoryFor(run: RunView): string;
 	/** Saved apart from the run's result, so a failed delivery never changes it. */
 	recordDelivery(run: RunView, result: { delivered: boolean; error?: string }): Promise<void>;
+	/** Cached display preference. Rendering must never refresh files. */
+	visibleAgents?(): number;
 }
 
 const errorText = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
 export function createNotifier(deps: NotifierDeps) {
 	const notified = new Set<string>();
-	const panel = new RunPanel();
+	const panel = new RunPanel(deps.visibleAgents);
 
 	function draw(run: RunView): void {
-		if (!panel.matches(run)) return;
+		if (panel.matches(run)) redraw(run.owner);
+	}
+
+	function redraw(owner: string): void {
 		try {
-			deps.messenger(run.owner)?.setStatus?.(panel.status(run.owner));
+			deps.messenger(owner)?.setStatus?.(panel.status(owner));
 		} catch {
 			/* A status failure must not block the widget. */
 		}
 		try {
-			deps.messenger(run.owner)?.setWidget?.(panel.render(run.owner));
+			deps.messenger(owner)?.setWidget?.(panel.render(owner));
 		} catch {
 			/* Display failures do not change the run. */
 		}
@@ -63,6 +68,8 @@ export function createNotifier(deps: NotifierDeps) {
 	}
 
 	return {
+		/** Repaint cached display state after a preference or descendant observation changes. */
+		redraw,
 		/** Send one follow-up for a finished run. A cancelled run sends nothing. Never throws. */
 		async onTerminal(run: RunView): Promise<void> {
 			if (run.state === "cancelled" || notified.has(run.id)) return;
