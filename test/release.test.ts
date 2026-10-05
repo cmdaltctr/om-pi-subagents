@@ -55,7 +55,7 @@ describe("the package is ready to publish", () => {
 
 	it("is findable as a Pi package", () => {
 		expect(pkg.keywords).toContain("pi-package");
-		expect(pkg.pi).toEqual({ extensions: ["./index.ts"] });
+		expect(pkg.pi).toEqual({ extensions: ["./index.ts"], skills: ["./skills"] });
 	});
 
 	it("ships source, docs and licence, and nothing else", () => {
@@ -69,9 +69,11 @@ describe("the package is ready to publish", () => {
 			"docs/SETUP.md",
 			"docs/USAGE.md",
 			"docs/UNINSTALL.md",
+			"skills/om-pi-subagents/SKILL.md",
 		])
 			expect(files, required).toContain(required);
-		const allowed = /^([a-z-]+\.ts|docs\/[A-Z-]+\.md|README\.md|LICENSE|CHANGELOG\.md|package\.json)$/;
+		const allowed =
+			/^([a-z-]+\.ts|docs\/[A-Z-]+\.md|skills\/om-pi-subagents\/SKILL\.md|README\.md|LICENSE|CHANGELOG\.md|package\.json)$/;
 		expect(files.filter((f) => !allowed.test(f))).toEqual([]);
 	});
 
@@ -79,6 +81,8 @@ describe("the package is ready to publish", () => {
 		const files = packedFiles();
 		for (const banned of [
 			/^test\//,
+			/^evals\//,
+			/trigger-eval\.json$/,
 			/\.test\.ts$/,
 			/^openspec\//,
 			/^graphify-out\//,

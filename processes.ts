@@ -65,6 +65,8 @@ const sleep = (ms: number) => new Promise((done) => setTimeout(done, ms));
 export class OwnedProcesses {
 	private readonly known = new Map<number, string>();
 	private timer: NodeJS.Timeout | undefined;
+	/** A missed sample can hide descendants that later lose their parent. */
+	inspectionError: string | undefined;
 
 	constructor(
 		private readonly rootPid: number,
@@ -74,7 +76,12 @@ export class OwnedProcesses {
 
 	/** Remember the descendants that exist now. */
 	async sample(): Promise<void> {
-		for (const proc of await this.list(this.rootPid)) this.known.set(proc.pid, proc.started);
+		try {
+			for (const proc of await this.list(this.rootPid)) this.known.set(proc.pid, proc.started);
+		} catch (error) {
+			this.inspectionError ??= error instanceof Error ? error.message : String(error);
+			throw error;
+		}
 	}
 
 	/** Sample repeatedly while the child lives. Call `unwatch` when it is stopped. */

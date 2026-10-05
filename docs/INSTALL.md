@@ -20,6 +20,19 @@ Pi records the package in the `packages` list of `~/.pi/agent/settings.json`.
 To install for one project only, add `-l` (`--local`). Pi then writes `.pi/settings.json` in that project.
 Pi loads a project install only after you trust the project.
 
+**`npm warn install-scripts` lines are harmless.** npm 11.5 and newer skip dependency install
+scripts until you approve them, and repeat the reminder on every install or update.
+Any packages npm lists come from your other Pi packages, not from OMPSS.
+OMPSS has one runtime dependency, `yaml`, which has no install script.
+OMPSS works with those scripts skipped. To stop the reminder, deny the listed packages
+in Pi's shared package folder, normally `~/.pi/agent/npm/`:
+
+```sh
+cd ~/.pi/agent/npm && npm install-scripts deny <package-name>
+```
+
+The denial covers that folder only. It changes no other project.
+
 ## Install a local copy
 
 Use this for development only.
@@ -40,6 +53,17 @@ Your mapping lives in `~/.pi/agent/om-pi-subagents.yaml`, outside the package.
 Set `OMPSS_REGISTRY` to use another file.
 
 You do not need `.pi-host/` to use the extension. Pi supplies those packages at runtime.
+
+## Packaged skill and optional todo
+
+A package install exposes `/skill:om-pi-subagents` when Pi skill commands are enabled.
+For a local checkout, load it as a package with `pi install ./path/to/checkout` to discover the skill.
+Copying only `index.ts` as an extension does not register package skills.
+Use the installed package's skill path for explicit child loading. See [usage](USAGE.md#nested-results-and-local-todos).
+
+`om-pi-todo` stays optional. Install it separately if needed, then explicitly map its extension and approve `todo`.
+The child uses a local normal-mode list; parent tasks and global preferences remain unchanged.
+Existing YAML with omitted `limits` keeps one direct child and maximum depth one.
 
 ## Next step: add an agent
 
@@ -102,6 +126,9 @@ To return a pinned install to the newest version:
 A tag is not pinned. `pi update npm:om-pi-subagents` follows the tag to each new release.
 
 ### Roll back to an older version
+
+Stop every active subtree before rollback. Older parsers reject `limits`, so remove that section from their mapping.
+Keep your saved run files; older versions cannot resume nested runs.
 
 1. Run `npm view om-pi-subagents versions` to list published versions.
 2. Run `pi install npm:om-pi-subagents@0.1.0`, using the version you want.

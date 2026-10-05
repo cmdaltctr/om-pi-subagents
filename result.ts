@@ -1,7 +1,7 @@
 // Terminal-result rules. A run completes only when every gate passes; no single signal proves success.
 // `agent_end`, an accepted command, existing output and exit code zero each prove nothing alone.
 
-import { VIOLATION_ENTRY } from "./protocol.ts";
+import { CLEANUP_ENTRY, VIOLATION_ENTRY } from "./protocol.ts";
 import type { RpcRecord } from "./rpc.ts";
 import type { RunOutcome } from "./runs.ts";
 
@@ -33,6 +33,7 @@ export class ResultJudge {
 	private accepted = false;
 	private settled = false;
 	private fatal: string | undefined;
+	private descendantCleanup: string | undefined;
 	private last: FinalMessage | undefined;
 
 	constructor(private readonly token: string) {}
@@ -69,6 +70,11 @@ export class ResultJudge {
 				this.fail(`protocol error: ${record.reason}`);
 				break;
 			case "entry_appended":
+				if (record.entry?.customType === CLEANUP_ENTRY && record.entry.data?.token === this.token) {
+					const data = record.entry.data;
+					this.descendantCleanup ??= `descendant ${String(data.runId)}: ${String(data.error)}`;
+					this.fail(`cleanup failed: ${this.descendantCleanup}`);
+				}
 				if (record.entry?.customType === VIOLATION_ENTRY && record.entry.data?.token === this.token) {
 					const data = record.entry.data;
 					this.fail(
@@ -107,6 +113,11 @@ export class ResultJudge {
 		}
 	}
 
+	/** Cleanup evidence remains available even when another failure won result judgement. */
+	cleanupFailure(): string | undefined {
+		return this.descendantCleanup;
+	}
+
 	/** Latest assistant text, for output that must be labelled partial. */
 	partial(): string | undefined {
 		return this.last?.text || undefined;
@@ -121,12 +132,14 @@ const failed = (error: string, cleanupFailed = false): RunOutcome => ({
 
 /** Combine the assessment with the facts gathered at shutdown. The first failing gate names the error. */
 export function decide(assessment: Assessment, facts: FinalFacts): RunOutcome {
-	if (assessment === "pending") return failed("child exited without a settled result");
-	if (!assessment.ok) return failed(assessment.reason);
-	if (facts.persistError) return failed(`could not save output: ${facts.persistError}`);
+	const fail = (reason: string) =>
+		failed(facts.cleanupError ? `${reason}; cleanup failed: ${facts.cleanupError}` : reason, !!facts.cleanupError);
+	if (assessment === "pending") return fail("child exited without a settled result");
+	if (!assessment.ok) return fail(assessment.reason);
+	if (facts.persistError) return fail(`could not save output: ${facts.persistError}`);
 	const { code, signal } = facts.exit;
-	if (signal) return failed(`child was killed by ${signal}`);
-	if (code !== 0) return failed(`child exited with code ${code}`);
+	if (signal) return fail(`child was killed by ${signal}`);
+	if (code !== 0) return fail(`child exited with code ${code}`);
 	if (facts.cleanupError) return failed(`cleanup failed: ${facts.cleanupError}`, true);
 	return { state: "completed" };
 }

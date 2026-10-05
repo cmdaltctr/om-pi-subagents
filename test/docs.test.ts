@@ -82,6 +82,24 @@ describe("tooling agrees with the documentation", () => {
 		expect(pkg.devDependencies.vite).toBe("8.3.1");
 	});
 
+	it("pins the OpenSpec CLI used by the real todo compatibility tests", () => {
+		expect(pkg.devDependencies["@fission-ai/openspec"]).toBe("1.14.0");
+		expect(pkg.dependencies).not.toHaveProperty("@fission-ai/openspec");
+		expect(execFileSync(join(ROOT, "node_modules/.bin/openspec"), ["--version"], { encoding: "utf8" }).trim()).toBe(
+			"1.14.0",
+		);
+	});
+
+	it("documents the accepted development-only advisory and keeps production audits unfiltered", () => {
+		expect(pkg.scripts.audit).toBe("bun audit --prod && bun audit --ignore GHSA-vfj7-8cjw-p6xm");
+		const warning = read("README.md").match(/^> \[!CAUTION\]\n(?:>.*\n)+/m)?.[0];
+		expect(warning).toContain("braces@3.0.3");
+		expect(warning).toContain("GHSA-vfj7-8cjw-p6xm");
+		expect(warning).toContain("No patched release exists");
+		expect(warning).toContain("crash the OpenSpec CLI");
+		expect(warning).toContain("development dependency");
+	});
+
 	it("borrows pinned host packages without installing private peers", () => {
 		expect(read("bunfig.toml")).toMatch(/^peer = false$/m);
 		for (const name of Object.keys(pkg.peerDependencies)) expect(pkg.dependencies).not.toHaveProperty(name);
@@ -102,6 +120,7 @@ describe("tooling agrees with the documentation", () => {
 		const clean = read("scripts/ci-clean.sh");
 		for (const command of ["git clone", "export HUSKY=0", "bun install --frozen-lockfile", "bun run ci"])
 			expect(clean).toContain(command);
+		expect(clean).toContain('export OMPSS_PI_BIN="$PWD/.pi-host/node_modules/.bin/pi"');
 		const hook = read(".husky/pre-push");
 		expect(hook.indexOf("./scripts/setup-host.sh")).toBeLessThan(hook.indexOf("bun run ci:clean"));
 		for (const path of ["scripts/setup-host.sh", "scripts/ci-clean.sh", ".husky/pre-push"])

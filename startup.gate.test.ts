@@ -4,15 +4,19 @@ import { PREFLIGHT_COMMAND, READY_ENTRY } from "./protocol.ts";
 import type { LaunchInput } from "./runner.ts";
 import type { RpcChannel, RpcRecord } from "./rpc.ts";
 import { runGate, StartupError } from "./startup.ts";
+import { fixtureLineage } from "./test/fixtures/lineage.ts";
 
 const GUARD = "/ext/child-guard.ts";
-const input = { guardPath: GUARD, runToken: "tok", cwd: "/tmp" } as LaunchInput;
+const input = { guardPath: GUARD, runToken: "tok", cwd: "/tmp", lineage: fixtureLineage() } as LaunchInput;
 const fail = (message: string) => new StartupError(message);
 
 const guardCommand = { name: PREFLIGHT_COMMAND, source: "extension", sourceInfo: { path: GUARD } };
 const readyEntry = {
 	type: "entry_appended",
-	entry: { customType: READY_ENTRY, data: { token: "tok", ok: true, problems: [], tools: [], cwd: "/tmp" } },
+	entry: {
+		customType: READY_ENTRY,
+		data: { token: "tok", ok: true, problems: [], tools: [], cwd: "/tmp", lineage: fixtureLineage() },
+	},
 };
 
 /** A channel that answers get_commands and prompt from `script`, and serves `records` to waitFor. */

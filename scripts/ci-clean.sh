@@ -31,5 +31,7 @@ else
 	./scripts/setup-host.sh
 fi
 
+# Match CI's executable override so nested fixtures exercise the same launch path.
+export OMPSS_PI_BIN="$PWD/.pi-host/node_modules/.bin/pi"
 bun run ci
 echo "ci-clean: passed"

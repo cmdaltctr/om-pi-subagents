@@ -100,7 +100,16 @@ export class RunStore {
 			// nosemgrep: AIK_ts_generic_path_traversal -- The run directory uses validated ids and the filename is constant.
 			join(directory, "config.json"),
 			JSON.stringify(
-				{ runId, owner, agent: settings, task: request.task, cwd: request.cwd, createdAt: view.startedAt },
+				{
+					runId,
+					owner,
+					agent: settings,
+					task: request.task,
+					cwd: request.cwd,
+					createdAt: view.startedAt,
+					limits: request.limits,
+					nesting: request.nesting,
+				},
 				null,
 				2,
 			),

@@ -2,6 +2,8 @@
 // The test kills this process without warning to prove that no child outlives its parent.
 import type { AgentSnapshot } from "../../config.ts";
 import { launchChild } from "../../startup.ts";
+import { fixtureLineage } from "./lineage.ts";
+import { join } from "node:path";
 
 const config = JSON.parse(process.argv[2]);
 const snapshot: AgentSnapshot = {
@@ -20,6 +22,7 @@ const ready = await launchChild({
 	personaFile: config.personaFile,
 	guardPath: config.guardPath,
 	runToken: "parent-run",
+	lineage: fixtureLineage(join(config.env.PI_CODING_AGENT_DIR, "om-pi-subagents.yaml")),
 	piBin: config.piBin,
 	parentModel: "fake/counter",
 	env: config.env,

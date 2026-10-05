@@ -14,6 +14,8 @@ TDRs record implementation-level findings: platform workarounds, debugging resul
 | [001](./001-make-tests-pass-on-linux.md)                              | Make process, path and clean-up tests pass on Linux   | 2026-10-01 | Accepted |
 | [002](./002-allow-tool-events-before-the-prompt-response-in-tests.md) | Allow tool events before the prompt response in tests | 2026-10-02 | Accepted |
 | [003](./003-leave-the-generated-changelog-out-of-format-checks.md)    | Leave the generated changelog out of format checks    | 2026-10-02 | Accepted |
+| [004](./004-wait-for-descendants-while-the-turn-can-be-aborted.md)    | Wait for descendants while the turn can be aborted    | 2026-10-05 | Accepted |
+| [005](./005-match-ci-launch-overrides-and-declare-test-tools.md)      | Match CI launch overrides and declare test tools      | 2026-10-05 | Accepted |
 
 ## Status values
 

@@ -28,14 +28,7 @@ describe("README makes no legacy-compatibility claim", () => {
 
 	it("lists every unsupported legacy feature", () => {
 		const unsupported = section("Not supported");
-		for (const feature of [
-			/subagent/i,
-			/workflow/i,
-			/fleet/i,
-			/another child|nested|starts another/i,
-			/council/i,
-			/resum/i,
-		])
+		for (const feature of [/subagent/i, /workflow/i, /fleet/i, /council/i, /resum/i])
 			expect(unsupported).toMatch(feature);
 	});
 

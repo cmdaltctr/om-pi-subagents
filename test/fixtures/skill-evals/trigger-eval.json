@@ -1,0 +1,14 @@
+[
+	{ "query": "Configure OMPSS for four parallel subagents and three generations.", "should_trigger": true },
+	{ "query": "My OMPSS child needs to delegate using the mapped ompss tool.", "should_trigger": true },
+	{ "query": "Why does OMPSS refuse another run after failed cleanup?", "should_trigger": true },
+	{ "query": "Cancel one OMPSS subtree while its siblings keep working.", "should_trigger": true },
+	{ "query": "Keep om-pi-todo tasks separate in OMPSS children and a sync parent.", "should_trigger": true },
+	{ "query": "OMPSS has no mapped agents. Help me set up its YAML.", "should_trigger": true },
+	{ "query": "Summarise this README without delegating any work.", "should_trigger": false },
+	{ "query": "Write a SQL query for monthly sales.", "should_trigger": false },
+	{ "query": "Change my standalone todo task to completed.", "should_trigger": false },
+	{ "query": "Explain JavaScript event loops and promises.", "should_trigger": false },
+	{ "query": "Find a paper about cancer metabolism.", "should_trigger": false },
+	{ "query": "Fix the CSS spacing in this dashboard.", "should_trigger": false }
+]

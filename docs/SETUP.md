@@ -272,12 +272,15 @@ Put blocking issues first. Keep the whole answer under 400 words.
 
 ### Top-level keys
 
-| Key       | Required | Value                                                            |
-| --------- | -------- | ---------------------------------------------------------------- |
-| `version` | yes      | The number `1`. The text `'1'` and other numbers are rejected.   |
-| `agents`  | yes      | A mapping of agent names to settings. Use `agents: {}` for none. |
+| Key       | Required | Value                                                              |
+| --------- | -------- | ------------------------------------------------------------------ |
+| `version` | yes      | The number `1`. The text `'1'` and other numbers are rejected.     |
+| `agents`  | yes      | A mapping of agent names to settings. Use `agents: {}` for none.   |
+| `limits`  | no       | `maxConcurrentRuns` and `maxDepth`. Omitted fields default to one. |
 
-No other top-level key is allowed.
+Only `version`, `agents` and `limits` are allowed at the top level.
+`maxConcurrentRuns` accepts safe integers of at least one; `maxDepth` accepts safe integers of at least zero.
+See [configured limits and nesting](USAGE.md#configured-limits-and-nesting) for the table, depth examples and branch ceilings.
 
 ### Agent names
 
@@ -358,7 +361,9 @@ tools:
 - Add `tool_search` when the agent must find deferred MCP tools (tools Pi does not show to the model until it searches for them).
 - Listing an MCP tool does not set up its server. Configure the server in Pi first, for example with `pi mcp add`, and check it with `pi mcp list`.
 - The old tool name `mcp` no longer exists. Use the native `mcp__<server>__<tool>` names.
-- A tool from an extension needs that extension in `extensions`, because the child loads no other extensions.
+- A tool from an extension needs its explicit `extensions` entry.
+- Approving the exact `ompss` tool loads OMPSS's managed delegator. It can select targets with their own tool permissions.
+- Approving `todo` requires the real todo extension too. OMPSS seeds only the child's normal-mode list.
 
 Before the task is sent, OMPSS checks that every listed tool exists in the child. A missing tool stops the run before the model sees the task.
 
@@ -389,6 +394,9 @@ A skill is a `SKILL.md` instruction file that Pi can load. An extension is TypeS
 | Outside the mapping folder | allowed                                 | allowed                                 |
 
 The containment rule applies to personas only.
+For `/skill:om-pi-subagents`, map the installed package's `skills/om-pi-subagents/SKILL.md` explicitly into a child.
+Use the folder shown by `pi list`. Loading a skill grants no tools.
+See [nested results and local todos](USAGE.md#nested-results-and-local-todos) for portable mapping examples.
 
 ### Complete example
 
@@ -458,7 +466,7 @@ OMPSS reports the first problem it finds. Fix it, then run `/ompss list` again.
 | `version: required`                                                      | No `version` key. An empty mapping file also gives this.       | Add `version: 1` as the first line.                                                                      |
 | `version: unsupported ...; expected 1`                                   | `version` is not the number 1                                  | Write `version: 1` without quotes.                                                                       |
 | `agents: required mapping (use {} for no agents)`                        | `agents` is missing or is not a mapping                        | Add `agents:` with agents under it, or `agents: {}`.                                                     |
-| `<key>: unknown field`                                                   | A top-level key other than `version` or `agents`               | Remove the key or correct its spelling.                                                                  |
+| `<key>: unknown field`                                                   | A top-level key other than `version`, `agents` or `limits`     | Remove the key or correct its spelling.                                                                  |
 | `agents.<name>.<field>: unknown field`                                   | A misspelt or unsupported agent field, such as `toolz`         | Use only the fields in [Agent fields](#agent-fields).                                                    |
 | `invalid name; use [a-z][a-z0-9-]{0,63}`                                 | Capital letter, underscore, leading digit or too long          | Rename the agent. See [Agent names](#agent-names).                                                       |
 | `agents.<name>: must be a mapping`                                       | The agent has no fields under it                               | Indent its fields under the name.                                                                        |

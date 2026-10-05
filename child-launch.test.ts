@@ -9,6 +9,8 @@ import type { AgentSnapshot } from "./config.ts";
 import { buildLaunch } from "./runner.ts";
 import { PI_BIN, startPi, type PiFixture } from "./test/fixtures/pi-rpc.ts";
 
+import { fixtureLineage } from "./test/fixtures/lineage.ts";
+
 const GUARD = new URL("./child-guard.ts", import.meta.url).pathname;
 
 const AMBIENT_EXTENSION = `
@@ -76,6 +78,7 @@ async function startChild(overrides: Partial<AgentSnapshot> = {}): Promise<PiFix
 				personaFile: join(dirname(agentDir), "persona.md"),
 				guardPath: GUARD,
 				runToken: "token-9",
+				lineage: fixtureLineage(join(agentDir, "om-pi-subagents.yaml")),
 				piBin: PI_BIN,
 				parentModel: "fake/counter",
 			}),

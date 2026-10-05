@@ -103,7 +103,7 @@ describe("live panel on real Pi", () => {
 				record.type === "extension_ui_request" &&
 				record.method === "setWidget" &&
 				record.widgetKey === "ompss" &&
-				record.widgetLines?.join("\n") === "OMPSS: reader running\nTools: bash",
+				/^OMPSS: reader running \([0-9a-f-]{36}\)\nTools: bash$/.test(record.widgetLines?.join("\n") ?? ""),
 		);
 		expect(active.widgetPlacement).toBe("aboveEditor");
 		await waitFor(() => settles(fixture) === 2);
@@ -111,7 +111,8 @@ describe("live panel on real Pi", () => {
 			(record) =>
 				record.type === "extension_ui_request" && record.method === "setWidget" && record.widgetKey === "ompss",
 		);
-		expect(widgets.at(-1)!.widgetLines).toEqual(["OMPSS: reader completed", "Answer: CHILD ANSWER"]);
+		const runId = /\(([0-9a-f-]{36})\)$/.exec(active.widgetLines[0])![1];
+		expect(widgets.at(-1)!.widgetLines).toEqual([`OMPSS: reader completed (${runId})`, "Answer: CHILD ANSWER"]);
 		for (const record of widgets) {
 			expect(record.widgetLines.join("\n")).not.toMatch(/PRIVATE TOOL RESULT|sleep 2|printf/);
 		}

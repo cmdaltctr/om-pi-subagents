@@ -9,23 +9,13 @@ import {
 	PREFLIGHT_COMMAND,
 	READY_ENTRY,
 	VIOLATION_ENTRY,
-	type ChildPolicy,
+	readChildPolicy,
 	type Readiness,
 	type Violation,
 } from "./protocol.ts";
 
 const POLL_MS = 100;
 const MARGIN_MS = 1000;
-
-const readPolicy = (): ChildPolicy | string => {
-	try {
-		const policy = JSON.parse(process.env.OMPSS_POLICY ?? "");
-		if (Array.isArray(policy.tools) && typeof policy.startupDeadlineMs === "number") return policy;
-	} catch {
-		// fall through
-	}
-	return "OMPSS_POLICY is missing or invalid";
-};
 
 const sleep = (ms: number) => new Promise((done) => setTimeout(done, ms));
 
@@ -52,7 +42,7 @@ function modelProblems(ctx: ExtensionContext, expected: string | undefined): str
 export default function childGuard(pi: ExtensionAPI): void {
 	// Execution-time enforcement. A missing or invalid policy approves nothing.
 	const approved = (tool: string) => {
-		const policy = readPolicy();
+		const policy = readChildPolicy();
 		return typeof policy !== "string" && policy.tools.includes(tool);
 	};
 	const recorded = new Set<string>();
@@ -92,7 +82,7 @@ export default function childGuard(pi: ExtensionAPI): void {
 		description: "OMPSS private readiness check",
 		handler: async (_args, ctx) => {
 			const token = process.env.OMPSS_RUN_TOKEN ?? "";
-			const policy = readPolicy();
+			const policy = readChildPolicy();
 			const names = () => pi.getAllTools().map((tool) => tool.name);
 			const problems: string[] = [];
 
@@ -116,6 +106,7 @@ export default function childGuard(pi: ExtensionAPI): void {
 				tools: names(),
 				model: ctx.model ? `${ctx.model.provider}/${ctx.model.id}` : undefined,
 				cwd: ctx.cwd,
+				lineage: typeof policy === "string" ? undefined : policy.lineage,
 			};
 			pi.appendEntry(READY_ENTRY, readiness);
 		},

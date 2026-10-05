@@ -11,6 +11,8 @@ import { stopGroup, type LaunchInput } from "./runner.ts";
 import { launchChild, StartupError, type ReadyChild } from "./startup.ts";
 import { createWorkspace, PI_BIN, type Workspace } from "./test/fixtures/pi-rpc.ts";
 
+import { fixtureLineage } from "./test/fixtures/lineage.ts";
+
 const GUARD = new URL("./child-guard.ts", import.meta.url).pathname;
 
 let workspace: Workspace | undefined;
@@ -68,6 +70,7 @@ async function attempt(options: Attempt = {}): Promise<ReadyChild | StartupError
 		personaFile: join(workspace.root, "persona.md"),
 		guardPath: options.guardPath ?? GUARD,
 		runToken: "run-token",
+		lineage: fixtureLineage(join(workspace.agentDir, "om-pi-subagents.yaml")),
 		piBin: options.piBin ?? PI_BIN,
 		parentModel: options.model ?? "fake/counter",
 		startupDeadlineMs: options.startupDeadlineMs ?? 15_000,
@@ -179,7 +182,7 @@ describe("startup failures", () => {
 			"rogue-guard.ts",
 			`export default (pi) => pi.registerCommand(${JSON.stringify(PREFLIGHT_COMMAND)}, { description: "rogue", handler: async (_args, ctx) => {
         ${before}
-        pi.appendEntry(${JSON.stringify(READY_ENTRY)}, { token: "run-token", ok: true, problems: [], tools: ["read"], model: "fake/counter", cwd: ${cwdExpression} });
+        pi.appendEntry(${JSON.stringify(READY_ENTRY)}, { token: "run-token", ok: true, problems: [], tools: ["read"], model: "fake/counter", cwd: ${cwdExpression}, lineage: JSON.parse(process.env.OMPSS_POLICY).lineage });
       } });`,
 		);
 

@@ -35,13 +35,13 @@ describe("catalogue", () => {
 	it("accepts an empty catalogue and adds no fallback personas", async () => {
 		await write("om-pi-subagents.yaml", "version: 1\nagents: {}\n");
 		const registry = await loadRegistry(yamlPath());
-		expect(registry.size).toBe(0);
-		expect(registry.get("a-explore")).toBeUndefined();
+		expect(registry.agents.size).toBe(0);
+		expect(registry.agents.get("a-explore")).toBeUndefined();
 	});
 
 	it("treats a missing file as an empty catalogue", async () => {
 		const registry = await loadRegistry(yamlPath());
-		expect(registry.size).toBe(0);
+		expect(registry.agents.size).toBe(0);
 	});
 
 	it("registers arbitrary names without an `a-` prefix", async () => {
@@ -62,8 +62,8 @@ agents:
 `,
 		);
 		const registry = await loadRegistry(yamlPath());
-		expect([...registry.keys()].sort()).toEqual(["x9-review", "zeta"]);
-		expect(registry.get("zeta")?.tools).toEqual([]);
+		expect([...registry.agents.keys()].sort()).toEqual(["x9-review", "zeta"]);
+		expect(registry.agents.get("zeta")?.tools).toEqual([]);
 	});
 
 	it("keeps unmapped persona files unavailable", async () => {
@@ -71,14 +71,14 @@ agents:
 		await write("personas/unlisted.md", "Not mapped.");
 		await write("om-pi-subagents.yaml", reader);
 		const registry = await loadRegistry(yamlPath());
-		expect([...registry.keys()]).toEqual(["reader"]);
+		expect([...registry.agents.keys()]).toEqual(["reader"]);
 	});
 
 	it("follows added and removed mappings on the next load", async () => {
 		await write("personas/reader.md", "Read things.");
 		await write("personas/writer.md", "Write things.");
 		await write("om-pi-subagents.yaml", reader);
-		expect([...(await loadRegistry(yamlPath())).keys()]).toEqual(["reader"]);
+		expect([...(await loadRegistry(yamlPath())).agents.keys()]).toEqual(["reader"]);
 
 		await write(
 			"om-pi-subagents.yaml",
@@ -91,8 +91,8 @@ agents:
 `,
 		);
 		const after = await loadRegistry(yamlPath());
-		expect([...after.keys()]).toEqual(["writer"]);
-		expect(after.get("reader")).toBeUndefined();
+		expect([...after.agents.keys()]).toEqual(["writer"]);
+		expect(after.agents.get("reader")).toBeUndefined();
 	});
 });
 
@@ -102,7 +102,7 @@ describe("explicit thinking", () => {
 		async (thinking) => {
 			await write("personas/reader.md", "Read things.");
 			await write("om-pi-subagents.yaml", reader.replace("thinking: off", `thinking: ${thinking}`));
-			const agent = (await loadRegistry(yamlPath())).get("reader")!;
+			const agent = (await loadRegistry(yamlPath())).agents.get("reader")!;
 			expect(agent.thinking).toBe(thinking);
 			expect(agent.model).toBeUndefined();
 		},
@@ -113,7 +113,7 @@ describe("persona snapshot", () => {
 	it("resolves persona paths relative to the YAML file", async () => {
 		await write("personas/reader.md", "Read things.");
 		await write("om-pi-subagents.yaml", reader);
-		const agent = (await loadRegistry(yamlPath())).get("reader")!;
+		const agent = (await loadRegistry(yamlPath())).agents.get("reader")!;
 		expect(agent.personaPath.endsWith(join("personas", "reader.md"))).toBe(true);
 		expect(agent.persona).toBe("Read things.");
 	});
@@ -121,7 +121,7 @@ describe("persona snapshot", () => {
 	it("applies empty defaults for optional settings", async () => {
 		await write("personas/reader.md", "Read things.");
 		await write("om-pi-subagents.yaml", reader);
-		const agent = (await loadRegistry(yamlPath())).get("reader")!;
+		const agent = (await loadRegistry(yamlPath())).agents.get("reader")!;
 		expect(agent).toMatchObject({ name: "reader", tools: ["read", "grep"], skills: [], extensions: [] });
 		expect(agent.model).toBeUndefined();
 		expect(agent.thinking).toBe("off");
@@ -130,10 +130,10 @@ describe("persona snapshot", () => {
 	it("gives the next load edited text and leaves the earlier snapshot unchanged", async () => {
 		await write("personas/reader.md", "Version one.");
 		await write("om-pi-subagents.yaml", reader);
-		const first = (await loadRegistry(yamlPath())).get("reader")!;
+		const first = (await loadRegistry(yamlPath())).agents.get("reader")!;
 
 		await write("personas/reader.md", "Version two.");
-		const second = (await loadRegistry(yamlPath())).get("reader")!;
+		const second = (await loadRegistry(yamlPath())).agents.get("reader")!;
 
 		expect(first.persona).toBe("Version one.");
 		expect(second.persona).toBe("Version two.");

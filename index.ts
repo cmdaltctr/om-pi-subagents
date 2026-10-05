@@ -11,6 +11,7 @@ import { fileURLToPath } from "node:url";
 import { createRegistryStore } from "./config.ts";
 import { createNotifier, type Messenger } from "./notify.ts";
 import { createPersistence } from "./persistence.ts";
+import { CLEANUP_ENTRY, type ChildLineage } from "./protocol.ts";
 import { RunManager } from "./runs.ts";
 import { createService, type OmpssService, type RunContext } from "./service.ts";
 import { RunStore } from "./store.ts";
@@ -128,8 +129,13 @@ export function resolveRegistryPath(agentDir: string, env: NodeJS.ProcessEnv = p
 	return env.OMPSS_REGISTRY ?? join(agentDir, "om-pi-subagents.yaml");
 }
 
-/** Build the real service. Called once, on first use. */
-function createRuntime(pi: ExtensionAPI, binding: SessionBinding): OmpssService {
+export interface OmpssRuntime {
+	service: OmpssService;
+	manager: RunManager;
+}
+
+/** Build the runtime once, on first use. Child lifecycle hooks share its local run manager. */
+function createRuntime(pi: ExtensionAPI, binding: SessionBinding, branch?: ChildLineage): OmpssRuntime {
 	const agentDir = process.env.PI_CODING_AGENT_DIR ?? join(homedir(), ".pi", "agent");
 	const store = new RunStore(join(agentDir, "ompss", "runs"));
 	const persistence = createPersistence(store);
@@ -149,16 +155,29 @@ function createRuntime(pi: ExtensionAPI, binding: SessionBinding): OmpssService 
 		onProgress: notifier.onProgress,
 	});
 	const manager = new RunManager(supervisor, {
-		onChange: (view) => (persistence.onChange(view), notifier.onChange(view)),
-		onTerminal: (view) => void notifier.onTerminal(view),
+		onChange: (view) => {
+			persistence.onChange(view);
+			notifier.onChange(view);
+			if (branch && view.cleanupFailed)
+				pi.appendEntry(CLEANUP_ENTRY, {
+					token: process.env.OMPSS_RUN_TOKEN ?? "",
+					runId: view.id,
+					error: view.error ?? "descendant cleanup could not be confirmed",
+				});
+		},
+		onTerminal: (view) => notifier.onTerminal(view),
 	});
-	return createService({
-		registry: createRegistryStore(resolveRegistryPath(agentDir)),
+	return {
 		manager,
-		directoryFor: (owner, runId) => store.directoryFor(owner, runId),
-		flush: persistence.flush,
-		deliveryOf: persistence.deliveryOf,
-	});
+		service: createService({
+			registry: createRegistryStore(branch?.registryPath ?? resolveRegistryPath(agentDir)),
+			branch,
+			manager,
+			directoryFor: (owner, runId) => store.directoryFor(owner, runId),
+			flush: persistence.flush,
+			deliveryOf: persistence.deliveryOf,
+		}),
+	};
 }
 
 /** Register the tool and the command over a service that may be built lazily. */
@@ -167,7 +186,7 @@ export function registerOmpss(pi: ExtensionAPI, getService: () => OmpssService, 
 		name: "ompss",
 		label: "ompss",
 		description:
-			"Run a mapped subagent in the background (one at a time), check its progress, or cancel it. The result arrives as a follow-up message.",
+			"Run mapped subagents in the background within configured per-session limits, check progress, or cancel an owned subtree. Results arrive separately as follow-up messages.",
 		promptSnippet: "ompss: run a mapped subagent in the background (actions: list, run, status, cancel)",
 		parameters: PARAMETERS as never,
 		execute: async (_id, params: ToolParams, _signal, _update, ctx) => {
@@ -211,12 +230,11 @@ export function registerOmpss(pi: ExtensionAPI, getService: () => OmpssService, 
 	});
 }
 
-export default function ompss(pi: ExtensionAPI): void {
-	// Defence in depth: OMPSS children load child-guard.ts only, never this entry point.
-	if (process.env.OMPSS_CHILD === "1") return;
+/** Register the same lazy runtime in a root or explicitly approved managed child. */
+export function registerRuntime(pi: ExtensionAPI, branch?: ChildLineage): () => OmpssRuntime | undefined {
 	const binding = new SessionBinding();
-	let service: OmpssService | undefined;
-	registerOmpss(pi, () => (service ??= createRuntime(pi, binding)), binding);
+	let runtime: OmpssRuntime | undefined;
+	registerOmpss(pi, () => (runtime ??= createRuntime(pi, binding, branch)).service, binding);
 
 	pi.on("session_start", (_event, ctx) => binding.bind(ctx));
 	// Quit, reload and session replacement all end here: detach first so no message reaches a successor,
@@ -224,6 +242,13 @@ export default function ompss(pi: ExtensionAPI): void {
 	pi.on("session_shutdown", async () => {
 		const owner = binding.owner;
 		binding.end();
-		if (owner && service) await service.shutdown(owner);
+		if (owner && runtime) await runtime.service.shutdown(owner);
 	});
+	return () => runtime;
+}
+
+export default function ompss(pi: ExtensionAPI): void {
+	// A marked child may use only the parent's explicitly loaded managed entry.
+	if (process.env.OMPSS_CHILD === "1") return;
+	registerRuntime(pi);
 }

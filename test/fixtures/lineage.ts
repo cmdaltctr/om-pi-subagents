@@ -1,0 +1,6 @@
+import type { ChildLineage } from "../../protocol.ts";
+
+/** Valid synthetic root-child metadata for isolated launcher and guard fixtures. */
+export function fixtureLineage(registryPath = "/operator/om-pi-subagents.yaml"): ChildLineage {
+	return { registryPath, depth: 1, maxDepth: 1, rootSessionId: "fixture-root", runId: "fixture-run" };
+}

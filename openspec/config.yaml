@@ -2,7 +2,11 @@ schema: spec-driven
 
 context: |
   OMPSS is a TypeScript Pi extension with source files at the repository root.
-  It launches one native RPC child per parent session and enforces exact tool names.
+  YAML limits configure direct-child capacity per parent session and maximum depth from root zero.
+  Exact ompss approval permits nesting; fresh launches honour inherited branch depth ceilings.
+  Preserve immediate-parent ownership, separate result delivery and subtree cleanup blocking.
+  Approved todo children use the real mapped extension with local normal-mode tasks.
+  Ambient child resources stay disabled and exact tool names remain enforced.
   Pi host packages are wildcard peers, borrowed from ignored .pi-host/ for development.
   Use Bun, Vitest, Oxlint and Oxfmt. Comments and documentation use plain British English.
   Public guides are docs/INSTALL.md, docs/USAGE.md and docs/UNINSTALL.md.
