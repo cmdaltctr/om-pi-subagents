@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.0](https://github.com/cmdaltctr/om-pi-subagents/compare/v0.2.1...v0.3.0) (2026-10-05)
+
+
+### Features
+
+* add native agent trees and operator settings ([#10](https://github.com/cmdaltctr/om-pi-subagents/issues/10)) ([47c622d](https://github.com/cmdaltctr/om-pi-subagents/commit/47c622d698614295b8ed09c15c1a1b8c418869c8))
+* configure parallel capacity and approved nested subagents ([#8](https://github.com/cmdaltctr/om-pi-subagents/issues/8)) ([a999627](https://github.com/cmdaltctr/om-pi-subagents/commit/a999627fbaa05f2625aed03db49addaaad3f53b8))
+
 ## [0.2.1](https://github.com/cmdaltctr/om-pi-subagents/compare/v0.2.0...v0.2.1) (2026-10-02)
 
 
