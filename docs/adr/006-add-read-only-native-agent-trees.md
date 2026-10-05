@@ -1,7 +1,7 @@
 # ADR-006: Add read-only native agent trees and operator settings
 
 - **Date:** 2026-10-05
-- **Status:** Proposed
+- **Status:** Accepted
 - **Deciders:** Project maintainer
 
 ## Context
@@ -79,4 +79,4 @@ Todo's keys, preferences and parent task bindings remain separate.
 - [ADR-005: Concurrency and nesting](005-configure-per-session-concurrency-and-nesting.md)
 
 This decision changes the visible-row policy recorded by ADR-004 and ADR-005 to an operator preference, default four.
-Their execution, ownership and delivery decisions remain in force. Acceptance waits for the change's final verification.
+Their execution, ownership and delivery decisions remain in force. Accepted after the change's final verification on 2026-10-05.

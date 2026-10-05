@@ -49,8 +49,8 @@ The tasks below implement the viewer and settings only; they do not move existin
 
 ## 6. Integration verification and close-out
 
-- [ ] 6.1 Run disposable end-to-end viewer and settings scenarios on macOS and Linux, covering both interactive modes, a great-grandchild, simultaneous roots, hidden-agent inspection, cancelled saves, concurrent settings edits, delayed reads and shutdown; verify saved settings, output, final results, modal focus and process cleanup; report any unavailable platform as a gap.
+- [x] 6.1 Run disposable end-to-end viewer and settings scenarios on macOS and Linux, covering both interactive modes, a great-grandchild, simultaneous roots, hidden-agent inspection, cancelled saves, concurrent settings edits, delayed reads and shutdown; verify saved settings, output, final results, modal focus and process cleanup; report any unavailable platform as a gap.
 - [x] 6.2 Break lineage validation, terminal revision ordering, native expansion, modal selection isolation, viewer disposal, settings validation and write-conflict safeguards in disposable copies; verify their tests fail and keep deliberate breaks outside committed files.
 - [x] 6.3 Obtain approval for the full gate and run bun run ci, bun run audit and Aikido on changed first-party files; verify results, retain the existing documented development-only audit exception and keep scanner evidence local.
 - [x] 6.4 Run openspec validate add-agent-tree-viewer --strict and the verify workflow; verify requirements, scenarios and design against implementation evidence before archive approval.
-- [ ] 6.5 Archive the verified change with specs synced, commit implementation and planning artifacts together, and run the approved fresh-clone gate; verify its results before a separately authorised push or pull request.
+- [x] 6.5 Archive the verified change with specs synced, commit implementation and planning artifacts together, and run the approved fresh-clone gate; verify its results before a separately authorised push or pull request.
