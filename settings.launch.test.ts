@@ -81,8 +81,15 @@ describe.skipIf(!PI_AVAILABLE)("saved limits through fresh real launches", () =>
 			).toBe(true);
 			expect(await saved(fixture, "config.json")).toHaveLength(2);
 			await waitFor(async () => (await saved(fixture, "status.json")).every(({ data }) => data.state === "completed"));
-			await fixture.waitFor(
-				(record) => record.message?.customType === "ompss-result" && record.message.details?.runId === ids[1],
+			await Promise.all(
+				ids.map((id) =>
+					fixture.waitFor(
+						(record) =>
+							record.type === "message_end" &&
+							record.message?.customType === "ompss-result" &&
+							record.message.details?.runId === id,
+					),
+				),
 			);
 			for (const id of ids) {
 				expect(
@@ -184,8 +191,14 @@ describe.skipIf(!PI_AVAILABLE)("saved limits through fresh real launches", () =>
 					? { text: "Worker received its descendant result" }
 					: { tool: "ompss", args: { action: "run", agent: "worker", task: "Next generation" } };
 			};
-			await launch(fixture, "First nested generation");
-			await fixture.waitFor((record) => record.message?.customType === "ompss-result");
+			const id = await launch(fixture, "First nested generation");
+			const result = await fixture.waitFor(
+				(record) =>
+					record.type === "message_end" &&
+					record.message?.customType === "ompss-result" &&
+					record.message.details?.runId === id,
+			);
+			expect(result.message.details.state).toBe("completed");
 			const configurations = await saved(fixture, "config.json");
 			expect(configurations).toHaveLength(ceiling - 1);
 			expect(configurations.every(({ data }) => data.nesting.maxDepth === ceiling)).toBe(true);
@@ -196,6 +209,14 @@ describe.skipIf(!PI_AVAILABLE)("saved limits through fresh real launches", () =>
 				"utf8",
 			);
 			expect(events).toContain(`attempted depth ${ceiling + 1}, limits.maxDepth ${ceiling}`);
+			// Result delivery does not await the asynchronous status writes.
+			await waitFor(async () => {
+				const statuses = await saved(fixture, "status.json");
+				return (
+					statuses.length === configurations.length &&
+					statuses.every(({ data }) => ["completed", "failed", "cancelled"].includes(data.state))
+				);
+			});
 			expect((await saved(fixture, "status.json")).every(({ data }) => data.state === "completed")).toBe(true);
 			expect((await saved(fixture, "status.json")).some(({ data }) => alive(data.pid))).toBe(false);
 			expect(await fixture.exit()).toBe(0);

@@ -1,3 +1,4 @@
+import { spawnSync } from "node:child_process";
 import * as fs from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -57,6 +58,20 @@ afterEach(async () => {
 });
 
 describe("lazy selected details", () => {
+	it("preserves printable CSI text before a bell with the Node 22-compatible Bun stripper", () => {
+		const script = `
+			import assert from "node:assert/strict";
+			import { detailText } from ${JSON.stringify(new URL("./details.ts", import.meta.url).href)};
+			for (const text of ${JSON.stringify([
+				"\x1b[31manswer\x07\u2066",
+				"\x9b31manswer\x07",
+				"\x1b]8;;https://example.invalid/\x07answer\x1b]8;;\x07",
+			])}) assert.equal(detailText(text), "answer");
+		`;
+		const result = spawnSync("bun", ["-e", script], { encoding: "utf8", shell: false, timeout: 10_000 });
+		expect(result.error).toBeUndefined();
+		expect(result.status, result.stderr).toBe(0);
+	});
 	it("performs no I/O until an owned node is selected and reads only fixed evidence filenames", async () => {
 		const reader = createDetailReader(root, observations, "session");
 		expect(fs.open).not.toHaveBeenCalled();

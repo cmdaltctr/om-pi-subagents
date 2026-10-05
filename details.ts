@@ -21,7 +21,11 @@ export type DetailReader = (rootRunId: string, runId: string, signal?: AbortSign
 /** Keep line breaks while removing terminal instructions and direction overrides. */
 export function detailText(text: string): string {
 	return (
-		stripVTControlCharacters(text)
+		// Node 22 can consume printable text up to a later bell unless complete ANSI control sequences go first.
+		stripVTControlCharacters(
+			// oxlint-disable-next-line no-control-regex -- Remove complete seven-bit and eight-bit ANSI control sequences before the host stripper.
+			text.replace(/(?:\x1b\[|\x9b)[0-?]*[ -/]*[@-~]/g, ""),
+		)
 			.replace(/\r\n?/g, "\n")
 			// oxlint-disable-next-line no-control-regex -- Keep only safe line breaks from selected task and output text.
 			.replace(/[\x00-\x09\x0b-\x1f\x7f-\x9f\u202a-\u202e\u2066-\u2069]/g, "")
