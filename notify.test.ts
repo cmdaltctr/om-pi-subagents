@@ -179,7 +179,7 @@ describe("panel delivery", () => {
 		h.readOutput.mockRejectedValue(new Error("disk unavailable"));
 		h.notifier.onChange(view());
 		await h.notifier.onTerminal(view());
-		expect(h.setWidget.mock.lastCall?.[0]).toEqual(["OMPSS: reader completed"]);
+		expect(h.setWidget.mock.lastCall?.[0]).toEqual(["OMPSS: reader completed (run-1)"]);
 		expect(h.send).toHaveBeenCalledTimes(1);
 	});
 
@@ -200,7 +200,7 @@ describe("panel delivery", () => {
 			toolName: "read",
 		});
 		expect(h.setWidget.mock.lastCall?.[0].join("\n")).toContain("reader running");
-		expect(h.setWidget.mock.lastCall?.[0]).toEqual(["OMPSS: reader running", "Tools: read"]);
+		expect(h.setWidget.mock.lastCall?.[0]).toEqual(["OMPSS: reader running (run-1)", "Tools: read"]);
 	});
 
 	it("does not let an old preview replace a newer run", async () => {
@@ -217,7 +217,7 @@ describe("panel delivery", () => {
 		h.notifier.onChange(view({ id: "run-2", state: "starting" }));
 		release("OLD OUTPUT");
 		await pending;
-		expect(h.setWidget.mock.lastCall?.[0]).toEqual(["OMPSS: reader starting"]);
+		expect(h.setWidget.mock.lastCall?.[0]).toEqual(["OMPSS: reader starting (run-2)"]);
 	});
 
 	it.each([undefined, "replacement"])("rechecks ownership after an output read when owner becomes %s", async (next) => {

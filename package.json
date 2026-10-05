@@ -22,6 +22,7 @@
 		"child-guard.ts",
 		"config.ts",
 		"index.ts",
+		"managed-child.ts",
 		"notify.ts",
 		"panel.ts",
 		"persistence.ts",
@@ -35,6 +36,8 @@
 		"startup.ts",
 		"store.ts",
 		"supervisor.ts",
+		"todo-bootstrap.ts",
+		"skills/om-pi-subagents/SKILL.md",
 		"docs/INSTALL.md",
 		"docs/SETUP.md",
 		"docs/USAGE.md",
@@ -65,6 +68,7 @@
 	"devDependencies": {
 		"@types/node": "^26.6.3",
 		"husky": "^9.1.7",
+		"om-pi-todo": "0.2.0",
 		"oxfmt": "^0.71.0",
 		"oxlint": "^1.86.0",
 		"typescript": "7.0.2",
@@ -89,6 +93,9 @@
 	"pi": {
 		"extensions": [
 			"./index.ts"
+		],
+		"skills": [
+			"./skills"
 		]
 	}
 }

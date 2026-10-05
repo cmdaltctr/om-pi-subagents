@@ -3,12 +3,13 @@
 
 import type { ChildProcess } from "node:child_process";
 import { randomUUID } from "node:crypto";
+import { resolve as resolvePath } from "node:path";
 import type { Proc } from "./processes.ts";
 import type { RpcRecord } from "./rpc.ts";
 import { decide, ResultJudge } from "./result.ts";
 import type { RunOutcome, RunRequest, RunView, Supervisor, SupervisorHooks } from "./runs.ts";
 import { DEFAULT_STARTUP_DEADLINE_MS, stopGroup } from "./runner.ts";
-import { launchChild, type ReadyChild } from "./startup.ts";
+import { launchChild, StartupError, type ReadyChild } from "./startup.ts";
 import type { RunLogs } from "./store.ts";
 
 export const DEFAULT_TOTAL_DEADLINE_MS = 30 * 60 * 1000;
@@ -81,6 +82,15 @@ export function createSupervisor(deps: SupervisorDeps): Supervisor {
 					personaFile,
 					guardPath: deps.guardPath,
 					runToken,
+					lineage: {
+						...(request.nesting ?? {
+							registryPath: resolvePath(deps.env?.OMPSS_REGISTRY ?? "om-pi-subagents.yaml"),
+							depth: 1,
+							maxDepth: request.limits?.maxDepth ?? 1,
+							rootSessionId: run.owner,
+						}),
+						runId: run.id,
+					},
 					piBin: deps.piBin,
 					parentModel: request.parent?.model ?? deps.parentModel,
 					startupDeadlineMs: deps.startupDeadlineMs ?? DEFAULT_STARTUP_DEADLINE_MS,
@@ -94,12 +104,24 @@ export function createSupervisor(deps: SupervisorDeps): Supervisor {
 				},
 			);
 		} catch (error) {
+			if (error instanceof StartupError && error.cleanupFailed)
+				return { ...failed(messageOf(error)), cleanupFailed: true };
 			return stop.aborted ? abortOutcome() : failed(messageOf(error));
 		}
 
 		const { child, channel, owned } = ready;
 		deps.onReady?.(run, { model: ready.readiness.model });
 		const judge = new ResultJudge(runToken);
+		const cleanupProblem = (local?: string) => [local, judge.cleanupFailure()].filter(Boolean).join("; ") || undefined;
+		const stopWith = async (outcome: RunOutcome): Promise<RunOutcome> => {
+			// Abort while RPC subscriptions are live, so nested teardown can report unconfirmed cleanup.
+			await channel.request({ type: "abort" }, graceMs).catch(() => undefined);
+			const local = await stopGroup(child, channel.exited, graceMs, owned).catch(messageOf);
+			const error = cleanupProblem(local);
+			return error
+				? { ...failed(`${outcome.error ? `${outcome.error}; ` : ""}cleanup failed: ${error}`), cleanupFailed: true }
+				: outcome;
+		};
 		let taskSubmitted = false;
 		const assessed = new Promise<void>((resolve) =>
 			channel.onRecord(
@@ -126,15 +148,15 @@ export function createSupervisor(deps: SupervisorDeps): Supervisor {
 			taskSubmitted = true;
 			const response = await channel.request({ type: "prompt", message: request.task }, TASK_ACK_MS);
 			if (!response.success || response.data?.disposition !== "started") {
-				await stopGroup(child, channel.exited, graceMs, owned);
-				return failed(`task was not accepted: ${response.error ?? `disposition ${response.data?.disposition}`}`);
+				return stopWith(
+					failed(`task was not accepted: ${response.error ?? `disposition ${response.data?.disposition}`}`),
+				);
 			}
 			acknowledged = true;
 		} catch (error) {
 			// A child that died before it answered is judged below, like any other early exit.
 			if (messageOf(error) !== "child exited") {
-				await stopGroup(child, channel.exited, graceMs, owned);
-				return stop.aborted ? abortOutcome() : failed(`task was not accepted: ${messageOf(error)}`);
+				return stopWith(stop.aborted ? abortOutcome() : failed(`task was not accepted: ${messageOf(error)}`));
 			}
 		}
 		if (acknowledged) hooks.markRunning();
@@ -162,9 +184,7 @@ export function createSupervisor(deps: SupervisorDeps): Supervisor {
 					: (abortOutcome().error ?? "the run was cancelled");
 			const partial = judge.partial();
 			if (partial) await deps.persist(run, { kind: "partial", text: partial, reason }).catch(() => undefined);
-			const cleanupError = await stopGroup(child, channel.exited, graceMs, owned);
-			if (cleanupError) return { ...failed(`cleanup failed: ${cleanupError}`), cleanupFailed: true };
-			return first === "storage" ? failed(reason) : abortOutcome();
+			return stopWith(first === "storage" ? failed(reason) : abortOutcome());
 		}
 
 		// From here an outcome is established. A later cancel or deadline cannot change it.
@@ -181,8 +201,11 @@ export function createSupervisor(deps: SupervisorDeps): Supervisor {
 		if (assessment !== "pending" && assessment.ok) {
 			channel.end(); // a finished child shuts itself down when its input closes
 			await Promise.race([channel.exited, new Promise((done) => setTimeout(done, graceMs))]);
+		} else {
+			await channel.request({ type: "abort" }, graceMs).catch(() => undefined);
 		}
-		const cleanupError = await stopGroup(child, channel.exited, graceMs, owned);
+		const localCleanup = await stopGroup(child, channel.exited, graceMs, owned).catch(messageOf);
+		const cleanupError = cleanupProblem(localCleanup);
 		const exit = await channel.exited;
 		persistError ??= storageReason && `could not save run files: ${storageReason}`;
 		return decide(assessment, { exit, persistError, cleanupError });

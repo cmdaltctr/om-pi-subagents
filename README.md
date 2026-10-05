@@ -6,8 +6,8 @@ one YAML file and plain Markdown files. OMPSS ships no agents of its own.
 
 - The parent gets one tool, `ompss`, and one command, `/ompss`.
 - Each run is one child Pi process in the background.
-- One child can run at a time in each parent session.
-- A panel in the parent shows the run state and active child tools.
+- YAML limits set each parent's direct-child capacity and maximum nesting depth. Both default to one.
+- A parent panel shows up to four active runs, their ids and active tools.
 - The result arrives as a follow-up message when the child finishes.
 
 OMPSS does not use `pi-subagents`. It does not import it, copy it, or need it.
@@ -76,19 +76,46 @@ For every field, persona tips and common errors, see [Set up agents](docs/SETUP.
 Start a run with `/ompss run reader Summarise the README`, or ask the parent
 model to call the `ompss` tool.
 
+### Parallel and nested runs
+
+Add `limits` beside your existing `agents` mapping. Preserve the agents you already defined.
+This empty-mapping example shows four direct slots per parent and a maximum depth of three:
+
+<!-- docs-test: limits -->
+
+```yaml
+version: 1
+limits:
+  maxConcurrentRuns: 4
+  maxDepth: 3
+agents: {}
+```
+
+The root is depth zero. Depth three allows children, grandchildren and great-grandchildren.
+A child can delegate only when its mapping approves the exact `ompss` tool.
+Each target keeps its own tools, so delegation can reach write-capable targets.
+
+Limits have no additional fixed ceiling. Four slots through depth three can create
+`4 + 16 + 64 = 84` descendants. Use separate safe worktrees for concurrent writers.
+See [configured limits](docs/USAGE.md#configured-limits-and-nesting) for inherited ceilings and cancellation.
+
+For operational guidance in Pi, run `/skill:om-pi-subagents`.
+Approved children need an explicit skill path; see [setup](docs/SETUP.md#skills-and-extensions).
+
 ### YAML fields
 
-| Field        | Required | Meaning                                                         |
-| ------------ | -------- | --------------------------------------------------------------- |
-| `version`    | yes      | Must be `1`.                                                    |
-| `agents`     | yes      | A mapping. Use `{}` for no agents.                              |
-| `<name>`     | -        | The agent name. Use `[a-z][a-z0-9-]{0,63}`. No name is special. |
-| `persona`    | yes      | Path to a Markdown file inside this directory. No frontmatter.  |
-| `tools`      | yes      | Exact tool names. `[]` grants no tools. No wildcards.           |
-| `model`      | no       | `provider/id`. The default is the parent's model.               |
-| `thinking`   | yes      | `off`, `minimal`, `low`, `medium`, `high`, `xhigh`, or `max`.   |
-| `skills`     | no       | Paths to `SKILL.md` files. Paths may start with `~/`.           |
-| `extensions` | no       | Paths to trusted extensions. See "Provider extensions".         |
+| Field        | Required | Meaning                                                            |
+| ------------ | -------- | ------------------------------------------------------------------ |
+| `version`    | yes      | Must be `1`.                                                       |
+| `limits`     | no       | `maxConcurrentRuns` and `maxDepth`; omitted fields default to one. |
+| `agents`     | yes      | A mapping. Use `{}` for no agents.                                 |
+| `<name>`     | -        | The agent name. Use `[a-z][a-z0-9-]{0,63}`. No name is special.    |
+| `persona`    | yes      | Path to a Markdown file inside this directory. No frontmatter.     |
+| `tools`      | yes      | Exact tool names. `[]` grants no tools. No wildcards.              |
+| `model`      | no       | `provider/id`. The default is the parent's model.                  |
+| `thinking`   | yes      | `off`, `minimal`, `low`, `medium`, `high`, `xhigh`, or `max`.      |
+| `skills`     | no       | Paths to `SKILL.md` files. Paths may start with `~/`.              |
+| `extensions` | no       | Paths to trusted extensions. See "Provider extensions".            |
 
 OMPSS rejects unknown fields, duplicate keys, aliases, and custom YAML tags.
 A bad file stops every launch until you fix it. OMPSS never runs on old
@@ -141,14 +168,14 @@ sandbox.
   marks an agent that has one of them as `write-capable`.
 - An agent with a write-capable tool runs with your file permissions. Start it
   in a feature worktree or another directory that is safe to change.
-- Two parent sessions can run two children at once. OMPSS does not limit the
-  combined load on your model provider.
+- Sessions have separate direct-child slots. OMPSS sets no combined machine or provider budget.
+- `/ompss list` marks approved `ompss` targets as `delegation-capable`, including their ability to select write-capable targets.
 
 ## Provider extensions
 
-A child loads no extensions except its own guard and the Pi built-ins its
-tools need. If an agent needs a custom provider, list the
-extension that registers it:
+A child loads its guard, required Pi built-ins and explicitly mapped resources.
+OMPSS also loads managed delegation or todo setup when those tools are approved.
+Ambient resources stay disabled. For a custom provider, list the extension that registers it:
 
 ```yaml
 model: my-provider/my-model
@@ -165,10 +192,10 @@ Run `/ompss` without arguments to see current-session status. Whitespace-only
 arguments also show status. A fresh session answers `No runs in this session.`
 Use `/ompss status <run-id>` for one run, or `/ompss cancel <run-id>` to stop it.
 
-The parent panel appears above the editor. It shows the agent, run state and
-active tool names. A finished run keeps its final state and up to 240 characters
-of saved output until another run starts or the session ends. Failed previews
-are labelled partial. Cancellation sends no automatic result message.
+The parent panel appears above the editor. It shows up to four active direct runs,
+with their ids, states and tool names. It reports the count of additional active runs.
+When all work ends, it retains the latest terminal summary and up to 240 characters of saved output.
+Failed previews are labelled partial. Cancellation sends no automatic result message.
 
 The panel excludes tool arguments, raw tool results, thinking and stderr.
 Terminal controls are removed from displayed text. The full saved answer and
@@ -183,7 +210,7 @@ directory and the files are private to your user.
 | File                         | Content                                                                                       |
 | ---------------------------- | --------------------------------------------------------------------------------------------- |
 | `config.json`, `persona.md`  | The settings and persona the run started with, and the task.                                  |
-| `status.json`                | State, timestamps, error, and the child process id.                                           |
+| `status.json`                | State, timestamps, error, child process id, depth, ownership and effective limits.            |
 | `events.jsonl`, `stderr.log` | Streamed evidence. Known credential fields are redacted.                                      |
 | `output.md`                  | The final answer. Partial text from a failed or cancelled run starts with `> PARTIAL OUTPUT`. |
 | `notification.json`          | Whether the result message reached the parent.                                                |
@@ -201,7 +228,9 @@ saved, the child exited cleanly, and cleanup is confirmed. Output that exists
 after an error does not make a run pass.
 
 - Start-up has 30 seconds. A whole run has 30 minutes.
-- `/ompss cancel <run-id>` stops the child and everything it started.
+- `/ompss cancel <run-id>` stops that owned subtree, including nested agents, without cancelling unrelated siblings.
+- A delegating child waits for owned runs and result-delivery attempts before final settlement.
+- `om-pi-todo` is optional. Child tasks stay local and never update the parent's OpenSpec checkboxes.
 - Reload, quit, or a new session stops active runs. No child outlives its
   parent.
 - If OMPSS cannot confirm that all processes stopped, the run fails and the
@@ -212,7 +241,6 @@ after an error does not make a run pass.
 These are outside this version:
 
 - Calls to the old `subagent` tool, workflow scripts, and fleet commands.
-- A child that starts another child.
 - Councils, scheduling, remote workers, automatic worktrees, and provider
   fallback.
 - Resuming a run after a restart.

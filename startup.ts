@@ -21,6 +21,8 @@ const DEADLINE_SLACK_MS = 2000;
 export class StartupError extends Error {
 	/** True when the caller aborted the launch. */
 	cancelled = false;
+	/** The failed launch may have left descendants behind. */
+	cleanupFailed = false;
 
 	constructor(
 		message: string,
@@ -28,8 +30,9 @@ export class StartupError extends Error {
 		readonly stderr = "",
 		/** Process ID of the failed child, to check that it is gone. */
 		readonly pid?: number,
+		options?: ErrorOptions,
 	) {
-		super(message);
+		super(message, options);
 		this.name = "StartupError";
 	}
 }
@@ -119,7 +122,18 @@ export async function launchChild(
 		]);
 		return { child, channel, owned, plan, readiness };
 	} catch (error) {
-		await stopGroup(child, channel.exited, undefined, owned);
+		const cleanupError = await stopGroup(child, channel.exited, undefined, owned);
+		if (cleanupError) {
+			const failure = new StartupError(
+				`${error instanceof Error ? error.message : String(error)}; cleanup failed: ${cleanupError}`,
+				channel.stderr(),
+				child.pid,
+				{ cause: error },
+			);
+			failure.cleanupFailed = true;
+			failure.cancelled = error instanceof StartupError && error.cancelled;
+			throw failure;
+		}
 		throw error;
 	} finally {
 		clearTimeout(timer);
@@ -155,6 +169,9 @@ export async function runGate(
 	const parsed = parseReadiness(entry.entry.data, input.runToken);
 	if ("error" in parsed) throw fail(`malformed readiness: ${parsed.error}`);
 	if (!parsed.readiness.ok) throw fail(`child is not ready: ${parsed.readiness.problems.join("; ")}`);
+	for (const key of ["registryPath", "depth", "maxDepth", "rootSessionId", "runId", "parentRunId"] as const) {
+		if (parsed.readiness.lineage?.[key] !== input.lineage[key]) throw fail(`child reports different lineage.${key}`);
+	}
 
 	if ((await realpath(parsed.readiness.cwd)) !== (await realpath(input.cwd))) {
 		throw fail(`child reports working directory ${parsed.readiness.cwd}, expected ${input.cwd}`);

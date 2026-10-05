@@ -5,7 +5,7 @@ This guide unloads the extension while preserving its run files.
 ## Stop active runs
 
 1. Run `/ompss` to show current-session status.
-2. Cancel each active run with `/ompss cancel <run-id>`.
+2. Cancel each active direct run with `/ompss cancel <run-id>` to stop its owned subtree.
 3. Check its final state with `/ompss status <run-id>`.
 
 Quit Pi if you cannot issue commands. Shutdown stops children and waits for their cleanup.
@@ -16,7 +16,10 @@ Investigate any cleanup error before removing the extension.
 
 1. Run `pi remove npm:om-pi-subagents`. For a local copy, move `~/.pi/agent/extensions/ompss/` outside Pi's extensions directory.
 2. Start Pi again, or run `/reload`.
-3. Check that Pi no longer offers the `ompss` tool or `/ompss` command.
+3. Check that Pi no longer offers `ompss`, `/ompss` or `/skill:om-pi-subagents`.
+
+Remove explicit child references to the package's skill or managed resources before deleting a local package folder.
+Other packages, including `om-pi-todo`, remain installed. Their task histories and preferences stay untouched.
 
 ## What remains
 

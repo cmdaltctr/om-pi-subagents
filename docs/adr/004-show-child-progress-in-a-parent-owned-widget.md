@@ -3,6 +3,7 @@
 - **Date:** 2026-10-01
 - **Status:** Accepted
 - **Deciders:** Project maintainer
+- **Partly superseded by:** [ADR-005](./005-configure-per-session-concurrency-and-nesting.md) for the single-current-run display choice; this record's ownership, saved-output and cleanup safety rules remain in force.
 
 ## Context
 

@@ -3,7 +3,8 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import type { AgentSnapshot } from "./config.ts";
 import type { OwnedProcesses } from "./processes.ts";
-import type { ChildPolicy } from "./protocol.ts";
+import { parseChildPolicy, type ChildLineage, type ChildPolicy } from "./protocol.ts";
+import { fileURLToPath } from "node:url";
 
 export const DEFAULT_STARTUP_DEADLINE_MS = 30_000;
 
@@ -16,6 +17,7 @@ export interface LaunchInput {
 	/** Absolute path of child-guard.ts. */
 	guardPath: string;
 	runToken: string;
+	lineage: ChildLineage;
 	/** Absolute path of the managed Pi CLI, resolved once per launch. */
 	piBin: string;
 	/** `provider/id` of the parent's model, used when the YAML sets none. */
@@ -63,7 +65,13 @@ export function buildLaunch(input: LaunchInput): LaunchPlan {
 		...(model ? ["--model", model] : []),
 		"--thinking",
 		snapshot.thinking,
-		...[...builtins, input.guardPath, ...snapshot.extensions].flatMap((extension) => ["-e", extension]),
+		...[
+			...builtins,
+			input.guardPath,
+			...(tools.includes("todo") ? [fileURLToPath(new URL("./todo-bootstrap.ts", import.meta.url))] : []),
+			...(tools.includes("ompss") ? [fileURLToPath(new URL("./managed-child.ts", import.meta.url))] : []),
+			...snapshot.extensions,
+		].flatMap((extension) => ["-e", extension]),
 		...snapshot.skills.flatMap((skill) => ["--skill", skill]),
 		"--append-system-prompt",
 		input.personaFile,
@@ -74,7 +82,10 @@ export function buildLaunch(input: LaunchInput): LaunchPlan {
 		tools: [...tools],
 		model,
 		startupDeadlineMs: input.startupDeadlineMs ?? DEFAULT_STARTUP_DEADLINE_MS,
+		lineage: input.lineage,
 	};
+	const validated = parseChildPolicy(policy);
+	if (typeof validated === "string") throw new Error(`Cannot launch child: ${validated}`);
 	return {
 		command: input.piBin,
 		args,
@@ -83,7 +94,8 @@ export function buildLaunch(input: LaunchInput): LaunchPlan {
 			...(input.env ?? process.env),
 			OMPSS_CHILD: "1",
 			OMPSS_RUN_TOKEN: input.runToken,
-			OMPSS_POLICY: JSON.stringify(policy),
+			OMPSS_POLICY: JSON.stringify(validated),
+			OMPSS_REGISTRY: validated.lineage.registryPath,
 		},
 	};
 }
@@ -131,23 +143,34 @@ export async function stopGroup(
 ): Promise<string | undefined> {
 	const pid = child.pid;
 	if (pid === undefined) return undefined;
+	let cleanupError: string | undefined;
 	try {
 		await owned?.sample(); // a last look at the tree while the child still lives
 	} catch (error) {
-		owned?.unwatch();
-		await stopGroup(child, exited, graceMs); // still stop what can be stopped, but ownership is uncertain
-		return (error as Error).message;
+		cleanupError = error instanceof Error ? error.message : String(error);
 	}
+	cleanupError ??= owned?.inspectionError;
 	child.stdin?.end();
 	if (groupAlive(pid)) signalGroup(pid, "SIGTERM");
 	await Promise.race([exited, sleep(graceMs)]);
 	if (!(await waitGroupGone(pid, graceMs))) {
 		signalGroup(pid, "SIGKILL");
-		if (!(await waitGroupGone(pid, graceMs))) return `process group ${pid} still has running processes`;
+		if (!(await waitGroupGone(pid, graceMs))) {
+			owned?.unwatch();
+			await owned?.reap(graceMs);
+			return `process group ${pid} still has running processes`;
+		}
+	}
+	owned?.unwatch();
+	// Known survivors still need reaping when a sample failed, including those holding inherited pipes open.
+	try {
+		const reapError = await owned?.reap(graceMs);
+		cleanupError ??= reapError;
+	} catch (error) {
+		cleanupError ??= error instanceof Error ? error.message : String(error);
 	}
 	await exited;
-	owned?.unwatch();
-	return owned?.reap(graceMs);
+	return cleanupError;
 }
 
 /** Start the child with an argument array, no shell, and its own process group. */

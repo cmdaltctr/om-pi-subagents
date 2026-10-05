@@ -50,6 +50,8 @@ export async function createWorkspace(options: WorkspaceOptions = {}): Promise<W
 	const mcpPidFile = join(root, "mcp.pid");
 	await mkdir(agentDir, { recursive: true });
 	await mkdir(cwd, { recursive: true });
+	await mkdir(join(root, "home"));
+	await mkdir(join(root, "config"));
 	await writeFile(
 		join(agentDir, "models.json"),
 		JSON.stringify({
@@ -88,6 +90,8 @@ export async function createWorkspace(options: WorkspaceOptions = {}): Promise<W
 		mcpReadyFile,
 		mcpPidFile,
 		isolationEnv: {
+			HOME: join(root, "home"),
+			XDG_CONFIG_HOME: join(root, "config"),
 			PI_CODING_AGENT_DIR: agentDir,
 			PI_OFFLINE: "1",
 			PI_SKIP_VERSION_CHECK: "1",

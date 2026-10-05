@@ -122,26 +122,30 @@ The `run` action returns at once. It does not wait for the agent to answer.
 A panel appears above the editor. For example:
 
 ```text
-OMPSS: reader running
+OMPSS: reader running (3f2c9b1e-8a4d-4c7e-9b2a-1d5e6f7a8b9c)
 Tools: read, grep
 ```
 
-| Line                     | Meaning                                                                                      |
-| ------------------------ | -------------------------------------------------------------------------------------------- |
-| `OMPSS: <agent> <state>` | The agent name and the run state. See [Run states](#run-states).                             |
-| `Tools: ...`             | Tools the agent uses at this moment. It shows up to four names, then a count such as `(+2)`. |
-| `Answer: ...`            | After a completed run: the first 240 characters of the saved answer.                         |
-| `Partial output: ...`    | After a failed run: the first 240 characters of what the agent wrote before it failed.       |
+| Line                                | Meaning                                                                                      |
+| ----------------------------------- | -------------------------------------------------------------------------------------------- |
+| `OMPSS: <agent> <state> (<run-id>)` | The agent name and the run state. See [Run states](#run-states).                             |
+| `Tools: ...`                        | Tools the agent uses at this moment. It shows up to four names, then a count such as `(+2)`. |
+| `Answer: ...`                       | After a completed run: the first 240 characters of the saved answer.                         |
+| `Partial output: ...`               | After a failed run: the first 240 characters of what the agent wrote before it failed.       |
 
 A fast tool can show while the state is still `starting`. This is normal. Tool calls made while the child process starts up do not show.
 
 The panel shows only tool names and the short preview. It never shows tool arguments, tool results, the agent's thinking or error logs. OMPSS removes terminal control characters from the text.
 
-The panel keeps the final state until you start another run or the session ends.
+Up to four active direct-run summaries coexist. More active runs produce an overflow count.
+This display bound does not restrict launches; `/ompss status` lists every direct owned run.
+Finishing one run leaves active siblings visible. When all runs end, the panel keeps the latest
+terminal summary until another launch or the session ends. Old previews cannot replace newer work.
 
 ### The status line
 
-The status line shows a short entry, for example `ompss: reader running`. The entry goes away when the run ends.
+The status line shows a short entry, for example `ompss: reader running` or `ompss: 2 active runs`.
+The entry clears only when no owned run remains active.
 
 ### Checking with a command
 
@@ -176,6 +180,37 @@ The README explains how to install OMPSS and map agents...
 - A cancelled run sends no message.
 - If the session ended before the message was sent, nothing is sent. `notification.json` in the run folder records the failure.
 
+### Nested results and local todos
+
+Each result reaches the run's immediate parent, once and separately from other results.
+A delegating child waits for owned runs and delivery attempts before final settlement.
+It can then use the delivered results in its final answer. A failed delivery does not change a completed run's outcome.
+
+`om-pi-todo` works when its real extension and exact `todo` tool are explicitly mapped:
+
+```yaml
+tools: [todo]
+extensions:
+  - /path/to/om-pi-todo/src/extension.ts
+```
+
+Replace the extension path with its installed entry from `pi list` and that package's manifest.
+A child starts an empty normal-mode list, including when global preferences select OpenSpec mode.
+Its local ids can match sibling or parent ids without sharing tasks. Real todo reminders finish before accepted output.
+Child completion never updates the parent's OpenSpec tasks or changes global todo preferences.
+The parent must explicitly update its own todo when that work is verified.
+
+Run `/skill:om-pi-subagents` for the packaged operational instructions.
+A mapped child needs the skill explicitly, for example:
+
+```yaml
+skills:
+  - ~/.pi/agent/npm/node_modules/om-pi-subagents/skills/om-pi-subagents/SKILL.md
+```
+
+Use the package folder shown by `pi list` if yours differs. Skill loading grants no tools.
+Add `ompss` to that child's tools only when you approve delegation.
+
 ## Run states
 
 | State       | What it means                                                                                             | What to do                                                                                |
@@ -192,25 +227,55 @@ The README explains how to install OMPSS and map agents...
 1. Find the run id with `/ompss`.
 2. Type `/ompss cancel <run-id>`.
 
-OMPSS answers `Run <run-id> is stopping.` It then stops the agent process and every process it started. If the run already ended, OMPSS answers `Run <run-id> is already <state>.`
+OMPSS answers `Run <run-id> is stopping.` It stops that owned subtree, including descendants in separate process groups.
+Unrelated siblings keep running. An ended run answers `Run <run-id> is already <state>.`
 
-When you quit Pi, reload with `/reload`, or switch to another session, OMPSS cancels the active run. It waits until the processes stop. No agent outlives the Pi session that started it. These runs send no result message.
+When you quit Pi, reload with `/reload`, or switch to another session, OMPSS closes admission and cancels every active direct run and its subtree. It waits until the processes stop. No agent outlives the Pi session that started it. These runs send no result message.
 
 `/ompss status` lists only runs from the current session since OMPSS last loaded. After a reload, a restart or a session switch, older runs no longer show. Their files stay in the run folder. OMPSS cannot resume a run after a restart.
 
 ## Rules and limits
 
-### One run per session
+### Configured limits and nesting
 
-Each Pi session can have one active run. A second launch fails with:
+Put optional `limits` beside `agents` in `om-pi-subagents.yaml`.
+
+| Field               | Accepted values             | Default | Meaning                                   |
+| ------------------- | --------------------------- | ------- | ----------------------------------------- |
+| `maxConcurrentRuns` | Safe integers of at least 1 | 1       | Active direct children per parent session |
+| `maxDepth`          | Safe integers of at least 0 | 1       | Greatest depth from root depth zero       |
+
+A safe integer is a whole number JavaScript can represent exactly. Omitted limits use the defaults.
+No additional fixed cap applies. Depth zero disables launches while list and status remain available.
 
 ```text
-another run is active in this session: <run-id>. Wait for it, or cancel it with "ompss cancel <run-id>".
+root: depth 0
+  child: depth 1
+    grandchild: depth 2
+      great-grandchild: depth 3
 ```
 
-Two separate Pi sessions can each run one agent at the same time. OMPSS does not limit the total load on your model provider.
+Approve `ompss` in a target's `tools` to let it delegate. It uses the same canonical registry,
+its own direct slots and the immediate parent's model unless its mapping sets another model.
+Each target keeps its own tool permissions. A delegator can select a write-capable target.
+
+A branch retains its inherited depth ceiling. Nested launches use the smaller of that ceiling and fresh YAML.
+Raising depth affects new root branches; lowering it stops new deeper launches without cancelling existing descendants.
+Changing concurrency affects the next launch. A lower limit leaves existing runs alive until capacity becomes available.
+
+Starting, running and stopping runs consume slots. Excess requests fail immediately rather than queue:
+
+```text
+session capacity reached (limits.maxConcurrentRuns: 4); active runs: <ids>. Wait for a run, cancel it, or edit limits.maxConcurrentRuns in YAML.
+```
+
+A capacity of four through depth three can reach `4 + 16 + 64 = 84` descendants.
+There is no machine-wide budget. Concurrent writers need separate safe working directories or worktrees.
 
 ### Blocked after a failed cleanup
+
+Unconfirmed descendant cleanup also fails ancestor runs. Spare capacity cannot bypass the block.
+Status and cancellation remain available for the owner's other runs.
 
 Sometimes OMPSS cannot confirm that all processes of a run stopped. The run then fails, and the session refuses new runs with:
 
@@ -262,7 +327,7 @@ A run that passes a limit fails.
 
 ### Not supported
 
-An agent cannot start another agent. OMPSS has no councils, scheduling or provider fallback.
+OMPSS has no councils, scheduling, automatic worktrees or provider fallback.
 
 ## Run files
 
@@ -301,7 +366,7 @@ Only your user can read these files. The folders have mode `0700` and the files 
 | `the task cannot start with a slash, ...`                          | The task starts with `/`.                                                               | Reword the task.                                                                |
 | `cwd must be an absolute path: ...`                                | The tool's `cwd` is a relative path.                                                    | Give the full path.                                                             |
 | `cwd does not exist or is not a directory: ...`                    | The folder is missing.                                                                  | Check the path.                                                                 |
-| `another run is active in this session: ...`                       | One run per session.                                                                    | Wait, or cancel the active run.                                                 |
+| `session capacity reached ...`                                     | Configured direct-child slots are full.                                                 | Wait, cancel an owned run, or change `limits.maxConcurrentRuns` in YAML.        |
 | `no new run can start: run ... may have left processes behind`     | OMPSS could not confirm that a run's processes stopped.                                 | Follow [Blocked after a failed cleanup](#blocked-after-a-failed-cleanup).       |
 | `unknown run: <run-id>`                                            | The id is wrong, or the run belongs to another session or an earlier load.              | Use an id from `/ompss`. For an older run, read its run folder.                 |
 | `child is not ready: tool "<name>" is not registered`              | The tool name is wrong, or its MCP server is not set up in Pi.                          | Check the exact tool name and the MCP server. See [Set up agents](SETUP.md).    |

@@ -52,6 +52,14 @@ function setup(deliveryOf?: (runId: string) => { delivered: boolean; error?: str
 }
 
 describe("list", () => {
+	it("identifies approved delegation as capable of reaching write-enabled targets", async () => {
+		await writeYaml(
+			"version: 1\nagents:\n  delegator:\n    persona: ./personas/reader.md\n    tools: [ompss]\n    thinking: off\n",
+		);
+		const text = await setup().service.list();
+		expect(text).toMatch(/delegator.*delegation-capable.*write-capable targets/);
+	});
+
 	it("shows each mapped name with its tools and flags write-capable personas", async () => {
 		const text = await setup().service.list();
 		expect(text).toMatch(/reader.*read, grep/);

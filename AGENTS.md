@@ -10,12 +10,13 @@ Source files and most tests live at the repository root. Pi loads the default ex
 | -------------------------------------------- | ------------------------------------------------------------------------------- |
 | `index.ts`                                   | Register the tool, command and session lifecycle. Create the runtime lazily.    |
 | `config.ts`                                  | Validate YAML and persona paths. Produce immutable launch snapshots.            |
-| `service.ts`, `runs.ts`                      | Handle user actions, session ownership and the single active run.               |
+| `service.ts`, `runs.ts`                      | Handle user actions, session ownership and configured direct-child capacity.    |
 | `runner.ts`, `startup.ts`, `protocol.ts`     | Build isolated child arguments and verify readiness before sending a task.      |
 | `child-guard.ts`                             | Enforce exact tool names inside the child. Report violations.                   |
 | `rpc.ts`                                     | Read bounded JSON lines and manage child requests, subscriptions and pipe loss. |
 | `supervisor.ts`, `processes.ts`, `result.ts` | Follow the run, stop descendants and decide its final result.                   |
 | `store.ts`, `persistence.ts`, `notify.ts`    | Save private run files, flush writes and deliver the result separately.         |
+| `managed-child.ts`, `todo-bootstrap.ts`      | Wait for owned results in approved delegators and seed child-local todo mode.   |
 | `test/fixtures/`                             | Fake model, local MCP server and disposable Pi harnesses.                       |
 
 Keep these boundaries:
@@ -101,7 +102,11 @@ Tooling tests live in `test/docs.test.ts`, `test/pi-bin.test.ts` and `test/setup
 
 ## Dos and don'ts
 
-- Keep one child active per parent session. Preserve ownership checks on status and cancellation.
+- Enforce fresh `limits.maxConcurrentRuns` per parent session. Count starting, running and stopping direct children.
+- Count the root as depth zero. Require exact `ompss` approval and honour inherited plus fresh depth ceilings.
+- Preserve immediate-parent ownership for status and subtree cancellation. Unconfirmed cleanup blocks launches despite spare capacity.
+- Wait at final-answer `turn_end` with its live abort signal; never block tool-use turns. Keep final `agent_settled` judgement.
+- Map the real todo extension explicitly. Seed only child-local normal mode; never copy parent tasks or OpenSpec bindings.
 - Use argument arrays with `shell: false` for child processes.
 - Preserve approved tool names exactly. Listing a tool does not load its MCP server.
 - Treat custom provider extensions as trusted executable code.

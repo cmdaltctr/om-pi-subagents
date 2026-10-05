@@ -1,7 +1,7 @@
 // Terminal notifications and the status line. Messaging is injected, so the rules are testable
 // without a parent Pi session.
 
-import { isTerminal, type RunView } from "./runs.ts";
+import type { RunView } from "./runs.ts";
 import { RunPanel } from "./panel.ts";
 
 export const RESULT_MESSAGE = "ompss-result";
@@ -36,12 +36,12 @@ export function createNotifier(deps: NotifierDeps) {
 	function draw(run: RunView): void {
 		if (!panel.matches(run)) return;
 		try {
-			deps.messenger(run.owner)?.setStatus?.(isTerminal(run.state) ? undefined : `ompss: ${run.agent} ${run.state}`);
+			deps.messenger(run.owner)?.setStatus?.(panel.status(run.owner));
 		} catch {
 			/* A status failure must not block the widget. */
 		}
 		try {
-			deps.messenger(run.owner)?.setWidget?.(panel.render());
+			deps.messenger(run.owner)?.setWidget?.(panel.render(run.owner));
 		} catch {
 			/* Display failures do not change the run. */
 		}
@@ -72,10 +72,11 @@ export function createNotifier(deps: NotifierDeps) {
 
 			if (!deps.messenger(run.owner)) return record({ delivered: false, error: "the owning session has ended" });
 			try {
+				// Capture terminal order before a delayed read; previews cannot choose the idle summary.
+				panel.onChange(run);
 				const output = await deps.readOutput(run).catch(() => undefined);
 				const messenger = deps.messenger(run.owner);
 				if (!messenger) return record({ delivered: false, error: "the owning session has ended" });
-				panel.onChange(run);
 				panel.setPreview(run, output);
 				draw(run);
 				await messenger.send(
@@ -105,7 +106,8 @@ export function createNotifier(deps: NotifierDeps) {
 			if (!deps.messenger(run.owner) || !panel.matches(run)) return;
 			panel.onProgress(run, record);
 			try {
-				deps.messenger(run.owner)?.setWidget?.(panel.render());
+				// nosemgrep: AIK_js_tainted_express_render -- This is RunPanel's sanitised string-array renderer, not an Express template or executable expression.
+				deps.messenger(run.owner)?.setWidget?.(panel.render(run.owner));
 			} catch {
 				/* Supervision continues. */
 			}

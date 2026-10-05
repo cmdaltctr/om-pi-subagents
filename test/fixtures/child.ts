@@ -8,6 +8,8 @@ import { launchChild, type ReadyChild } from "../../startup.ts";
 import type { Turn } from "./fake-model.ts";
 import { createWorkspace, PI_BIN, type Workspace, type WorkspaceOptions } from "./pi-rpc.ts";
 
+import { fixtureLineage } from "./lineage.ts";
+
 const GUARD = new URL("../../child-guard.ts", import.meta.url).pathname;
 
 export interface RunOptions {
@@ -67,6 +69,7 @@ export function childHarness() {
 				personaFile: join(workspace.root, "persona.md"),
 				guardPath: GUARD,
 				runToken: "run-token",
+				lineage: fixtureLineage(join(workspace.agentDir, "om-pi-subagents.yaml")),
 				piBin: PI_BIN,
 				parentModel: "fake/counter",
 				env: { ...process.env, ...workspace.isolationEnv, ...options.env },

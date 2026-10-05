@@ -5,6 +5,7 @@ vi.mock("node:child_process", () => ({ spawn: spawnSpy }));
 
 import type { AgentSnapshot } from "./config.ts";
 import { buildLaunch, spawnChild, type LaunchInput } from "./runner.ts";
+import { fixtureLineage } from "./test/fixtures/lineage.ts";
 
 const snapshot = (overrides: Partial<AgentSnapshot> = {}): AgentSnapshot => ({
 	name: "reader",
@@ -23,6 +24,7 @@ const input = (overrides: Partial<AgentSnapshot> = {}, extra: Partial<LaunchInpu
 	personaFile: "/runs/r1/persona.md",
 	guardPath: "/ext/child-guard.ts",
 	runToken: "token-1",
+	lineage: fixtureLineage(),
 	piBin: "/bin/pi",
 	env: { PATH: "/usr/bin" },
 	...extra,

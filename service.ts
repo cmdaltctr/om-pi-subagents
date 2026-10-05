@@ -3,7 +3,8 @@
 import { stat } from "node:fs/promises";
 import { isAbsolute } from "node:path";
 import type { AgentSnapshot, RegistryStore } from "./config.ts";
-import { OccupiedError, type RunManager, type RunView } from "./runs.ts";
+import type { RunManager, RunView } from "./runs.ts";
+import type { ChildLineage } from "./protocol.ts";
 
 /** Tools that change files or run commands. A persona holding one is listed as write-capable. */
 const WRITE_CAPABLE = ["write", "edit", "bash", "powershell"];
@@ -11,6 +12,8 @@ const WRITE_CAPABLE = ["write", "edit", "bash", "powershell"];
 export interface ServiceDeps {
 	registry: RegistryStore;
 	manager: RunManager;
+	/** Permission captured for this managed child; absent only in a root runtime. */
+	branch?: ChildLineage;
 	/** Where a run's files will live; known before the run starts. */
 	directoryFor(owner: string, runId: string): string;
 	/** Wait for pending file writes. Called at the end of a shutdown. */
@@ -29,6 +32,7 @@ const describeAgent = (agent: AgentSnapshot): string => {
 	const parts = [`tools [${agent.tools.join(", ")}]`];
 	if (agent.model) parts.push(`model ${agent.model}`);
 	if (agent.tools.some((tool) => WRITE_CAPABLE.includes(tool))) parts.push("write-capable");
+	if (agent.tools.includes("ompss")) parts.push("delegation-capable (can select write-capable targets)");
 	return `${agent.name}: ${parts.join("; ")}`;
 };
 
@@ -43,7 +47,7 @@ async function assertDirectory(cwd: string): Promise<void> {
 		throw new Error(`cwd does not exist or is not a directory: ${cwd}`);
 }
 
-export function createService({ registry, manager, directoryFor, flush, deliveryOf }: ServiceDeps) {
+export function createService({ registry, manager, directoryFor, flush, deliveryOf, branch }: ServiceDeps) {
 	const summary = (run: RunView): string => {
 		const lines = [
 			`run ${run.id}: ${run.state}`,
@@ -59,11 +63,9 @@ export function createService({ registry, manager, directoryFor, flush, delivery
 
 	return {
 		async list(): Promise<string> {
-			await registry.refresh();
-			const names = registry.list();
-			return names.length === 0
-				? "No personas mapped."
-				: names.map((name) => describeAgent(registry.get(name))).join("\n");
+			const snapshot = await registry.refresh();
+			const agents = [...snapshot.agents.values()];
+			return agents.length === 0 ? "No personas mapped." : agents.map(describeAgent).join("\n");
 		},
 
 		/** Validate, start a background run and return at once. Never waits for the model. */
@@ -72,32 +74,40 @@ export function createService({ registry, manager, directoryFor, flush, delivery
 			input: { agent: string; task: string; cwd?: string },
 			context: RunContext,
 		): Promise<string> {
-			await registry.refresh(); // a failed refresh throws here, so no launch runs on stale settings
-			const known = registry.list();
+			const snapshot = await registry.refresh(); // a failed refresh blocks this launch
+			const known = [...snapshot.agents.keys()];
 			if (!known.includes(input.agent))
 				throw new Error(`unknown agent "${input.agent}"; mapped agents: ${known.join(", ") || "none"}`);
 			const task = input.task?.trim() ?? "";
 			if (task === "") throw new Error("task is required");
 			if (task.startsWith("/"))
 				throw new Error("the task cannot start with a slash, because it would run as a slash command");
+			const currentDepth = branch?.depth ?? 0;
+			const depth = currentDepth + 1;
+			const maxDepth = Math.min(branch?.maxDepth ?? snapshot.limits.maxDepth, snapshot.limits.maxDepth);
+			if (depth > maxDepth)
+				throw new Error(
+					`Cannot launch: current depth ${currentDepth}, attempted depth ${depth}, limits.maxDepth ${maxDepth}. Use a shallower parent or start a new branch after editing YAML.`,
+				);
+			const nesting = Object.freeze({
+				registryPath: snapshot.registryPath,
+				depth,
+				maxDepth,
+				rootSessionId: branch?.rootSessionId ?? owner,
+				...(branch ? { parentRunId: branch.runId } : {}),
+			});
 			const cwd = input.cwd ?? context.cwd;
 			await assertDirectory(cwd);
 
-			try {
-				const run = manager.start(owner, {
-					agent: registry.get(input.agent),
-					task,
-					cwd,
-					parent: { model: context.model },
-				});
-				return `Started run ${run.id} (${run.agent}) in the background.\nFiles: ${directoryFor(owner, run.id)}\nCheck it with "ompss status ${run.id}". The result arrives as a follow-up message.`;
-			} catch (error) {
-				if (error instanceof OccupiedError)
-					throw new Error(`${error.message}. Wait for it, or cancel it with "ompss cancel ${error.activeRunId}".`, {
-						cause: error,
-					});
-				throw error;
-			}
+			const run = manager.start(owner, {
+				agent: snapshot.agents.get(input.agent)!,
+				limits: snapshot.limits,
+				nesting,
+				task,
+				cwd,
+				parent: { model: context.model },
+			});
+			return `Started run ${run.id} (${run.agent}) in the background.\nFiles: ${directoryFor(owner, run.id)}\nCheck it with "ompss status ${run.id}". The result arrives as a follow-up message.`;
 		},
 
 		status(owner: string, runId?: string): string {
@@ -108,6 +118,7 @@ export function createService({ registry, manager, directoryFor, flush, delivery
 
 		/** Stop every run of the session and wait until all cleanup is done. For shutdown, reload and session replacement. */
 		shutdown: async (owner: string): Promise<void> => {
+			manager.closeAdmission(owner);
 			await manager.cancelAll(owner);
 			await flush?.();
 		},

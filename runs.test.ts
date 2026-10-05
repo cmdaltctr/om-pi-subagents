@@ -191,7 +191,11 @@ describe("terminal notification hook", () => {
 	it("calls onTerminal once per run with the final view", async () => {
 		const { supervisor, calls } = controlled();
 		const seen: Array<{ id: string; state: string }> = [];
-		const manager = new RunManager(supervisor, { onTerminal: (view) => seen.push({ id: view.id, state: view.state }) });
+		const manager = new RunManager(supervisor, {
+			onTerminal: (view) => {
+				seen.push({ id: view.id, state: view.state });
+			},
+		});
 		const run = manager.start("session-1", request);
 		calls[0].hooks.markStopping();
 		await tick();

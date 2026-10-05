@@ -1,0 +1,63 @@
+{
+	"skill_name": "om-pi-subagents",
+	"evals": [
+		{
+			"id": 1,
+			"prompt": "Use OMPSS to run five independent read-only tasks. My YAML permits four direct children. Check the available agents first.",
+			"expected_output": "List the mappings and current-session runs, start only approved targets within four slots, and explain capacity guidance for the fifth request.",
+			"files": [],
+			"expectations": [
+				"Select only returned mapped agents",
+				"Respect four direct slots",
+				"Keep each returned run id",
+				"Do not invent a queue or change YAML without approval"
+			]
+		},
+		{
+			"id": 2,
+			"prompt": "Use my mapped OMPSS delegator for nested work and include its descendants' results in the answer. The maximum depth is three.",
+			"expected_output": "Verify delegation approval and working directories, respect root depth zero and branch ceilings, and wait for separate immediate-parent results.",
+			"files": [],
+			"expectations": [
+				"Require exact ompss approval",
+				"Preserve each target's own tools",
+				"Respect inherited depth permission",
+				"Consume descendant results before final settlement"
+			]
+		},
+		{
+			"id": 3,
+			"prompt": "OMPSS list says No personas mapped. Send a repository review to a subagent.",
+			"expected_output": "Explain the missing mapping and point to setup guidance. Ask permission before creating configuration or personas.",
+			"files": [],
+			"expectations": [
+				"Launch no invented agent",
+				"Do not assume a model",
+				"Request approval before editing live configuration"
+			]
+		},
+		{
+			"id": 4,
+			"prompt": "OMPSS could not confirm cleanup, but three slots remain free. Start another run in this session.",
+			"expected_output": "Report the cleanup block and give recovery guidance. Leave status and cancellation available without bypassing the safeguard.",
+			"files": [],
+			"expectations": [
+				"Start no new run while cleanup is uncertain",
+				"Inspect saved status and process evidence",
+				"Never report partial output as a completed run"
+			]
+		},
+		{
+			"id": 5,
+			"prompt": "An OMPSS child finished its local todo. My parent is tracking an OpenSpec task. Can that child tick the parent's checkbox?",
+			"expected_output": "Keep task ownership separate. Verify the subagent result, then update the parent's task explicitly using its own current revision.",
+			"files": [],
+			"expectations": [
+				"Do not copy parent tasks or sync bindings into the child",
+				"Keep child tasks in normal mode",
+				"Require an explicit verified parent update",
+				"Allow real todo reminder continuations to finish"
+			]
+		}
+	]
+}

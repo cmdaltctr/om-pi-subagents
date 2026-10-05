@@ -18,13 +18,26 @@ export interface AgentSnapshot {
 
 export type Registry = ReadonlyMap<string, AgentSnapshot>;
 
+export interface RunLimits {
+	readonly maxConcurrentRuns: number;
+	readonly maxDepth: number;
+}
+
+/** One coherent file revision, retained by its launch caller across later refreshes. */
+export interface ConfigurationSnapshot {
+	readonly registryPath: string;
+	readonly limits: RunLimits;
+	readonly agents: Registry;
+}
+
 /** A configuration problem. `field` names the YAML path, for example `agents.reader.tools`. */
 export class RegistryError extends Error {
 	constructor(
 		readonly field: string,
 		problem: string,
+		options?: ErrorOptions,
 	) {
-		super(`${field}: ${problem}`);
+		super(`${field}: ${problem}`, options);
 		this.name = "RegistryError";
 	}
 }
@@ -43,11 +56,12 @@ const isPlain = (value: unknown): value is Plain =>
 	typeof value === "object" && value !== null && !Array.isArray(value);
 
 /** Read the YAML and every mapped persona afresh. Each call returns new snapshots. */
-export async function loadRegistry(yamlPath: string): Promise<Registry> {
+export async function loadRegistry(yamlPath: string): Promise<ConfigurationSnapshot> {
 	// No file yet means the operator has mapped no agents. The package ships none.
-	if (!existsSync(yamlPath)) return new Map();
+	// nosemgrep: AIK_ts_generic_path_traversal -- The trusted operator selects this registry path; resolve only normalises a missing filename, with no file read.
+	if (!existsSync(yamlPath)) return configurationSnapshot(new Map(), validateLimits(undefined), resolve(yamlPath));
 	const data = parseYaml(await readBounded("om-pi-subagents.yaml", yamlPath));
-	const unknownTop = Object.keys(data).find((key) => key !== "version" && key !== "agents");
+	const unknownTop = Object.keys(data).find((key) => !["version", "agents", "limits"].includes(key));
 	if (unknownTop) throw new RegistryError(unknownTop, "unknown field");
 	if (data.version === undefined) throw new RegistryError("version", "required");
 	if (data.version !== SUPPORTED_VERSION) {
@@ -55,36 +69,80 @@ export async function loadRegistry(yamlPath: string): Promise<Registry> {
 	}
 	if (!isPlain(data.agents)) throw new RegistryError("agents", "required mapping (use {} for no agents)");
 
+	const limits = validateLimits(data.limits);
 	const yamlDir = dirname(yamlPath);
 	const registry = new Map<string, AgentSnapshot>();
 	for (const [name, raw] of Object.entries(data.agents)) {
 		registry.set(name, await buildSnapshot(name, raw, yamlDir));
 	}
-	return registry;
+	return configurationSnapshot(registry, limits, await realpath(yamlPath));
+}
+
+function validateLimits(value: unknown): RunLimits {
+	if (value !== undefined && !isPlain(value)) throw new RegistryError("limits", "must be a mapping");
+	const raw = (value ?? {}) as Plain;
+	const unknown = Object.keys(raw).find((key) => !["maxConcurrentRuns", "maxDepth"].includes(key));
+	if (unknown) throw new RegistryError(`limits.${unknown}`, "unknown field");
+	const number = (key: string, minimum: number): number => {
+		const setting = raw[key] === undefined ? 1 : raw[key];
+		if (typeof setting !== "number" || !Number.isSafeInteger(setting) || setting < minimum)
+			throw new RegistryError(`limits.${key}`, `must be a safe integer of at least ${minimum}`);
+		return setting;
+	};
+	return Object.freeze({ maxConcurrentRuns: number("maxConcurrentRuns", 1), maxDepth: number("maxDepth", 0) });
+}
+
+function configurationSnapshot(
+	registry: Map<string, AgentSnapshot>,
+	limits: RunLimits,
+	registryPath: string,
+): ConfigurationSnapshot {
+	// A frozen Map still exposes set/delete. This view exposes only read operations.
+	const agents: Registry = Object.freeze({
+		size: registry.size,
+		get: registry.get.bind(registry),
+		has: registry.has.bind(registry),
+		keys: registry.keys.bind(registry),
+		values: registry.values.bind(registry),
+		entries: registry.entries.bind(registry),
+		[Symbol.iterator]: registry[Symbol.iterator].bind(registry),
+		forEach(callback: (value: AgentSnapshot, key: string, map: Registry) => void, thisArg?: unknown) {
+			registry.forEach((value, key) => callback.call(thisArg, value, key, agents));
+		},
+	});
+	return Object.freeze({ agents, limits, registryPath });
 }
 
 export interface RegistryStore {
 	/** Reload the YAML. On failure the current registry is dropped, so no launch runs on stale settings. */
-	refresh(): Promise<void>;
+	refresh(): Promise<ConfigurationSnapshot>;
 	list(): string[];
 	get(name: string): AgentSnapshot;
 }
 
 /** Holds the active registry. Snapshots already handed out stay unchanged across refreshes. */
 export function createRegistryStore(yamlPath: string): RegistryStore {
-	let state: { registry: Registry } | { error: RegistryError } | undefined;
+	let state: { snapshot: ConfigurationSnapshot } | { error: RegistryError } | undefined;
 	const current = (): Registry => {
 		if (!state) throw new RegistryError("om-pi-subagents.yaml", "not loaded; refresh first");
 		if ("error" in state) throw state.error;
-		return state.registry;
+		return state.snapshot.agents;
 	};
 	return {
 		async refresh() {
 			try {
-				state = { registry: await loadRegistry(yamlPath) };
+				const snapshot = await loadRegistry(yamlPath);
+				state = { snapshot };
+				return snapshot;
 			} catch (error) {
-				if (error instanceof RegistryError) state = { error };
-				throw error;
+				const failure =
+					error instanceof RegistryError
+						? error
+						: new RegistryError("om-pi-subagents.yaml", "cannot read configuration; check its files and retry", {
+								cause: error,
+							});
+				state = { error: failure };
+				throw failure;
 			}
 		},
 		list: () => [...current().keys()],

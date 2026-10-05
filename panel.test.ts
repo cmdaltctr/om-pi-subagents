@@ -20,7 +20,7 @@ describe("run panel", () => {
 		panel.onChange(run());
 		panel.onChange(run({ state: "running" }));
 		panel.onProgress(run(), start("a"));
-		expect(panel.render()).toEqual(["OMPSS: reader running", "Tools: read"]);
+		expect(panel.render()).toEqual(["OMPSS: reader running (r1)", "Tools: read"]);
 	});
 
 	it("keeps a tool that started before prompt acknowledgement when the run becomes running", () => {
@@ -28,7 +28,7 @@ describe("run panel", () => {
 		panel.onChange(run());
 		panel.onProgress(run(), start("a", "bash"));
 		panel.onChange(run({ state: "running" }));
-		expect(panel.render()).toEqual(["OMPSS: reader running", "Tools: bash"]);
+		expect(panel.render()).toEqual(["OMPSS: reader running (r1)", "Tools: bash"]);
 	});
 
 	it("matches concurrent and nested calls by identifier, including repeated names", () => {
@@ -38,13 +38,13 @@ describe("run panel", () => {
 		panel.onProgress(run(), start("a/1", "read"));
 		panel.onProgress(run(), start("b", "read"));
 		panel.onProgress(run(), end("a"));
-		expect(panel.render()).toEqual(["OMPSS: reader starting", "Tools: read, read"]);
+		expect(panel.render()).toEqual(["OMPSS: reader starting (r1)", "Tools: read, read"]);
 		panel.onProgress(run(), end("a/1"));
-		expect(panel.render()).toEqual(["OMPSS: reader starting", "Tools: read"]);
+		expect(panel.render()).toEqual(["OMPSS: reader starting (r1)", "Tools: read"]);
 		panel.onProgress(run(), end("unknown"));
-		expect(panel.render()).toEqual(["OMPSS: reader starting", "Tools: read"]);
+		expect(panel.render()).toEqual(["OMPSS: reader starting (r1)", "Tools: read"]);
 		panel.onProgress(run(), end("b"));
-		expect(panel.render()).toEqual(["OMPSS: reader starting"]);
+		expect(panel.render()).toEqual(["OMPSS: reader starting (r1)"]);
 	});
 
 	it("ignores invalid, unrelated, foreign and stale events", () => {
@@ -61,7 +61,7 @@ describe("run panel", () => {
 			panel.onProgress(run(), event);
 		panel.onProgress(run({ owner: "foreign" }), start("b", "foreign"));
 		panel.onProgress(run({ id: "old" }), start("c", "stale"));
-		expect(panel.render()).toEqual(["OMPSS: reader starting"]);
+		expect(panel.render()).toEqual(["OMPSS: reader starting (r1)"]);
 	});
 
 	it.each(["completed", "failed", "cancelled"] as const)("retains %s and clears active calls", (state) => {
@@ -70,7 +70,7 @@ describe("run panel", () => {
 		panel.onProgress(run(), start("a", "bash"));
 		panel.onChange(run({ state }));
 		panel.onProgress(run(), start("late", "read"));
-		expect(panel.render()).toEqual([`OMPSS: reader ${state}`]);
+		expect(panel.render()).toEqual([`OMPSS: reader ${state} (r1)`]);
 	});
 
 	it("bounds the preview, labels failed output partial and resets on the next run", () => {
@@ -82,7 +82,7 @@ describe("run panel", () => {
 		expect(text.length).toBeLessThan(MAX_PREVIEW_CHARS + 100);
 		panel.onChange(run({ id: "r2" }));
 		panel.setPreview(run({ state: "failed" }), "old output");
-		expect(panel.render()).toEqual(["OMPSS: reader starting"]);
+		expect(panel.render()).toEqual(["OMPSS: reader starting (r2)"]);
 	});
 
 	it("renders safe plain text without arguments or result bodies", () => {

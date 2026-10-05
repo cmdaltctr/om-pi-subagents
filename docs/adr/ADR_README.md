@@ -4,12 +4,13 @@ This directory records significant architectural decisions made during developme
 
 ## Index
 
-| ADR                                                                          | Title                                                         | Date       | Status   |
-| ---------------------------------------------------------------------------- | ------------------------------------------------------------- | ---------- | -------- |
-| [001](./001-keep-the-agent-mapping-outside-the-package.md)                   | Keep the agent mapping outside the package and ship no agents | 2026-10-01 | Accepted |
-| [002](./002-refuse-child-prompts-that-do-not-come-from-the-parent.md)        | Refuse child prompts that do not come from the parent         | 2026-10-01 | Accepted |
-| [003](./003-release-through-release-please-and-staged-trusted-publishing.md) | Release through Release Please and staged trusted publishing  | 2026-10-01 | Proposed |
-| [004](./004-show-child-progress-in-a-parent-owned-widget.md)                 | Show child progress in a parent-owned widget                  | 2026-10-01 | Accepted |
+| ADR                                                                          | Title                                                         | Date       | Status                              |
+| ---------------------------------------------------------------------------- | ------------------------------------------------------------- | ---------- | ----------------------------------- |
+| [001](./001-keep-the-agent-mapping-outside-the-package.md)                   | Keep the agent mapping outside the package and ship no agents | 2026-10-01 | Accepted                            |
+| [002](./002-refuse-child-prompts-that-do-not-come-from-the-parent.md)        | Refuse child prompts that do not come from the parent         | 2026-10-01 | Accepted                            |
+| [003](./003-release-through-release-please-and-staged-trusted-publishing.md) | Release through Release Please and staged trusted publishing  | 2026-10-01 | Proposed                            |
+| [004](./004-show-child-progress-in-a-parent-owned-widget.md)                 | Show child progress in a parent-owned widget                  | 2026-10-01 | Accepted (partly superseded by 005) |
+| [005](./005-configure-per-session-concurrency-and-nesting.md)                | Configure per-session concurrency and nesting                 | 2026-10-04 | Accepted                            |
 
 ## Convention
 

@@ -9,6 +9,8 @@ import { stopGroup } from "./runner.ts";
 import { launchChild, StartupError, type ReadyChild } from "./startup.ts";
 import { createWorkspace, PI_BIN, type Workspace } from "./test/fixtures/pi-rpc.ts";
 
+import { fixtureLineage } from "./test/fixtures/lineage.ts";
+
 const GUARD = new URL("./child-guard.ts", import.meta.url).pathname;
 const PROVIDER = new URL("./test/fixtures/fake-provider-extension.ts", import.meta.url).pathname;
 
@@ -39,6 +41,7 @@ async function attempt(extensions: string[]): Promise<ReadyChild | StartupError>
 		personaFile: join(workspace.root, "persona.md"),
 		guardPath: GUARD,
 		runToken: "run-token",
+		lineage: fixtureLineage(join(workspace.agentDir, "om-pi-subagents.yaml")),
 		piBin: PI_BIN,
 		startupDeadlineMs: 15_000,
 		env: { ...process.env, ...workspace.isolationEnv, FAKE_MODEL_URL: workspace.model.baseUrl },
