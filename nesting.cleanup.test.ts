@@ -36,7 +36,9 @@ const waitFor = async (test: () => boolean | Promise<boolean>) => {
 };
 
 async function nested(faultyPs = false, holdLeaf = false): Promise<Supervised> {
+	const env: NodeJS.ProcessEnv = { ...process.env };
 	const run = await harness.setup({
+		deps: { env },
 		tools: ["ompss"],
 		limits: { maxConcurrentRuns: 4, maxDepth: 3 },
 		seed: async ({ agentDir }) => {
@@ -61,6 +63,9 @@ agents:
 			);
 		},
 	});
+	Object.assign(env, run.workspace.isolationEnv, {
+		OMPSS_REGISTRY: join(run.workspace.agentDir, "om-pi-subagents.yaml"),
+	});
 	if (faultyPs) {
 		const bin = join(run.workspace.root, "bin");
 		await mkdir(bin);
@@ -79,11 +84,8 @@ agents:
 			`#!/bin/sh\nexport PATH=${JSON.stringify(bin)}:"$PATH"\nexec ${JSON.stringify(PI_BIN)} "$@"\n`,
 		);
 		await chmod(launcher, 0o755);
-		// Descendants resolve the same wrapper through their isolated agent directory.
-		const agentBin = join(run.workspace.agentDir, "bin");
-		await mkdir(agentBin);
-		await writeFile(join(agentBin, "pi"), `#!/bin/sh\nexec ${JSON.stringify(launcher)} "$@"\n`);
-		await chmod(join(agentBin, "pi"), 0o755);
+		// Select the fixture explicitly, so an inherited CI override cannot bypass fault injection.
+		env.OMPSS_PI_BIN = launcher;
 	}
 	run.workspace.model.script = (body) => {
 		const messages = JSON.stringify(body.messages);

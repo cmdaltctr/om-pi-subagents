@@ -320,6 +320,19 @@ project's `node_modules`. `bunfig.toml` sets `peer = false` to keep them there.
 The extension declares its directly used host packages as peers.
 Vite is a direct development dependency because Vitest needs it while automatic
 peer installation is disabled.
+`@fission-ai/openspec` 1.14.0 is a pinned development dependency for the real
+`om-pi-todo` OpenSpec compatibility tests. `bun install` supplies its CLI locally;
+production installs do not require it.
+
+> [!CAUTION]
+> **Known high-severity vulnerability in a development dependency**
+> OpenSpec 1.14.0 brings in `braces@3.0.3` through `fast-glob` and `micromatch`.
+> [GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm) allows deeply nested brace patterns to crash the OpenSpec CLI.
+> No patched release exists as of 5 October 2026. Use only trusted schema patterns and repositories.
+> The maintainer accepts this risk for personal development and compatibility tests.
+> `bun run audit` checks production dependencies without exceptions, then checks all dependencies with this advisory excluded.
+> Other advisories still fail the audit. Run `bun audit` to see the accepted finding.
+> Remove the exception when a patched dependency becomes available.
 
 | Purpose                               | Command                |
 | ------------------------------------- | ---------------------- |
@@ -338,6 +351,7 @@ peer installation is disabled.
 `bun run ci:clean` needs a git commit. It installs from the lockfile with
 `HUSKY=0` in a temporary clone and runs `bun run ci`. Uncommitted changes are
 excluded. Host packages already downloaded locally are reused.
+The clone sets `OMPSS_PI_BIN` to the pinned host CLI, matching GitHub Actions.
 
 The executable `.husky/pre-push` runs host setup followed by `bun run ci:clean`.
 GitHub Actions runs the same checks and a separate audit job on pushes and
