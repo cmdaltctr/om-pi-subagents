@@ -69,7 +69,7 @@ dependencies with only this advisory excluded.
 ## How to Recognise / Handle This Again
 
 1. Read the failed step, since the job name includes several checks.
-2. Run `OMPSS_PI_BIN="$PWD/.pi-host/node_modules/.bin/pi" bun run test nesting.cleanup.test.ts`.
+2. Run `OMPSS_PI_BIN="$PWD/.pi-host/node_modules/.bin/pi" bun run test test/nesting.cleanup.test.ts`.
 3. Verify `node_modules/.bin/openspec --version` reports `1.14.0`.
 4. Run `bun run ci:clean` after committing.
 5. Confirm GitHub's Linux check passes before merging.
@@ -84,7 +84,7 @@ Revisit when CI's executable settings change or the pinned todo package needs an
 - [PR #8](https://github.com/cmdaltctr/om-pi-subagents/pull/8)
 - [Failed CI run](https://github.com/cmdaltctr/om-pi-subagents/actions/runs/37300759307)
 - [Accepted advisory](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm)
-- [Cleanup fixture](../../nesting.cleanup.test.ts)
-- [Parent todo tests](../../todo.parent.test.ts)
+- [Cleanup fixture](../../test/nesting.cleanup.test.ts)
+- [Parent todo tests](../../test/todo.parent.test.ts)
 - [Tooling assertions](../../test/docs.test.ts)
 - [Fresh-clone gate](../../scripts/ci-clean.sh)
