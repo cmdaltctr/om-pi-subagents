@@ -1,9 +1,9 @@
 import { tmpdir } from "node:os";
 import { describe, expect, it } from "vitest";
-import { PREFLIGHT_COMMAND, READY_ENTRY } from "../protocol.ts";
-import type { LaunchInput } from "../runner.ts";
-import type { RpcChannel } from "../rpc.ts";
-import { runGate, StartupError } from "../startup.ts";
+import { PREFLIGHT_COMMAND, READY_ENTRY } from "../src/protocol.ts";
+import type { LaunchInput } from "../src/runner.ts";
+import type { RpcChannel } from "../src/rpc.ts";
+import { runGate, StartupError } from "../src/startup.ts";
 
 const lineage = {
 	registryPath: "/operator/registry.yaml",

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { RunPanel } from "../panel.ts";
+import { RunPanel } from "../src/panel.ts";
 
 describe("compact widget display preference", () => {
 	it("uses cached visible-agent bounds while status counts include all active runs", () => {

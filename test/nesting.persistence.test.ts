@@ -2,8 +2,8 @@ import { mkdtemp, readFile, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, it } from "vitest";
-import { createPersistence } from "../persistence.ts";
-import { RunStore } from "../store.ts";
+import { createPersistence } from "../src/persistence.ts";
+import { RunStore } from "../src/store.ts";
 
 it("saves fresh limits and effective lineage in private configuration and status evidence", async () => {
 	const root = await mkdtemp(join(tmpdir(), "ompss-nested-evidence-"));

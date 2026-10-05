@@ -1,8 +1,8 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { ObservationRelay } from "../../observation-relay.ts";
-import { ObservationStore } from "../../observation.ts";
-import { OBSERVATION_ENTRY, readChildPolicy } from "../../protocol.ts";
-import { RunManager } from "../../runs.ts";
+import { ObservationRelay } from "../../src/observation-relay.ts";
+import { ObservationStore } from "../../src/observation.ts";
+import { OBSERVATION_ENTRY, readChildPolicy } from "../../src/protocol.ts";
+import { RunManager } from "../../src/runs.ts";
 
 /** Exercise a failed lower-hop subscription over the real managed child's existing pipe. */
 export default function subscriptionFailure(pi: ExtensionAPI): void {

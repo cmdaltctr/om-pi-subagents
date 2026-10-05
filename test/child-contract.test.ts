@@ -3,10 +3,10 @@
 import { afterEach, describe as suite, expect, it } from "vitest";
 import { PI_AVAILABLE } from "./fixtures/pi-rpc.ts";
 const describe = suite.skipIf(!PI_AVAILABLE);
-import { PREFLIGHT_COMMAND, READY_ENTRY } from "../protocol.ts";
+import { PREFLIGHT_COMMAND, READY_ENTRY } from "../src/protocol.ts";
 import { startPi, type PiFixture } from "./fixtures/pi-rpc.ts";
 
-const GUARD = new URL("../child-guard.ts", import.meta.url).pathname;
+const GUARD = new URL("../src/child-guard.ts", import.meta.url).pathname;
 const guardArgs = ["-e", "builtin:mcp", "-e", "builtin:tool-search", "-e", GUARD];
 
 let pi: PiFixture | undefined;

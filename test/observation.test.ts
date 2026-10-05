@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { ObservationStore, OBSERVATION_LIMITS, type ObservationSnapshot } from "../observation.ts";
-import { RunManager, type RunView } from "../runs.ts";
+import { ObservationStore, OBSERVATION_LIMITS, type ObservationSnapshot } from "../src/observation.ts";
+import { RunManager, type RunView } from "../src/runs.ts";
 
 const connection = { owner: "session", runId: "direct" };
 const direct = (patch: Partial<RunView> = {}): RunView => ({

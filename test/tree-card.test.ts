@@ -1,7 +1,7 @@
 import { visibleWidth } from "@earendil-works/pi-tui";
 import { describe, expect, it } from "vitest";
-import type { ObservedNode, ObservedTree } from "../observation.ts";
-import { treeCardLines, TreeCard } from "../tree-card.ts";
+import type { ObservedNode, ObservedTree } from "../src/observation.ts";
+import { treeCardLines, TreeCard } from "../src/tree-card.ts";
 
 const node = (id: string, parentRunId?: string, depth = 1, patch: Partial<ObservedNode> = {}): ObservedNode => ({
 	owner: "session",

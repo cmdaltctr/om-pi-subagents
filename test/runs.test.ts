@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { AgentSnapshot } from "../config.ts";
+import type { AgentSnapshot } from "../src/config.ts";
 import {
 	CleanupBlockedError,
 	OccupiedError,
@@ -8,7 +8,7 @@ import {
 	type RunOutcome,
 	type Supervisor,
 	type SupervisorHooks,
-} from "../runs.ts";
+} from "../src/runs.ts";
 
 const agent: AgentSnapshot = {
 	name: "reader",

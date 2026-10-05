@@ -2,13 +2,13 @@
 import { readdir, readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { createPersistence } from "../persistence.ts";
-import { RunManager } from "../runs.ts";
-import { createSupervisor } from "../supervisor.ts";
-import { RunStore } from "../store.ts";
+import { createPersistence } from "../src/persistence.ts";
+import { RunManager } from "../src/runs.ts";
+import { createSupervisor } from "../src/supervisor.ts";
+import { RunStore } from "../src/store.ts";
 import { createWorkspace, PI_AVAILABLE, PI_BIN, type Workspace } from "./fixtures/pi-rpc.ts";
 
-const GUARD = new URL("../child-guard.ts", import.meta.url).pathname;
+const GUARD = new URL("../src/child-guard.ts", import.meta.url).pathname;
 const THROWING = new URL("./fixtures/throwing-handler-extension.ts", import.meta.url).pathname;
 
 let workspace: Workspace | undefined;
@@ -112,8 +112,8 @@ describe.skipIf(!PI_AVAILABLE)("the child's process id", () => {
 
 describe("delivery result", () => {
 	it("is remembered for status and saved in notification.json", async () => {
-		const { createPersistence: create } = await import("../persistence.ts");
-		const { RunStore: Store } = await import("../store.ts");
+		const { createPersistence: create } = await import("../src/persistence.ts");
+		const { RunStore: Store } = await import("../src/store.ts");
 		const os = await import("node:os");
 		const fs = await import("node:fs/promises");
 		const root = await fs.mkdtemp(join(os.tmpdir(), "ompss-delivery-"));
@@ -147,8 +147,8 @@ describe("delivery result", () => {
 
 describe("flush", () => {
 	it("waits for status writes that the run table did not await", async () => {
-		const { createPersistence: create } = await import("../persistence.ts");
-		const { RunStore: Store } = await import("../store.ts");
+		const { createPersistence: create } = await import("../src/persistence.ts");
+		const { RunStore: Store } = await import("../src/store.ts");
 		const { mkdtemp: tmp, rm: remove, readFile: read } = await import("node:fs/promises");
 		const root = await tmp(join((await import("node:os")).tmpdir(), "ompss-flush-"));
 		try {

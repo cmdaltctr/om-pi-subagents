@@ -14,5 +14,5 @@
 			"@earendil-works/pi-tui": ["./.pi-host/node_modules/@earendil-works/pi-tui/dist/index.d.ts"]
 		}
 	},
-	"include": ["*.ts", "test/**/*.ts"]
+	"include": ["*.ts", "src/**/*.ts", "test/**/*.ts"]
 }

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
-import { RunPanel } from "../panel.ts";
-import { createNotifier } from "../notify.ts";
-import type { RunView } from "../runs.ts";
+import { RunPanel } from "../src/panel.ts";
+import { createNotifier } from "../src/notify.ts";
+import type { RunView } from "../src/runs.ts";
 
 const run = (id: string, state: RunView["state"] = "starting", owner = "parent"): RunView => ({
 	id,

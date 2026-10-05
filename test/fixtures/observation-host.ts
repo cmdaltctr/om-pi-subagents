@@ -1,5 +1,5 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { registerRuntime } from "../../index.ts";
+import { registerRuntime } from "../../src/index.ts";
 
 /** Expose retained display state only in disposable RPC hosts. */
 export default function observationHost(pi: ExtensionAPI): void {

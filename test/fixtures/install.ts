@@ -26,6 +26,7 @@ export async function installExtension(options: Pick<FixtureOptions, "env"> = {}
 		if (/\.(ts|yaml|json)$/.test(name) && !name.endsWith(".test.ts") && name !== "vitest.config.ts")
 			await cp(join(SOURCE, name), join(installed, name));
 	}
+	await cp(join(SOURCE, "src"), join(installed, "src"), { recursive: true });
 	await mkdir(join(installed, "node_modules"));
 	await symlink(join(SOURCE, "node_modules", "yaml"), join(installed, "node_modules", "yaml")); // stands in for `bun install`
 	const bin = join(scratch, "bin");
@@ -33,7 +34,7 @@ export async function installExtension(options: Pick<FixtureOptions, "env"> = {}
 	await symlink(PI_BIN, join(bin, "pi"));
 
 	const fixture = await startPi({
-		args: ["-e", join(installed, "index.ts")],
+		args: ["-e", join(installed, "src", "index.ts")],
 		env: { PATH: `${bin}:${process.env.PATH}`, HOME: home, ...options.env },
 		mcp: false,
 	});

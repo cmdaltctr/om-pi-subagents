@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { createNotifier, MAX_OUTPUT_CHARS, RESULT_MESSAGE } from "../notify.ts";
-import type { RunView } from "../runs.ts";
+import { createNotifier, MAX_OUTPUT_CHARS, RESULT_MESSAGE } from "../src/notify.ts";
+import type { RunView } from "../src/runs.ts";
 
 const view = (overrides: Partial<RunView> = {}): RunView => ({
 	id: "run-1",

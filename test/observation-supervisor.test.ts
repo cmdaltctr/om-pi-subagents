@@ -1,7 +1,7 @@
 import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
-import type { ObservedNode } from "../observation.ts";
-import { groupAlive } from "../runner.ts";
+import type { ObservedNode } from "../src/observation.ts";
+import { groupAlive } from "../src/runner.ts";
 import { observationSupervised } from "./fixtures/observation-supervised.ts";
 import { PI_AVAILABLE } from "./fixtures/pi-rpc.ts";
 

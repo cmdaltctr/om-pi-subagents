@@ -3,8 +3,8 @@ import * as fs from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import ompss from "../index.ts";
-import { loadRegistry } from "../config.ts";
+import ompss from "../src/index.ts";
+import { loadRegistry } from "../src/config.ts";
 
 const processes = vi.hoisted(() => ({ spawn: vi.fn(), spawnSync: vi.fn(), execFile: vi.fn(), exec: vi.fn() }));
 vi.mock("node:child_process", () => processes);

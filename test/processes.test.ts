@@ -4,7 +4,7 @@ import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { listDescendants, OwnedProcesses } from "../processes.ts";
+import { listDescendants, OwnedProcesses } from "../src/processes.ts";
 
 const cleanups: Array<() => void> = [];
 afterEach(() => {

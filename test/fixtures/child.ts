@@ -1,16 +1,16 @@
 import { existsSync } from "node:fs";
 import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import type { AgentSnapshot } from "../../config.ts";
-import { VIOLATION_ENTRY, type Violation } from "../../protocol.ts";
-import { stopGroup } from "../../runner.ts";
-import { launchChild, type ReadyChild } from "../../startup.ts";
+import type { AgentSnapshot } from "../../src/config.ts";
+import { VIOLATION_ENTRY, type Violation } from "../../src/protocol.ts";
+import { stopGroup } from "../../src/runner.ts";
+import { launchChild, type ReadyChild } from "../../src/startup.ts";
 import type { Turn } from "./fake-model.ts";
 import { createWorkspace, PI_BIN, type Workspace, type WorkspaceOptions } from "./pi-rpc.ts";
 
 import { fixtureLineage } from "./lineage.ts";
 
-const GUARD = new URL("../../child-guard.ts", import.meta.url).pathname;
+const GUARD = new URL("../../src/child-guard.ts", import.meta.url).pathname;
 
 export interface RunOptions {
 	tools: string[];

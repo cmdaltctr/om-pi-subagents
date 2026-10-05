@@ -68,12 +68,12 @@ Todo's keys, preferences and parent task bindings remain separate.
 
 ## References
 
-- [Native viewer](../../viewer.ts)
-- [Read-only inspector](../../inspector.ts)
-- [Observation validation](../../observation-validation.ts)
-- [Observation relay](../../observation-relay.ts)
-- [Bounded detail reads](../../details.ts)
-- [Settings persistence](../../settings-persistence.ts)
+- [Native viewer](../../src/viewer.ts)
+- [Read-only inspector](../../src/inspector.ts)
+- [Observation validation](../../src/observation-validation.ts)
+- [Observation relay](../../src/observation-relay.ts)
+- [Bounded detail reads](../../src/details.ts)
+- [Settings persistence](../../src/settings-persistence.ts)
 - [Usage and privacy](../USAGE.md#agent-trees-and-inspection)
 - [ADR-004: Parent-owned widget](004-show-child-progress-in-a-parent-owned-widget.md)
 - [ADR-005: Concurrency and nesting](005-configure-per-session-concurrency-and-nesting.md)

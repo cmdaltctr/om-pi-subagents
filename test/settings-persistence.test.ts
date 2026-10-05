@@ -3,13 +3,13 @@ import { setTimeout as delay } from "node:timers/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { loadRegistry } from "../config.ts";
+import { loadRegistry } from "../src/config.ts";
 import {
 	createDisplayPreferences,
 	displayPreferencesPath,
 	readLimitSettings,
 	saveLimitSetting,
-} from "../settings-persistence.ts";
+} from "../src/settings-persistence.ts";
 
 vi.mock("node:fs/promises", async (importOriginal) => {
 	const original = await importOriginal<typeof import("node:fs/promises")>();

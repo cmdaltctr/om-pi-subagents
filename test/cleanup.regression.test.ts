@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { decide, ResultJudge, type Assessment, type FinalFacts } from "../result.ts";
+import { decide, ResultJudge, type Assessment, type FinalFacts } from "../src/result.ts";
 
 const cleanupEntry = (token: string, error = "descendant process tree cannot be inspected") => ({
 	type: "entry_appended",

@@ -2,9 +2,9 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createRegistryStore } from "../config.ts";
-import { RunManager, type RunOutcome, type Supervisor } from "../runs.ts";
-import { createService } from "../service.ts";
+import { createRegistryStore } from "../src/config.ts";
+import { RunManager, type RunOutcome, type Supervisor } from "../src/runs.ts";
+import { createService } from "../src/service.ts";
 
 let dir: string;
 beforeEach(async () => {

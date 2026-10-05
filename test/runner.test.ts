@@ -3,8 +3,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const spawnSpy = vi.hoisted(() => vi.fn(() => ({})));
 vi.mock("node:child_process", () => ({ spawn: spawnSpy }));
 
-import type { AgentSnapshot } from "../config.ts";
-import { buildLaunch, spawnChild, type LaunchInput } from "../runner.ts";
+import type { AgentSnapshot } from "../src/config.ts";
+import { buildLaunch, spawnChild, type LaunchInput } from "../src/runner.ts";
 import { fixtureLineage } from "./fixtures/lineage.ts";
 
 const snapshot = (overrides: Partial<AgentSnapshot> = {}): AgentSnapshot => ({

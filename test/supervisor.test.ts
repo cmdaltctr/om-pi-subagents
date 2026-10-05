@@ -2,7 +2,7 @@
 import { afterEach, describe as suite, expect, it } from "vitest";
 import { PI_AVAILABLE } from "./fixtures/pi-rpc.ts";
 const describe = suite.skipIf(!PI_AVAILABLE);
-import { groupAlive } from "../runner.ts";
+import { groupAlive } from "../src/runner.ts";
 import { supervisedHarness } from "./fixtures/supervised.ts";
 
 const THROWING = new URL("./fixtures/throwing-handler-extension.ts", import.meta.url).pathname;

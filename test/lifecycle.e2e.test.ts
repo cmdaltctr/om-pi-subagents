@@ -5,11 +5,11 @@ import { join } from "node:path";
 import { afterEach, describe as suite, expect, it } from "vitest";
 import { PI_AVAILABLE } from "./fixtures/pi-rpc.ts";
 const describe = suite.skipIf(!PI_AVAILABLE);
-import { groupAlive } from "../runner.ts";
+import { groupAlive } from "../src/runner.ts";
 import type { Turn } from "./fixtures/fake-model.ts";
 import { PI_BIN, startPi, type PiFixture } from "./fixtures/pi-rpc.ts";
 
-const INDEX = new URL("../index.ts", import.meta.url).pathname;
+const INDEX = new URL("../src/index.ts", import.meta.url).pathname;
 
 let pi: PiFixture | undefined;
 let extensionDir: string | undefined;

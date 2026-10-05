@@ -1,8 +1,8 @@
 // Terminal-result rules, driven by synthetic RPC records. No process involved.
 import { describe, expect, it } from "vitest";
-import { VIOLATION_ENTRY } from "../protocol.ts";
-import type { RpcRecord } from "../rpc.ts";
-import { decide, ResultJudge, type Assessment, type FinalFacts } from "../result.ts";
+import { VIOLATION_ENTRY } from "../src/protocol.ts";
+import type { RpcRecord } from "../src/rpc.ts";
+import { decide, ResultJudge, type Assessment, type FinalFacts } from "../src/result.ts";
 
 const TOKEN = "tok";
 

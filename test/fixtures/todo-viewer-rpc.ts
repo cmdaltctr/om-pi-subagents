@@ -8,7 +8,7 @@ import { resolveTodoExtension, seedTodoPreferences } from "./todo.ts";
 /** Verify actual child-local todo ids while operator inspection and settings leave work running. */
 export async function verifyTodoViewerChild(mode: "normal" | "openspec", order: "ompss-first" | "todo-first") {
 	const extension = await resolveTodoExtension();
-	const index = new URL("../../index.ts", import.meta.url).pathname;
+	const index = new URL("../../src/index.ts", import.meta.url).pathname;
 	const args: string[] = [];
 	let preferences = "";
 	let tasks = "";

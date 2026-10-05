@@ -60,7 +60,7 @@ After loading, use `/ompss inspect` for retained runs and `/subagents-settings` 
 
 A package install exposes `/skill:om-pi-subagents` when Pi skill commands are enabled.
 For a local checkout, load it as a package with `pi install ./path/to/checkout` to discover the skill.
-Copying only `index.ts` as an extension does not register package skills.
+Copying only `src/index.ts` as an extension does not register package skills.
 Use the installed package's skill path for explicit child loading. See [usage](USAGE.md#nested-results-and-local-todos).
 
 `om-pi-todo` stays optional. Install it separately if needed, then explicitly map its extension and approve `todo`.
@@ -197,7 +197,7 @@ See [AGENTS.md](../AGENTS.md) for commands and module boundaries.
 
 ### `/ompss` is missing
 
-1. Run `pi list` and check that `om-pi-subagents` is there. For a local copy, check that `index.ts` is inside `~/.pi/agent/extensions/ompss/`.
+1. Run `pi list` and check that `om-pi-subagents` is there. For a local copy, check that `src/index.ts` is inside `~/.pi/agent/extensions/ompss/`.
 2. Run `/reload`.
 3. Read any extension-loading error before retrying.
 

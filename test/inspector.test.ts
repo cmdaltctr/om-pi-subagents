@@ -1,8 +1,8 @@
 import { visibleWidth } from "@earendil-works/pi-tui";
 import { describe, expect, it, vi } from "vitest";
-import { ObservationStore } from "../observation.ts";
-import { Inspector } from "../inspector.ts";
-import type { RunDetails } from "../details.ts";
+import { ObservationStore } from "../src/observation.ts";
+import { Inspector } from "../src/inspector.ts";
+import type { RunDetails } from "../src/details.ts";
 
 function setup(count = 8) {
 	const observations = new ObservationStore();

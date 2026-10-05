@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { afterEach, describe as suite, expect, it } from "vitest";
 import { PI_AVAILABLE } from "./fixtures/pi-rpc.ts";
 const describe = suite.skipIf(!PI_AVAILABLE);
-import { groupAlive } from "../runner.ts";
+import { groupAlive } from "../src/runner.ts";
 import { installExtension, SOURCE, type Installed } from "./fixtures/install.ts";
 import type { Turn } from "./fixtures/fake-model.ts";
 

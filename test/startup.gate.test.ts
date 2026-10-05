@@ -1,9 +1,9 @@
 // The readiness sequence with a scripted channel. It reaches the parent checks that a real child cannot provoke.
 import { describe, expect, it } from "vitest";
-import { PREFLIGHT_COMMAND, READY_ENTRY } from "../protocol.ts";
-import type { LaunchInput } from "../runner.ts";
-import type { RpcChannel, RpcRecord } from "../rpc.ts";
-import { runGate, StartupError } from "../startup.ts";
+import { PREFLIGHT_COMMAND, READY_ENTRY } from "../src/protocol.ts";
+import type { LaunchInput } from "../src/runner.ts";
+import type { RpcChannel, RpcRecord } from "../src/rpc.ts";
+import { runGate, StartupError } from "../src/startup.ts";
 import { fixtureLineage } from "./fixtures/lineage.ts";
 
 const GUARD = "/ext/child-guard.ts";

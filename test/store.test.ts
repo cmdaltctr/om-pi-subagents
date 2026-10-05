@@ -2,9 +2,9 @@ import { chmod, mkdir, mkdtemp, readdir, readFile, rm, stat } from "node:fs/prom
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import type { AgentSnapshot } from "../config.ts";
-import type { RunView } from "../runs.ts";
-import { redact, RunStore } from "../store.ts";
+import type { AgentSnapshot } from "../src/config.ts";
+import type { RunView } from "../src/runs.ts";
+import { redact, RunStore } from "../src/store.ts";
 
 let root: string;
 beforeEach(async () => {

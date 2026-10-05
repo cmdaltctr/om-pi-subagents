@@ -4,20 +4,20 @@ OMPSS runs YAML-mapped personas as native Pi child processes. Read this file bef
 
 ## Architecture
 
-Source files live at the repository root. Tests live in `test/`. Pi loads the default export of `index.ts`.
+Source files live in `src/`. Tests live in `test/`. Pi loads the default export of `src/index.ts`.
 
-| Path                                         | Responsibility                                                                  |
-| -------------------------------------------- | ------------------------------------------------------------------------------- |
-| `index.ts`                                   | Register the tool, command and session lifecycle. Create the runtime lazily.    |
-| `config.ts`                                  | Validate YAML and persona paths. Produce immutable launch snapshots.            |
-| `service.ts`, `runs.ts`                      | Handle user actions, session ownership and configured direct-child capacity.    |
-| `runner.ts`, `startup.ts`, `protocol.ts`     | Build isolated child arguments and verify readiness before sending a task.      |
-| `child-guard.ts`                             | Enforce exact tool names inside the child. Report violations.                   |
-| `rpc.ts`                                     | Read bounded JSON lines and manage child requests, subscriptions and pipe loss. |
-| `supervisor.ts`, `processes.ts`, `result.ts` | Follow the run, stop descendants and decide its final result.                   |
-| `store.ts`, `persistence.ts`, `notify.ts`    | Save private run files, flush writes and deliver the result separately.         |
-| `managed-child.ts`, `todo-bootstrap.ts`      | Wait for owned results in approved delegators and seed child-local todo mode.   |
-| `test/fixtures/`                             | Fake model, local MCP server and disposable Pi harnesses.                       |
+| Path                                                     | Responsibility                                                                  |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| `src/index.ts`                                           | Register the tool, command and session lifecycle. Create the runtime lazily.    |
+| `src/config.ts`                                          | Validate YAML and persona paths. Produce immutable launch snapshots.            |
+| `src/service.ts`, `src/runs.ts`                          | Handle user actions, session ownership and configured direct-child capacity.    |
+| `src/runner.ts`, `src/startup.ts`, `src/protocol.ts`     | Build isolated child arguments and verify readiness before sending a task.      |
+| `src/child-guard.ts`                                     | Enforce exact tool names inside the child. Report violations.                   |
+| `src/rpc.ts`                                             | Read bounded JSON lines and manage child requests, subscriptions and pipe loss. |
+| `src/supervisor.ts`, `src/processes.ts`, `src/result.ts` | Follow the run, stop descendants and decide its final result.                   |
+| `src/store.ts`, `src/persistence.ts`, `src/notify.ts`    | Save private run files, flush writes and deliver the result separately.         |
+| `src/managed-child.ts`, `src/todo-bootstrap.ts`          | Wait for owned results in approved delegators and seed child-local todo mode.   |
+| `test/fixtures/`                                         | Fake model, local MCP server and disposable Pi harnesses.                       |
 
 Keep these boundaries:
 

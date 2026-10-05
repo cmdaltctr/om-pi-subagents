@@ -12,7 +12,7 @@ const processSpies = vi.hoisted(() => ({
 }));
 vi.mock("node:child_process", () => processSpies);
 
-import { loadRegistry, RegistryError } from "../config.ts";
+import { loadRegistry, RegistryError } from "../src/config.ts";
 
 let dir: string;
 let outside: string;

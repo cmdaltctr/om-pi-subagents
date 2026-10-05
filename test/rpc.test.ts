@@ -3,7 +3,7 @@ import type { ChildProcess } from "node:child_process";
 import { EventEmitter } from "node:events";
 import { PassThrough, Writable } from "node:stream";
 import { describe, expect, it } from "vitest";
-import { RpcChannel } from "../rpc.ts";
+import { RpcChannel } from "../src/rpc.ts";
 
 interface FakeChild {
 	child: ChildProcess;

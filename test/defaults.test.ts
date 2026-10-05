@@ -5,7 +5,8 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
-const sources = () => readdirSync(ROOT).filter((name) => name.endsWith(".ts") && !name.endsWith(".test.ts"));
+const SRC = join(ROOT, "src");
+const sources = () => readdirSync(SRC).filter((name) => name.endsWith(".ts") && !name.endsWith(".test.ts"));
 
 describe("nothing is hard-coded", () => {
 	it("ships no mapping and no persona files", () => {
@@ -16,7 +17,7 @@ describe("nothing is hard-coded", () => {
 	it("names no model, provider or personal path in any extension source file", () => {
 		expect(sources().length).toBeGreaterThan(5);
 		for (const name of sources())
-			expect(readFileSync(join(ROOT, name), "utf8"), name).not.toMatch(
+			expect(readFileSync(join(SRC, name), "utf8"), name).not.toMatch(
 				/\b(zai|openai-codex|deepseek|anthropic|openai)\/|\bglm-\d|\bgpt-\d|~\/\.agents|\/Users\//,
 			);
 	});

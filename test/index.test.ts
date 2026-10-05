@@ -15,8 +15,8 @@ const processSpies = vi.hoisted(() => ({
 
 vi.mock("node:child_process", () => processSpies);
 
-import ompss, { registerOmpss, resolvePiBin, resolveRegistryPath, SessionBinding } from "../index.ts";
-import type { OmpssService } from "../service.ts";
+import ompss, { registerOmpss, resolvePiBin, resolveRegistryPath, SessionBinding } from "../src/index.ts";
+import type { OmpssService } from "../src/service.ts";
 
 type Notify = (message: string, level: string) => void;
 type Ctx = {

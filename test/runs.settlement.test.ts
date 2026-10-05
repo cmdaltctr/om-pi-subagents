@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { RunManager, type RunOutcome, type RunView, type Supervisor } from "../runs.ts";
-import { createNotifier } from "../notify.ts";
+import { RunManager, type RunOutcome, type RunView, type Supervisor } from "../src/runs.ts";
+import { createNotifier } from "../src/notify.ts";
 
 const request = {
 	agent: { name: "reader", personaPath: "p", persona: "Read.", tools: [], thinking: "off", skills: [], extensions: [] },

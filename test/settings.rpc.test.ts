@@ -1,11 +1,11 @@
 import { readFile, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { loadRegistry } from "../config.ts";
+import { loadRegistry } from "../src/config.ts";
 import { PI_AVAILABLE, startPi } from "./fixtures/pi-rpc.ts";
 import { editRpcSettings } from "./fixtures/settings.ts";
 
-const index = new URL("../index.ts", import.meta.url).pathname;
+const index = new URL("../src/index.ts", import.meta.url).pathname;
 
 describe.skipIf(!PI_AVAILABLE)("native RPC settings dialogs", () => {
 	it("saves independent confirmed settings without any model turn", async () => {

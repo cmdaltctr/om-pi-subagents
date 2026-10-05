@@ -5,15 +5,15 @@ import { join } from "node:path";
 import { afterEach, describe as suite, expect, it } from "vitest";
 import { PI_AVAILABLE } from "./fixtures/pi-rpc.ts";
 const describe = suite.skipIf(!PI_AVAILABLE);
-import type { AgentSnapshot } from "../config.ts";
-import { PREFLIGHT_COMMAND, READY_ENTRY } from "../protocol.ts";
-import { stopGroup, type LaunchInput } from "../runner.ts";
-import { launchChild, StartupError, type ReadyChild } from "../startup.ts";
+import type { AgentSnapshot } from "../src/config.ts";
+import { PREFLIGHT_COMMAND, READY_ENTRY } from "../src/protocol.ts";
+import { stopGroup, type LaunchInput } from "../src/runner.ts";
+import { launchChild, StartupError, type ReadyChild } from "../src/startup.ts";
 import { createWorkspace, PI_BIN, type Workspace } from "./fixtures/pi-rpc.ts";
 
 import { fixtureLineage } from "./fixtures/lineage.ts";
 
-const GUARD = new URL("../child-guard.ts", import.meta.url).pathname;
+const GUARD = new URL("../src/child-guard.ts", import.meta.url).pathname;
 
 let workspace: Workspace | undefined;
 let ready: ReadyChild | undefined;

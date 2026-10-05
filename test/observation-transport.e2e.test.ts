@@ -1,7 +1,7 @@
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import type { ObservedTree } from "../observation.ts";
+import type { ObservedTree } from "../src/observation.ts";
 import { PI_AVAILABLE, PI_BIN, startPi, type PiFixture } from "./fixtures/pi-rpc.ts";
 
 const host = new URL("./fixtures/observation-host.ts", import.meta.url).pathname;

@@ -74,8 +74,8 @@ Linux verification remains part of the broader change's validation work.
 
 ## References
 
-- [Managed child](../../managed-child.ts)
-- [Run manager](../../runs.ts)
+- [Managed child](../../src/managed-child.ts)
+- [Run manager](../../src/runs.ts)
 - [Real Pi regression tests](../../test/nesting.launch.test.ts)
 - [Gated delivery tests](../../test/runs.settlement.test.ts)
 - [ADR-005](../adr/005-configure-per-session-concurrency-and-nesting.md)

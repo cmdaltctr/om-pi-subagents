@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { PREFLIGHT_COMMAND, READY_ENTRY } from "../protocol.ts";
+import { PREFLIGHT_COMMAND, READY_ENTRY } from "../src/protocol.ts";
 import { PI_AVAILABLE, startPi } from "./fixtures/pi-rpc.ts";
 
-const guard = new URL("../child-guard.ts", import.meta.url).pathname;
+const guard = new URL("../src/child-guard.ts", import.meta.url).pathname;
 describe.skipIf(!PI_AVAILABLE)("real child lineage validation", () => {
 	it.each([
 		undefined,

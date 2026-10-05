@@ -19,34 +19,7 @@
 		"url": "git+https://github.com/cmdaltctr/om-pi-subagents.git"
 	},
 	"files": [
-		"child-guard.ts",
-		"config.ts",
-		"details.ts",
-		"index.ts",
-		"inspector.ts",
-		"managed-child.ts",
-		"notify.ts",
-		"observation.ts",
-		"observation-validation.ts",
-		"observation-relay.ts",
-		"observation-transport.ts",
-		"panel.ts",
-		"persistence.ts",
-		"processes.ts",
-		"protocol.ts",
-		"result.ts",
-		"rpc.ts",
-		"runner.ts",
-		"runs.ts",
-		"service.ts",
-		"settings.ts",
-		"settings-persistence.ts",
-		"startup.ts",
-		"store.ts",
-		"supervisor.ts",
-		"todo-bootstrap.ts",
-		"tree-card.ts",
-		"viewer.ts",
+		"src",
 		"skills/om-pi-subagents/SKILL.md",
 		"docs/INSTALL.md",
 		"docs/SETUP.md",
@@ -107,7 +80,7 @@
 	},
 	"pi": {
 		"extensions": [
-			"./index.ts"
+			"./src/index.ts"
 		],
 		"skills": [
 			"./skills"

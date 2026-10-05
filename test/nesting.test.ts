@@ -2,11 +2,11 @@ import { mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createRegistryStore } from "../config.ts";
-import { parseChildPolicy } from "../protocol.ts";
-import { buildLaunch } from "../runner.ts";
-import { RunManager, type Supervisor } from "../runs.ts";
-import { createService } from "../service.ts";
+import { createRegistryStore } from "../src/config.ts";
+import { parseChildPolicy } from "../src/protocol.ts";
+import { buildLaunch } from "../src/runner.ts";
+import { RunManager, type Supervisor } from "../src/runs.ts";
+import { createService } from "../src/service.ts";
 
 const lineage = {
 	registryPath: "/operator/om-pi-subagents.yaml",
@@ -85,8 +85,8 @@ describe("isolated nested launcher", () => {
 			snapshot: { ...agent, tools: ["ompss"] },
 			lineage: { ...lineage, maxDepth: 1 },
 		});
-		expect(delegated.args).toContain(new URL("../managed-child.ts", import.meta.url).pathname);
-		expect(buildLaunch(launch).args).not.toContain(new URL("../managed-child.ts", import.meta.url).pathname);
+		expect(delegated.args).toContain(new URL("../src/managed-child.ts", import.meta.url).pathname);
+		expect(buildLaunch(launch).args).not.toContain(new URL("../src/managed-child.ts", import.meta.url).pathname);
 		for (const flag of ["--no-extensions", "--no-skills", "--no-prompt-templates", "--no-themes"])
 			expect(delegated.args).toContain(flag);
 	});

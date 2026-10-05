@@ -1,6 +1,6 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import childGuard from "../../child-guard.ts";
-import { OBSERVATION_ENTRY, PREFLIGHT_COMMAND, readChildPolicy } from "../../protocol.ts";
+import childGuard from "../../src/child-guard.ts";
+import { OBSERVATION_ENTRY, PREFLIGHT_COMMAND, readChildPolicy } from "../../src/protocol.ts";
 
 /** Emit display snapshots during the real readiness command, before supervision subscribes. */
 export default function readinessGuard(pi: ExtensionAPI): void {

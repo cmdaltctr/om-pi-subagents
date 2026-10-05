@@ -2,8 +2,8 @@ import { execFileSync, spawn } from "node:child_process";
 import { chmod, mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { listDescendants, OwnedProcesses, type Proc } from "../processes.ts";
-import { groupAlive, stopGroup } from "../runner.ts";
+import { listDescendants, OwnedProcesses, type Proc } from "../src/processes.ts";
+import { groupAlive, stopGroup } from "../src/runner.ts";
 import { PI_AVAILABLE, PI_BIN } from "./fixtures/pi-rpc.ts";
 import { supervisedHarness, type Supervised } from "./fixtures/supervised.ts";
 

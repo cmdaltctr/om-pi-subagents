@@ -4,14 +4,14 @@ import { dirname, join } from "node:path";
 import { afterEach, describe as suite, expect, it } from "vitest";
 import { PI_AVAILABLE } from "./fixtures/pi-rpc.ts";
 const describe = suite.skipIf(!PI_AVAILABLE);
-import { PREFLIGHT_COMMAND, READY_ENTRY } from "../protocol.ts";
-import type { AgentSnapshot } from "../config.ts";
-import { buildLaunch } from "../runner.ts";
+import { PREFLIGHT_COMMAND, READY_ENTRY } from "../src/protocol.ts";
+import type { AgentSnapshot } from "../src/config.ts";
+import { buildLaunch } from "../src/runner.ts";
 import { PI_BIN, startPi, type PiFixture } from "./fixtures/pi-rpc.ts";
 
 import { fixtureLineage } from "./fixtures/lineage.ts";
 
-const GUARD = new URL("../child-guard.ts", import.meta.url).pathname;
+const GUARD = new URL("../src/child-guard.ts", import.meta.url).pathname;
 
 const AMBIENT_EXTENSION = `
 export default function (pi) {

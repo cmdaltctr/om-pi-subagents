@@ -1,9 +1,9 @@
 import type { ExtensionAPI, ExtensionCommandContext, ExtensionToolContext } from "@earendil-works/pi-coding-agent";
 import { describe, expect, it, vi } from "vitest";
-import { registerOmpss } from "../index.ts";
-import type { OmpssService } from "../service.ts";
-import type { RunViewer } from "../viewer.ts";
-import { TREE_ENTRY } from "../viewer.ts";
+import { registerOmpss } from "../src/index.ts";
+import type { OmpssService } from "../src/service.ts";
+import type { RunViewer } from "../src/viewer.ts";
+import { TREE_ENTRY } from "../src/viewer.ts";
 function setup(mode: "tui" | "rpc" | "print") {
 	let tool: Parameters<ExtensionAPI["registerTool"]>[0];
 	const commands = new Map<string, Parameters<ExtensionAPI["registerCommand"]>[1]>();

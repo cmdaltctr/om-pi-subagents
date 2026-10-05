@@ -1,12 +1,12 @@
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { describe, expect, it, vi } from "vitest";
-import { ObservationStore } from "../observation.ts";
-import type { RunDetails } from "../details.ts";
-import type { DisplayPreferences } from "../settings-persistence.ts";
-import { RunViewer } from "../viewer.ts";
+import { ObservationStore } from "../src/observation.ts";
+import type { RunDetails } from "../src/details.ts";
+import type { DisplayPreferences } from "../src/settings-persistence.ts";
+import { RunViewer } from "../src/viewer.ts";
 const mocks = vi.hoisted(() => ({ read: vi.fn() }));
-vi.mock("../details.ts", async (original) => ({
-	...(await original<typeof import("../details.ts")>()),
+vi.mock("../src/details.ts", async (original) => ({
+	...(await original<typeof import("../src/details.ts")>()),
 	createDetailReader: () => mocks.read,
 }));
 function setup() {

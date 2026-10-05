@@ -6,7 +6,7 @@ import {
 	type RunOutcome,
 	type Supervisor,
 	type SupervisorHooks,
-} from "../runs.ts";
+} from "../src/runs.ts";
 
 const request = {
 	agent: {

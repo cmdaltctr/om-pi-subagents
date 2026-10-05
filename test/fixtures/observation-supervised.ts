@@ -1,10 +1,10 @@
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { ChildProcess } from "node:child_process";
-import { ObservationRelay } from "../../observation-relay.ts";
-import { TransportObservationStore } from "../../observation-transport.ts";
-import { RunManager, type RunView } from "../../runs.ts";
-import { createSupervisor, type SupervisorDeps } from "../../supervisor.ts";
+import { ObservationRelay } from "../../src/observation-relay.ts";
+import { TransportObservationStore } from "../../src/observation-transport.ts";
+import { RunManager, type RunView } from "../../src/runs.ts";
+import { createSupervisor, type SupervisorDeps } from "../../src/supervisor.ts";
 import { createWorkspace, PI_BIN } from "./pi-rpc.ts";
 
 /** Wire the real child transport to the same observation hooks as the lazy runtime. */
@@ -21,7 +21,7 @@ export async function observationSupervised(overrides: Partial<SupervisorDeps> =
 	const relay = new ObservationRelay({ observations, current: (run) => manager.status(run.owner, run.id) });
 	const supervisor = createSupervisor({
 		piBin: PI_BIN,
-		guardPath: new URL("../../child-guard.ts", import.meta.url).pathname,
+		guardPath: new URL("../../src/child-guard.ts", import.meta.url).pathname,
 		parentModel: "fake/counter",
 		env: { ...process.env, ...workspace.isolationEnv },
 		prepare: async () => ({ personaFile }),

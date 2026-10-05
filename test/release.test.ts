@@ -55,12 +55,12 @@ describe("the package is ready to publish", () => {
 
 	it("is findable as a Pi package", () => {
 		expect(pkg.keywords).toContain("pi-package");
-		expect(pkg.pi).toEqual({ extensions: ["./index.ts"], skills: ["./skills"] });
+		expect(pkg.pi).toEqual({ extensions: ["./src/index.ts"], skills: ["./skills"] });
 	});
 
 	it("ships source, docs and licence, and nothing else", () => {
 		const files = packedFiles();
-		expect(files).toContain("index.ts");
+		expect(files).toContain("src/index.ts");
 		expect(files).toContain("package.json");
 		for (const required of [
 			"README.md",
@@ -70,20 +70,20 @@ describe("the package is ready to publish", () => {
 			"docs/USAGE.md",
 			"docs/UNINSTALL.md",
 			"skills/om-pi-subagents/SKILL.md",
-			"settings.ts",
-			"settings-persistence.ts",
-			"observation.ts",
-			"observation-validation.ts",
-			"observation-relay.ts",
-			"observation-transport.ts",
-			"tree-card.ts",
-			"viewer.ts",
-			"inspector.ts",
-			"details.ts",
+			"src/settings.ts",
+			"src/settings-persistence.ts",
+			"src/observation.ts",
+			"src/observation-validation.ts",
+			"src/observation-relay.ts",
+			"src/observation-transport.ts",
+			"src/tree-card.ts",
+			"src/viewer.ts",
+			"src/inspector.ts",
+			"src/details.ts",
 		])
 			expect(files, required).toContain(required);
 		const allowed =
-			/^([a-z-]+\.ts|docs\/[A-Z-]+\.md|skills\/om-pi-subagents\/SKILL\.md|README\.md|LICENSE|CHANGELOG\.md|package\.json)$/;
+			/^(src\/[a-z-]+\.ts|docs\/[A-Z-]+\.md|skills\/om-pi-subagents\/SKILL\.md|README\.md|LICENSE|CHANGELOG\.md|package\.json)$/;
 		expect(files.filter((f) => !allowed.test(f))).toEqual([]);
 	});
 
@@ -134,7 +134,7 @@ describe("the package is ready to publish", () => {
 		};
 		for (const entry of pkg.pi.extensions) visit(entry.replace("./", ""));
 		expect(seen.size).toBeGreaterThan(10);
-		expect(seen.has("child-guard.ts")).toBe(true);
+		expect(seen.has("src/child-guard.ts")).toBe(true);
 	});
 
 	it("needs only yaml at runtime, and keeps Pi's packages as wildcard peers", () => {

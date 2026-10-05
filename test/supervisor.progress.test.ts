@@ -1,11 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
-import type { RpcRecord } from "../rpc.ts";
-import { RunManager } from "../runs.ts";
+import type { RpcRecord } from "../src/rpc.ts";
+import { RunManager } from "../src/runs.ts";
 
 const mocks = vi.hoisted(() => ({ launch: vi.fn(), stop: vi.fn(async () => undefined) }));
-vi.mock("../startup.ts", () => ({ launchChild: mocks.launch }));
-vi.mock("../runner.ts", () => ({ DEFAULT_STARTUP_DEADLINE_MS: 30_000, stopGroup: mocks.stop }));
-import { createSupervisor } from "../supervisor.ts";
+vi.mock("../src/startup.ts", () => ({ launchChild: mocks.launch }));
+vi.mock("../src/runner.ts", () => ({ DEFAULT_STARTUP_DEADLINE_MS: 30_000, stopGroup: mocks.stop }));
+import { createSupervisor } from "../src/supervisor.ts";
 
 const start: RpcRecord = { type: "tool_execution_start", toolCallId: "task/1", toolName: "read" };
 const end: RpcRecord = { type: "tool_execution_end", toolCallId: "task/1", toolName: "read" };

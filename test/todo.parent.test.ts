@@ -5,7 +5,7 @@ import { PI_AVAILABLE, PI_BIN, startPi } from "./fixtures/pi-rpc.ts";
 import { resolveTodoExtension, seedTodoPreferences } from "./fixtures/todo.ts";
 
 const todoExtension = await resolveTodoExtension();
-const index = new URL("../index.ts", import.meta.url).pathname;
+const index = new URL("../src/index.ts", import.meta.url).pathname;
 const checklist = "# Tasks\n\n- [ ] 1.1 Preserve parent task\n";
 
 describe.skipIf(!PI_AVAILABLE)("parent todo ownership with the real package", () => {

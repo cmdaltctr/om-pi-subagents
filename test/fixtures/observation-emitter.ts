@@ -1,5 +1,5 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { readChildPolicy } from "../../protocol.ts";
+import { readChildPolicy } from "../../src/protocol.ts";
 
 /** Inject reordered and untrusted display data into a real child's existing pipe. */
 export default function observationEmitter(pi: ExtensionAPI): void {

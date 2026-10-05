@@ -1,13 +1,13 @@
 import type { ChildProcess } from "node:child_process";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import type { AgentSnapshot, RunLimits } from "../../config.ts";
-import { RunManager, type RunState, type RunView } from "../../runs.ts";
-import { createSupervisor, type SupervisorDeps } from "../../supervisor.ts";
+import type { AgentSnapshot, RunLimits } from "../../src/config.ts";
+import { RunManager, type RunState, type RunView } from "../../src/runs.ts";
+import { createSupervisor, type SupervisorDeps } from "../../src/supervisor.ts";
 import type { Turn } from "./fake-model.ts";
 import { createWorkspace, PI_BIN, type Workspace, type WorkspaceOptions } from "./pi-rpc.ts";
 
-const GUARD = new URL("../../child-guard.ts", import.meta.url).pathname;
+const GUARD = new URL("../../src/child-guard.ts", import.meta.url).pathname;
 
 export interface Persisted {
 	kind: "final" | "partial";

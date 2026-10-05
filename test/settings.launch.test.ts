@@ -1,13 +1,13 @@
 import { readFile, realpath, readdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { buildLaunch } from "../runner.ts";
+import { buildLaunch } from "../src/runner.ts";
 import { fixtureLineage } from "./fixtures/lineage.ts";
 import { PI_AVAILABLE, PI_BIN, startPi, type PiFixture } from "./fixtures/pi-rpc.ts";
 import { editRpcSettings } from "./fixtures/settings.ts";
 
-const index = new URL("../index.ts", import.meta.url).pathname;
-const guard = new URL("../child-guard.ts", import.meta.url).pathname;
+const index = new URL("../src/index.ts", import.meta.url).pathname;
+const guard = new URL("../src/child-guard.ts", import.meta.url).pathname;
 const alive = (pid: number) => {
 	try {
 		process.kill(pid, 0);

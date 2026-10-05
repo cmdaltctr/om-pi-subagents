@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { RunPanel, MAX_PREVIEW_CHARS } from "../panel.ts";
-import type { RunView } from "../runs.ts";
+import { RunPanel, MAX_PREVIEW_CHARS } from "../src/panel.ts";
+import type { RunView } from "../src/runs.ts";
 
 const run = (overrides: Partial<RunView> = {}): RunView => ({
 	id: "r1",

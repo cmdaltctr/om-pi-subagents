@@ -1,12 +1,12 @@
 import { readFile, realpath, readdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { PREFLIGHT_COMMAND, VIOLATION_ENTRY } from "../protocol.ts";
-import { buildLaunch } from "../runner.ts";
+import { PREFLIGHT_COMMAND, VIOLATION_ENTRY } from "../src/protocol.ts";
+import { buildLaunch } from "../src/runner.ts";
 import { fixtureLineage } from "./fixtures/lineage.ts";
 import { PI_AVAILABLE, PI_BIN, startPi } from "./fixtures/pi-rpc.ts";
 
-const guard = new URL("../child-guard.ts", import.meta.url).pathname;
+const guard = new URL("../src/child-guard.ts", import.meta.url).pathname;
 async function startManaged(maxDepth: number, tools = ["ompss"]) {
 	let registryPath = "";
 	return startPi({

@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
-import { ObservationRelay } from "../observation-relay.ts";
-import { parseObservationEnvelope, TransportObservationStore } from "../observation-transport.ts";
-import type { ObservationSnapshot } from "../observation.ts";
-import { OBSERVATION_ENTRY } from "../protocol.ts";
-import type { RpcRecord } from "../rpc.ts";
-import type { RunView } from "../runs.ts";
+import { ObservationRelay } from "../src/observation-relay.ts";
+import { parseObservationEnvelope, TransportObservationStore } from "../src/observation-transport.ts";
+import type { ObservationSnapshot } from "../src/observation.ts";
+import { OBSERVATION_ENTRY } from "../src/protocol.ts";
+import type { RpcRecord } from "../src/rpc.ts";
+import type { RunView } from "../src/runs.ts";
 
 const root: RunView = {
 	id: "direct",

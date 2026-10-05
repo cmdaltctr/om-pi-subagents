@@ -3,10 +3,10 @@ import * as fs from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createDetailReader, DetailSelection, MAX_DETAIL_BYTES } from "../details.ts";
-import { ObservationStore, type ObservedNode } from "../observation.ts";
-import { RunStore } from "../store.ts";
-import type { RunView } from "../runs.ts";
+import { createDetailReader, DetailSelection, MAX_DETAIL_BYTES } from "../src/details.ts";
+import { ObservationStore, type ObservedNode } from "../src/observation.ts";
+import { RunStore } from "../src/store.ts";
+import type { RunView } from "../src/runs.ts";
 
 vi.mock("node:fs/promises", async (importOriginal) => {
 	const original = await importOriginal<typeof import("node:fs/promises")>();
@@ -61,7 +61,7 @@ describe("lazy selected details", () => {
 	it("preserves printable CSI text before a bell with the Node 22-compatible Bun stripper", () => {
 		const script = `
 			import assert from "node:assert/strict";
-			import { detailText } from ${JSON.stringify(new URL("../details.ts", import.meta.url).href)};
+			import { detailText } from ${JSON.stringify(new URL("../src/details.ts", import.meta.url).href)};
 			for (const text of ${JSON.stringify([
 				"\x1b[31manswer\x07\u2066",
 				"\x9b31manswer\x07",

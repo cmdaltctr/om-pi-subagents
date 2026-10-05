@@ -5,8 +5,8 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { OwnedProcesses } from "../processes.ts";
-import { groupAlive, stopGroup } from "../runner.ts";
+import { OwnedProcesses } from "../src/processes.ts";
+import { groupAlive, stopGroup } from "../src/runner.ts";
 import { PI_AVAILABLE, PI_BIN, createWorkspace } from "./fixtures/pi-rpc.ts";
 import { supervisedHarness, type Supervised } from "./fixtures/supervised.ts";
 
@@ -239,7 +239,7 @@ describe.skipIf(!PI_AVAILABLE)("abrupt parent exit", () => {
 
 		const config = JSON.stringify({
 			piBin: PI_BIN,
-			guardPath: new URL("../child-guard.ts", import.meta.url).pathname,
+			guardPath: new URL("../src/child-guard.ts", import.meta.url).pathname,
 			cwd: workspace.cwd,
 			personaFile: join(scratch, "persona.md"),
 			tools: ["read", "mcp__fixture__lookup"],

@@ -5,18 +5,18 @@ import { join } from "node:path";
 import { afterEach, describe as suite, expect, it, vi } from "vitest";
 import { PI_AVAILABLE } from "./fixtures/pi-rpc.ts";
 const describe = suite.skipIf(!PI_AVAILABLE);
-import { createRegistryStore } from "../config.ts";
-import { registerOmpss } from "../index.ts";
-import { createPersistence } from "../persistence.ts";
-import { groupAlive } from "../runner.ts";
-import { RunManager } from "../runs.ts";
-import { createService } from "../service.ts";
-import { RunStore } from "../store.ts";
-import { createSupervisor } from "../supervisor.ts";
+import { createRegistryStore } from "../src/config.ts";
+import { registerOmpss } from "../src/index.ts";
+import { createPersistence } from "../src/persistence.ts";
+import { groupAlive } from "../src/runner.ts";
+import { RunManager } from "../src/runs.ts";
+import { createService } from "../src/service.ts";
+import { RunStore } from "../src/store.ts";
+import { createSupervisor } from "../src/supervisor.ts";
 import type { Turn } from "./fixtures/fake-model.ts";
 import { createWorkspace, PI_BIN, type Workspace } from "./fixtures/pi-rpc.ts";
 
-const GUARD = new URL("../child-guard.ts", import.meta.url).pathname;
+const GUARD = new URL("../src/child-guard.ts", import.meta.url).pathname;
 
 let workspace: Workspace | undefined;
 let scratch: string | undefined;

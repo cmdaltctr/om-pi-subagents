@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { PREFLIGHT_COMMAND, READY_ENTRY, VIOLATION_ENTRY } from "../protocol.ts";
+import { PREFLIGHT_COMMAND, READY_ENTRY, VIOLATION_ENTRY } from "../src/protocol.ts";
 import { PI_AVAILABLE } from "./fixtures/pi-rpc.ts";
 import { startTodoChild } from "./fixtures/todo.ts";
 

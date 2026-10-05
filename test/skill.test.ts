@@ -3,8 +3,8 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { parse } from "yaml";
-import { buildLaunch } from "../runner.ts";
-import { VIOLATION_ENTRY } from "../protocol.ts";
+import { buildLaunch } from "../src/runner.ts";
+import { VIOLATION_ENTRY } from "../src/protocol.ts";
 import { fixtureLineage } from "./fixtures/lineage.ts";
 import { PI_AVAILABLE, PI_BIN, startPi } from "./fixtures/pi-rpc.ts";
 
@@ -103,7 +103,7 @@ describe.skipIf(!PI_AVAILABLE)("real Pi skill discovery", () => {
 					},
 					cwd,
 					personaFile: join(agentDir, "persona.md"),
-					guardPath: join(root, "child-guard.ts"),
+					guardPath: join(root, "src", "child-guard.ts"),
 					runToken: "skill-token",
 					lineage: fixtureLineage(join(agentDir, "om-pi-subagents.yaml")),
 					piBin: PI_BIN,

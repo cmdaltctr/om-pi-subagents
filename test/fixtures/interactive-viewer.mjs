@@ -3,9 +3,9 @@ import { mkdir, readFile, writeFile, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-import { registerOmpss } from "../../index.ts";
-import { ObservationStore } from "../../observation.ts";
-import { RunViewer, TREE_ENTRY } from "../../viewer.ts";
+import { registerOmpss } from "../../src/index.ts";
+import { ObservationStore } from "../../src/observation.ts";
+import { RunViewer, TREE_ENTRY } from "../../src/viewer.ts";
 
 const [modules, mode] = process.argv.slice(2);
 const load = (name, file) => import(pathToFileURL(join(resolve(modules), name, file)).href);

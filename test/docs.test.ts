@@ -3,7 +3,7 @@ import { accessSync, constants, existsSync, readFileSync, readdirSync } from "no
 import { resolve, join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { parse } from "yaml";
-import { registerOmpss } from "../index.ts";
+import { registerOmpss } from "../src/index.ts";
 
 const ROOT = resolve(import.meta.dirname, "..");
 const read = (file: string) => readFileSync(join(ROOT, file), "utf8");
