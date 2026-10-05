@@ -1,6 +1,6 @@
 ---
 name: om-pi-subagents
-description: Configure and operate OMPSS mapped Pi subagents. Use for OMPSS YAML limits, parallel or nested delegation, subagent results, subtree cancellation, cleanup failures, and todo ownership in OMPSS children.
+description: Configure and operate OMPSS mapped Pi subagents. Use for live agent trees, read-only inspection, operator settings, OMPSS YAML limits, parallel or nested delegation, subagent results, subtree cancellation, cleanup failures, and todo ownership in OMPSS children.
 license: MIT
 compatibility: Pi with om-pi-subagents installed and operator-managed mappings.
 ---
@@ -48,6 +48,54 @@ The root is depth zero. `maxDepth: 0` disables launches while listing and status
 Each launch adds one depth. A branch keeps its inherited depth ceiling and also respects fresh YAML.
 Raising depth permits new root branches; it does not expand an existing branch's permission.
 Nesting requires exact `ompss` approval in the delegator's mapping.
+
+## Operator settings
+
+Ask the operator to run `/subagents-settings` when a setting needs changing.
+This command uses native dialogs in interactive Pi and supported RPC clients. It is outside the model-callable tool.
+It accepts no extra arguments and requires UI dialogs before reading files.
+
+| Setting                             | Valid values                             | Storage                                 |
+| ----------------------------------- | ---------------------------------------- | --------------------------------------- |
+| Maximum nesting depth               | Safe integer of at least 0; root depth 0 | Registry `limits.maxDepth`              |
+| Parallel direct children per parent | Safe integer of at least 1               | Registry `limits.maxConcurrentRuns`     |
+| Visible agents                      | Safe integer from 1 to 256; default 4    | `<config-dir>/pi-subagents/config.json` |
+
+The menu shows the resolved registry destination, including `OMPSS_REGISTRY` overrides.
+The display config uses absolute `XDG_CONFIG_HOME`, otherwise `~/.config`.
+Execution limits stay in YAML. OMPSS never writes todo preferences or Pi's `settings.json`.
+
+Each edit requires confirmation. A cancelled input or declined save leaves that setting unchanged;
+earlier confirmed saves remain in effect. A missing registry requires explicit creation confirmation and starts with `agents: {}`.
+Malformed files require correction. On a conflict, reopen settings before saving.
+Private temporary files, atomic replacement and per-destination locks protect concurrent saves.
+Failed writes leave the existing destination and display cache unchanged.
+
+Fresh launches use saved limits. Existing runs continue, while inherited branch ceilings remain in force.
+Depth zero disables new launches. Explain that per-parent branching can multiply process and provider load before increasing limits.
+
+## View trees and inspect saved evidence
+
+Ask the operator to use Pi's native `app.tools.expand` action, default Ctrl+O, to expand run cards.
+The hint follows configured keys. Tool launches and TUI slash launches show the same hierarchy.
+The visible-agent preference bounds expanded cards and the compact widget. Status counts stay complete.
+Missing observation evidence stays labelled incomplete; display state cannot decide completion or permit a launch.
+
+1. Run `/ompss inspect` to choose a retained node in the current session.
+2. Select with arrows and press Enter for its saved task and output.
+3. Use PageUp or PageDown to scroll details.
+4. Press Escape to close the viewer without stopping work.
+
+`/ompss inspect <run-id>` opens a selected node directly. Fullscreen supports row clicks; regular mode uses keys.
+Hidden retained nodes remain keyboard-accessible. Supported RPC clients receive bounded text.
+Inspection follows verified descendant ownership, but status and cancellation remain immediate-parent actions.
+Never use an observed descendant id as authority to control that run from an ancestor.
+
+Selected reads open only validated `config.json` and `output.md`, capped at 64 KiB each.
+Missing evidence is unavailable. Failed or cancelled output stays partial, and truncation points to the saved file.
+Persona files, authentication files, raw event logs and stderr are not opened.
+Tasks and outputs can contain sensitive text. Check them before sharing screenshots or RPC responses.
+The inspector starts no process, sends no model turn and leaves todo widgets and preferences separate.
 
 ## Receive and assess results
 

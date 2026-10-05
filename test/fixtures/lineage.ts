@@ -1,4 +1,4 @@
-import type { ChildLineage } from "../../protocol.ts";
+import type { ChildLineage } from "../../src/protocol.ts";
 
 /** Valid synthetic root-child metadata for isolated launcher and guard fixtures. */
 export function fixtureLineage(registryPath = "/operator/om-pi-subagents.yaml"): ChildLineage {

@@ -4,20 +4,20 @@ OMPSS runs YAML-mapped personas as native Pi child processes. Read this file bef
 
 ## Architecture
 
-Source files and most tests live at the repository root. Pi loads the default export of `index.ts`.
+Source files live in `src/`. Tests live in `test/`. Pi loads the default export of `src/index.ts`.
 
-| Path                                         | Responsibility                                                                  |
-| -------------------------------------------- | ------------------------------------------------------------------------------- |
-| `index.ts`                                   | Register the tool, command and session lifecycle. Create the runtime lazily.    |
-| `config.ts`                                  | Validate YAML and persona paths. Produce immutable launch snapshots.            |
-| `service.ts`, `runs.ts`                      | Handle user actions, session ownership and configured direct-child capacity.    |
-| `runner.ts`, `startup.ts`, `protocol.ts`     | Build isolated child arguments and verify readiness before sending a task.      |
-| `child-guard.ts`                             | Enforce exact tool names inside the child. Report violations.                   |
-| `rpc.ts`                                     | Read bounded JSON lines and manage child requests, subscriptions and pipe loss. |
-| `supervisor.ts`, `processes.ts`, `result.ts` | Follow the run, stop descendants and decide its final result.                   |
-| `store.ts`, `persistence.ts`, `notify.ts`    | Save private run files, flush writes and deliver the result separately.         |
-| `managed-child.ts`, `todo-bootstrap.ts`      | Wait for owned results in approved delegators and seed child-local todo mode.   |
-| `test/fixtures/`                             | Fake model, local MCP server and disposable Pi harnesses.                       |
+| Path                                                     | Responsibility                                                                  |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| `src/index.ts`                                           | Register the tool, command and session lifecycle. Create the runtime lazily.    |
+| `src/config.ts`                                          | Validate YAML and persona paths. Produce immutable launch snapshots.            |
+| `src/service.ts`, `src/runs.ts`                          | Handle user actions, session ownership and configured direct-child capacity.    |
+| `src/runner.ts`, `src/startup.ts`, `src/protocol.ts`     | Build isolated child arguments and verify readiness before sending a task.      |
+| `src/child-guard.ts`                                     | Enforce exact tool names inside the child. Report violations.                   |
+| `src/rpc.ts`                                             | Read bounded JSON lines and manage child requests, subscriptions and pipe loss. |
+| `src/supervisor.ts`, `src/processes.ts`, `src/result.ts` | Follow the run, stop descendants and decide its final result.                   |
+| `src/store.ts`, `src/persistence.ts`, `src/notify.ts`    | Save private run files, flush writes and deliver the result separately.         |
+| `src/managed-child.ts`, `src/todo-bootstrap.ts`          | Wait for owned results in approved delegators and seed child-local todo mode.   |
+| `test/fixtures/`                                         | Fake model, local MCP server and disposable Pi harnesses.                       |
 
 Keep these boundaries:
 
@@ -61,24 +61,24 @@ Run commands from the repository root. Use Bun 1.4.2 and Node.js 22.12 or newer.
 
 `bunfig.toml` disables automatic peer installation. `.pi-host/` holds Pi 0.99.1 and typebox 1.3.27 outside project dependencies.
 
-| Purpose               | Command                    | Prerequisites                                   |
-| --------------------- | -------------------------- | ----------------------------------------------- |
-| Fetch host packages   | `bun run setup:host`       | Bun, network on first use                       |
-| Format files          | `bun run format`           | Development dependencies                        |
-| Check formatting      | `bun run format:check`     | Development dependencies                        |
-| Lint                  | `bun run lint`             | Development dependencies; warnings fail         |
-| Apply lint fixes      | `bun run lint:fix`         | Review the resulting diff                       |
-| Check types           | `bun run typecheck`        | Development dependencies and `.pi-host/`        |
-| Run all tests         | `bun run test`             | Development dependencies; Pi for CLI suites     |
-| Run one file          | `bun run test rpc.test.ts` | Development dependencies                        |
-| Check working files   | `bun run ci`               | Host setup; format, lint, types, then tests     |
-| Check committed files | `bun run ci:clean`         | Git and a commit; installs in a temporary clone |
-| Audit dependencies    | `bun run audit`            | Bun and network                                 |
-| Install hooks         | `bun run prepare`          | Git and Husky                                   |
+| Purpose               | Command                         | Prerequisites                                   |
+| --------------------- | ------------------------------- | ----------------------------------------------- |
+| Fetch host packages   | `bun run setup:host`            | Bun, network on first use                       |
+| Format files          | `bun run format`                | Development dependencies                        |
+| Check formatting      | `bun run format:check`          | Development dependencies                        |
+| Lint                  | `bun run lint`                  | Development dependencies; warnings fail         |
+| Apply lint fixes      | `bun run lint:fix`              | Review the resulting diff                       |
+| Check types           | `bun run typecheck`             | Development dependencies and `.pi-host/`        |
+| Run all tests         | `bun run test`                  | Development dependencies; Pi for CLI suites     |
+| Run one file          | `bun run test test/rpc.test.ts` | Development dependencies                        |
+| Check working files   | `bun run ci`                    | Host setup; format, lint, types, then tests     |
+| Check committed files | `bun run ci:clean`              | Git and a commit; installs in a temporary clone |
+| Audit dependencies    | `bun run audit`                 | Bun and network                                 |
+| Install hooks         | `bun run prepare`               | Git and Husky                                   |
 
 ## Testing and validation
 
-Most tests are colocated as `<topic>.test.ts`.
+Tests live in `test/` as `<topic>.test.ts`.
 Tooling tests live in `test/docs.test.ts`, `test/pi-bin.test.ts` and `test/setup-host.test.ts`.
 
 | Area                              | Test files                                                                                 |
@@ -87,7 +87,7 @@ Tooling tests live in `test/docs.test.ts`, `test/pi-bin.test.ts` and `test/setup
 | Run control and transport         | `runs.test.ts`, `runner.test.ts`, `rpc.test.ts`, `startup.gate.test.ts`                    |
 | Persistence and results           | `store.test.ts`, `result.test.ts`, `notify.test.ts`, `persistence.test.ts`                 |
 | Real Pi and permissions           | `child-contract.test.ts`, `child-launch.test.ts`, `permissions.test.ts`, `startup.test.ts` |
-| Parent lifecycle and installation | Root `*.e2e.test.ts`, `cleanup.test.ts`, `supervisor.test.ts`                              |
+| Parent lifecycle and installation | `*.e2e.test.ts`, `cleanup.test.ts`, `supervisor.test.ts`                                   |
 | Packaging and shipped defaults    | `defaults.test.ts`, `test/release.test.ts`, `test/docs.test.ts`, `context7.test.ts`        |
 
 - Write a failing test before a fix. Confirm the failure tests the intended behaviour.
@@ -153,7 +153,7 @@ Do not bypass the hook without approval. GitHub Actions must pass its check and 
 
 Update `README.md` when setup, commands or supported behaviour change.
 Record architecture decisions in `docs/adr/` and platform findings or workarounds in `docs/tdr/`.
-Keep README example markers intact. `docs.e2e.test.ts` runs those examples through real Pi.
+Keep README example markers intact. `test/docs.e2e.test.ts` runs those examples through real Pi.
 `test/docs.test.ts` checks tooling claims against the scripts, hook, workflow and package manifest.
 Maintain the public guides in `docs/INSTALL.md`, `docs/USAGE.md` and `docs/UNINSTALL.md`.
 Write short procedures in plain British English. Keep session records in ignored `docs/local-docs/`.

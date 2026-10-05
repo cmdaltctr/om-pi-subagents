@@ -19,24 +19,7 @@
 		"url": "git+https://github.com/cmdaltctr/om-pi-subagents.git"
 	},
 	"files": [
-		"child-guard.ts",
-		"config.ts",
-		"index.ts",
-		"managed-child.ts",
-		"notify.ts",
-		"panel.ts",
-		"persistence.ts",
-		"processes.ts",
-		"protocol.ts",
-		"result.ts",
-		"rpc.ts",
-		"runner.ts",
-		"runs.ts",
-		"service.ts",
-		"startup.ts",
-		"store.ts",
-		"supervisor.ts",
-		"todo-bootstrap.ts",
+		"src",
 		"skills/om-pi-subagents/SKILL.md",
 		"docs/INSTALL.md",
 		"docs/SETUP.md",
@@ -78,10 +61,14 @@
 	},
 	"peerDependencies": {
 		"@earendil-works/pi-coding-agent": "*",
+		"@earendil-works/pi-tui": "*",
 		"typebox": "*"
 	},
 	"peerDependenciesMeta": {
 		"@earendil-works/pi-coding-agent": {
+			"optional": true
+		},
+		"@earendil-works/pi-tui": {
 			"optional": true
 		},
 		"typebox": {
@@ -93,7 +80,7 @@
 	},
 	"pi": {
 		"extensions": [
-			"./index.ts"
+			"./src/index.ts"
 		],
 		"skills": [
 			"./skills"

@@ -44,7 +44,7 @@ The product behaviour is correct. The specification requires the panel to show t
 
 ### Neutral
 
-- Rerun the batched check: `OMPSS_PI_BIN="$PWD/docs/local-docs/review-pi-batched.sh" bunx vitest run parent.e2e.test.ts`.
+- Rerun the batched check: `OMPSS_PI_BIN="$PWD/docs/local-docs/review-pi-batched.sh" bunx vitest run test/parent.e2e.test.ts`.
 
 ## References
 

@@ -85,12 +85,12 @@ Test against a real pinned todo package rather than a copied or mocked implement
 
 - [OpenSpec proposal](../../openspec/changes/archive/2026-10-05-configure-parallel-nested-subagents/proposal.md)
 - [Technical design](../../openspec/changes/archive/2026-10-05-configure-parallel-nested-subagents/design.md)
-- [Run admission](../../runs.ts)
-- [Child launch plan](../../runner.ts)
-- [Child guard](../../child-guard.ts)
-- [Multi-run display](../../panel.ts)
-- [Approved delegator runtime](../../managed-child.ts)
-- [Child todo bootstrap](../../todo-bootstrap.ts)
+- [Run admission](../../src/runs.ts)
+- [Child launch plan](../../src/runner.ts)
+- [Child guard](../../src/child-guard.ts)
+- [Multi-run display](../../src/panel.ts)
+- [Approved delegator runtime](../../src/managed-child.ts)
+- [Child todo bootstrap](../../src/todo-bootstrap.ts)
 - [ADR-002: Refuse child prompts that do not come from the parent](./002-refuse-child-prompts-that-do-not-come-from-the-parent.md)
 - [ADR-004: Show child progress in a parent-owned widget](./004-show-child-progress-in-a-parent-owned-widget.md)
 - [om-pi-todo](https://github.com/cmdaltctr/om-pi-todo), source inspected at commit `724639841803b9a5d586db975c0c58d6a9fdb96f`

@@ -1,7 +1,7 @@
 // Test-only "parent": launches an OMPSS child through the real gate, reports its pid, then idles.
 // The test kills this process without warning to prove that no child outlives its parent.
-import type { AgentSnapshot } from "../../config.ts";
-import { launchChild } from "../../startup.ts";
+import type { AgentSnapshot } from "../../src/config.ts";
+import { launchChild } from "../../src/startup.ts";
 import { fixtureLineage } from "./lineage.ts";
 import { join } from "node:path";
 

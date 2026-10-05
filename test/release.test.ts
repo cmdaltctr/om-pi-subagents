@@ -55,12 +55,12 @@ describe("the package is ready to publish", () => {
 
 	it("is findable as a Pi package", () => {
 		expect(pkg.keywords).toContain("pi-package");
-		expect(pkg.pi).toEqual({ extensions: ["./index.ts"], skills: ["./skills"] });
+		expect(pkg.pi).toEqual({ extensions: ["./src/index.ts"], skills: ["./skills"] });
 	});
 
 	it("ships source, docs and licence, and nothing else", () => {
 		const files = packedFiles();
-		expect(files).toContain("index.ts");
+		expect(files).toContain("src/index.ts");
 		expect(files).toContain("package.json");
 		for (const required of [
 			"README.md",
@@ -70,10 +70,20 @@ describe("the package is ready to publish", () => {
 			"docs/USAGE.md",
 			"docs/UNINSTALL.md",
 			"skills/om-pi-subagents/SKILL.md",
+			"src/settings.ts",
+			"src/settings-persistence.ts",
+			"src/observation.ts",
+			"src/observation-validation.ts",
+			"src/observation-relay.ts",
+			"src/observation-transport.ts",
+			"src/tree-card.ts",
+			"src/viewer.ts",
+			"src/inspector.ts",
+			"src/details.ts",
 		])
 			expect(files, required).toContain(required);
 		const allowed =
-			/^([a-z-]+\.ts|docs\/[A-Z-]+\.md|skills\/om-pi-subagents\/SKILL\.md|README\.md|LICENSE|CHANGELOG\.md|package\.json)$/;
+			/^(src\/[a-z-]+\.ts|docs\/[A-Z-]+\.md|skills\/om-pi-subagents\/SKILL\.md|README\.md|LICENSE|CHANGELOG\.md|package\.json)$/;
 		expect(files.filter((f) => !allowed.test(f))).toEqual([]);
 	});
 
@@ -124,12 +134,18 @@ describe("the package is ready to publish", () => {
 		};
 		for (const entry of pkg.pi.extensions) visit(entry.replace("./", ""));
 		expect(seen.size).toBeGreaterThan(10);
-		expect(seen.has("child-guard.ts")).toBe(true);
+		expect(seen.has("src/child-guard.ts")).toBe(true);
 	});
 
 	it("needs only yaml at runtime, and keeps Pi's packages as wildcard peers", () => {
 		expect(Object.keys(pkg.dependencies)).toEqual(["yaml"]);
-		expect(Object.keys(pkg.peerDependencies).sort()).toEqual(["@earendil-works/pi-coding-agent", "typebox"]);
+		expect(Object.keys(pkg.peerDependencies).sort()).toEqual([
+			"@earendil-works/pi-coding-agent",
+			"@earendil-works/pi-tui",
+			"typebox",
+		]);
+		for (const name of Object.keys(pkg.peerDependencies))
+			expect(pkg.peerDependenciesMeta[name]).toEqual({ optional: true });
 		for (const range of Object.values(pkg.peerDependencies)) expect(range).toBe("*");
 	});
 

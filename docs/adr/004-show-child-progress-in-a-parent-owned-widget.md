@@ -56,8 +56,8 @@ Retain the latest final panel until another run starts or the session ends.
 
 ## References
 
-- [Panel state](../../panel.ts)
-- [Notifier](../../notify.ts)
-- [Supervisor](../../supervisor.ts)
+- [Panel state](../../src/panel.ts)
+- [Notifier](../../src/notify.ts)
+- [Supervisor](../../src/supervisor.ts)
 - [Usage](../USAGE.md)
 - [Pi widget example](https://github.com/earendil-works/pi/blob/v0.99.1/packages/coding-agent/examples/extensions/widget-placement.ts)

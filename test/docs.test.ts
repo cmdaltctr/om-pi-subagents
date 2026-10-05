@@ -3,7 +3,7 @@ import { accessSync, constants, existsSync, readFileSync, readdirSync } from "no
 import { resolve, join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { parse } from "yaml";
-import { registerOmpss } from "../index.ts";
+import { registerOmpss } from "../src/index.ts";
 
 const ROOT = resolve(import.meta.dirname, "..");
 const read = (file: string) => readFileSync(join(ROOT, file), "utf8");
@@ -42,6 +42,7 @@ describe("tooling agrees with the documentation", () => {
 					properties = tool.parameters.properties;
 				},
 				registerCommand: () => {},
+				registerEntryRenderer: () => {},
 			} as never,
 			() => {
 				throw new Error("Documentation examples must not launch a run");

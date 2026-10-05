@@ -4,10 +4,10 @@ OMPSS runs a subagent as a normal Pi child process. You decide the agent
 names, the persona text, and the tools each agent may use. All of it lives in
 one YAML file and plain Markdown files. OMPSS ships no agents of its own.
 
-- The parent gets one tool, `ompss`, and one command, `/ompss`.
+- The parent gets the `ompss` tool, `/ompss` commands and an operator-only `/subagents-settings` menu.
 - Each run is one child Pi process in the background.
 - YAML limits set each parent's direct-child capacity and maximum nesting depth. Both default to one.
-- A parent panel shows up to four active runs, their ids and active tools.
+- The parent panel uses a visible-agent limit, default 4. Native cards show each run's observed descendants.
 - The result arrives as a follow-up message when the child finishes.
 
 OMPSS does not use `pi-subagents`. It does not import it, copy it, or need it.
@@ -101,6 +101,57 @@ See [configured limits](docs/USAGE.md#configured-limits-and-nesting) for inherit
 
 For operational guidance in Pi, run `/skill:om-pi-subagents`.
 Approved children need an explicit skill path; see [setup](docs/SETUP.md#skills-and-extensions).
+
+### Operator settings
+
+Run `/subagents-settings` in Pi, or through an RPC client that supports native dialogs.
+Select a setting, enter a whole number, then confirm its value and save destination:
+
+| Setting                             | Accepted values                           | Save destination                                |
+| ----------------------------------- | ----------------------------------------- | ----------------------------------------------- |
+| Maximum nesting depth               | Safe integers of at least 0; root depth 0 | `limits.maxDepth` in the selected registry YAML |
+| Parallel direct children per parent | Safe integers of at least 1               | `limits.maxConcurrentRuns` in that YAML         |
+| Visible agents                      | Safe integers from 1 to 256; default 4    | `<config-dir>/pi-subagents/config.json`         |
+
+`OMPSS_REGISTRY` selects the registry when set. The menu shows its resolved path.
+The display config uses absolute `XDG_CONFIG_HOME`, otherwise `~/.config`.
+Execution limits stay in YAML. OMPSS leaves todo preferences and Pi's `settings.json` untouched.
+
+Cancelling an input or declining confirmation leaves that setting unchanged.
+Earlier confirmed saves remain in effect. Creating a missing registry requires confirmation;
+it starts with `agents: {}`. Malformed files must be corrected before saving.
+Conflicting edits are rejected: reopen settings to load the newer values.
+
+Saved limits apply to fresh launches. Existing runs continue, and an existing branch keeps its inherited depth ceiling.
+Depth zero disables new launches. Raising per-parent capacity can multiply process and provider load.
+See [operator settings](docs/USAGE.md#operator-settings) for the procedure and write-failure guidance.
+
+### Live agent trees
+
+Pi's native expansion action, `app.tools.expand`, opens the run cards. Its default key is Ctrl+O.
+The card hint follows your configured binding. Tool launches and TUI slash launches share the same tree:
+
+```text
+builder running (root0001)
+|- reader running (child001) · read
+`- reviewer completed (child002)
+/ompss inspect · arrows select · Enter details · Escape close
+```
+
+Each root has its own card. The visible-agent limit applies to expanded cards and the compact widget;
+hidden nodes remain available in `/ompss inspect`. The status count still includes every active direct run.
+Missing observations produce an incomplete label. Display state never grants run-control authority.
+
+1. Run `/ompss inspect` to select any retained node in this session.
+2. Use arrows, then Enter, to read its saved task and output.
+3. Press Escape to close the viewer while the run continues.
+
+`/ompss inspect <run-id>` opens a selected node directly. Fullscreen Pi also supports row clicks.
+Regular mode uses the keyboard. Supported RPC clients receive bounded text without terminal components.
+Only an immediate parent can use status or cancellation for a descendant.
+
+Tasks and outputs can contain sensitive text. Reads are limited to 64 KiB per selected evidence file;
+truncated output shows its saved location. See [inspection](docs/USAGE.md#agent-trees-and-inspection).
 
 ### YAML fields
 

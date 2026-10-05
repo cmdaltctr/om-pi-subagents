@@ -61,7 +61,7 @@ Linux verification remains part of the broader change's validation work.
 
 ## How to Recognise / Handle This Again
 
-1. Run `bun run test nesting.launch.test.ts runs.settlement.test.ts`.
+1. Run `bun run test test/nesting.launch.test.ts test/runs.settlement.test.ts`.
 2. Check that abort returns while the parent waits for a hanging descendant.
 3. Check that the parent receives results and settles once.
 4. Check that two launches succeed across tool-use turns.
@@ -74,8 +74,8 @@ Linux verification remains part of the broader change's validation work.
 
 ## References
 
-- [Managed child](../../managed-child.ts)
-- [Run manager](../../runs.ts)
-- [Real Pi regression tests](../../nesting.launch.test.ts)
-- [Gated delivery tests](../../runs.settlement.test.ts)
+- [Managed child](../../src/managed-child.ts)
+- [Run manager](../../src/runs.ts)
+- [Real Pi regression tests](../../test/nesting.launch.test.ts)
+- [Gated delivery tests](../../test/runs.settlement.test.ts)
 - [ADR-005](../adr/005-configure-per-session-concurrency-and-nesting.md)

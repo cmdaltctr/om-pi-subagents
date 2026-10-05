@@ -8,7 +8,7 @@ These development fixtures stay outside the published package.
 Run the deterministic checks from the repository root:
 
 ```sh
-bun run test test/skill-evals.test.ts runs.parallel.test.ts nesting.launch.test.ts service.test.ts nesting.cleanup.test.ts todo.parent.test.ts
+bun run test test/skill-evals.test.ts test/runs.parallel.test.ts test/nesting.launch.test.ts test/service.test.ts test/nesting.cleanup.test.ts test/todo.parent.test.ts
 ```
 
 These tests use disposable settings, synthetic credentials, a local fake model and the real pinned todo package.

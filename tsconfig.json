@@ -10,8 +10,9 @@
 		"types": ["node"],
 		"paths": {
 			"@earendil-works/pi-coding-agent": ["./.pi-host/node_modules/@earendil-works/pi-coding-agent/dist/index.d.ts"],
-			"typebox": ["./.pi-host/node_modules/typebox/build/index.d.mts"]
+			"typebox": ["./.pi-host/node_modules/typebox/build/index.d.mts"],
+			"@earendil-works/pi-tui": ["./.pi-host/node_modules/@earendil-works/pi-tui/dist/index.d.ts"]
 		}
 	},
-	"include": ["*.ts", "test/**/*.ts"]
+	"include": ["*.ts", "src/**/*.ts", "test/**/*.ts"]
 }

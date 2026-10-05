@@ -2,7 +2,7 @@ import { spawn, type ChildProcess } from "node:child_process";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { spawnChild, type LaunchPlan } from "../../runner.ts";
+import { spawnChild, type LaunchPlan } from "../../src/runner.ts";
 import { startFakeModel, type FakeModel } from "./fake-model.ts";
 
 import { resolveTestPi } from "./pi-bin.ts";

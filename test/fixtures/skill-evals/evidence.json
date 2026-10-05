@@ -1,19 +1,19 @@
 [
 	{
 		"eval_id": 1,
-		"file": "runs.parallel.test.ts",
+		"file": "test/runs.parallel.test.ts",
 		"test": "reserves exactly four of five simultaneous launches before invoking supervisors"
 	},
 	{
 		"eval_id": 2,
-		"file": "nesting.launch.test.ts",
+		"file": "test/nesting.launch.test.ts",
 		"test": "keeps an early parent answer open until the nested result can be consumed"
 	},
-	{ "eval_id": 3, "file": "service.test.ts", "test": "says so when nothing is mapped" },
+	{ "eval_id": 3, "file": "test/service.test.ts", "test": "says so when nothing is mapped" },
 	{
 		"eval_id": 4,
-		"file": "nesting.cleanup.test.ts",
+		"file": "test/nesting.cleanup.test.ts",
 		"test": "propagates a depth-two cleanup failure to the root despite successful outer process cleanup"
 	},
-	{ "eval_id": 5, "file": "todo.parent.test.ts", "test": "preserves %s parent tasks with %s load order" }
+	{ "eval_id": 5, "file": "test/todo.parent.test.ts", "test": "preserves %s parent tasks with %s load order" }
 ]

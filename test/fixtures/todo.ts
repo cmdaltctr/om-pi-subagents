@@ -1,7 +1,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { dirname, join, resolve } from "node:path";
-import { buildLaunch } from "../../runner.ts";
+import { buildLaunch } from "../../src/runner.ts";
 import { fixtureLineage } from "./lineage.ts";
 import { PI_BIN, startPi, type WorkspaceOptions } from "./pi-rpc.ts";
 
@@ -58,7 +58,7 @@ export async function startTodoChild(
 				},
 				cwd,
 				personaFile: join(agentDir, "todo-child.md"),
-				guardPath: new URL("../../child-guard.ts", import.meta.url).pathname,
+				guardPath: new URL("../../src/child-guard.ts", import.meta.url).pathname,
 				runToken: "todo-token",
 				piBin: PI_BIN,
 				parentModel: "fake/counter",
