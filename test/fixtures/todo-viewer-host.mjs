@@ -72,6 +72,8 @@ export async function createTodoViewerHost(modules, mode, directory) {
 		widgetContainerBelow: new tui.Container(),
 		extensionWidgetsAbove: new Map(),
 		extensionWidgetsBelow: new Map(),
+		// The real terminal-input listener path needs its subscription set on the host.
+		extensionTerminalInputSubscriptions: new Set(),
 		toolOutputExpanded: false,
 		isBashMode: false,
 		footerDataProvider: { setExtensionStatus() {} },

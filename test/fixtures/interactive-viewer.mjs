@@ -1,13 +1,14 @@
 import assert from "node:assert/strict";
-import { mkdir, readFile, writeFile, mkdtemp, rm } from "node:fs/promises";
+import { mkdir, writeFile, readFile, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { registerOmpss } from "../../src/index.ts";
 import { ObservationStore } from "../../src/observation.ts";
 import { RunViewer, TREE_ENTRY } from "../../src/viewer.ts";
+import { createSnapshotCapture } from "./capture-snapshot.mjs";
 
-const [modules, mode] = process.argv.slice(2);
+const [modules, mode, theme = "dark"] = process.argv.slice(2);
 const load = (name, file) => import(pathToFileURL(join(resolve(modules), name, file)).href);
 const tui = await load("@earendil-works/pi-tui", "dist/index.js");
 const { InteractiveMode } = await load("@earendil-works/pi-coding-agent", "dist/modes/interactive/interactive-mode.js");
@@ -32,7 +33,7 @@ const { initTheme, getEditorTheme } = await load(
 	"@earendil-works/pi-coding-agent",
 	"dist/modes/interactive/theme/theme.js",
 );
-initTheme("dark", false);
+initTheme(theme, false);
 class MemoryTerminal {
 	columns = 100;
 	rows = 40;
@@ -127,6 +128,11 @@ assert.equal(
 	),
 	"accepted",
 );
+for (let index = 2; index <= 5; index++)
+	observations.updateRoot(
+		{ ...root, id: `root-${index}`, agent: `worker-${index}`, startedAt: index },
+		{ model: "fake/model" },
+	);
 for (const node of observations.tree("session", "root").nodes) {
 	const saved = join(directory, node.owner, node.runId);
 	await mkdir(saved, { recursive: true });
@@ -176,7 +182,7 @@ let cancelled = 0;
 registerOmpss(
 	pi,
 	() => ({
-		run: async () => "Started run root (worker).",
+		run: async () => "Started run root (worker) in the background.",
 		cancel: () => {
 			cancelled++;
 		},
@@ -205,6 +211,14 @@ ui.addChild(host.chatContainer);
 ui.addChild(host.editorContainer);
 ui.setFocus(editor);
 ui.start();
+const capture = createSnapshotCapture({
+	ui,
+	terminal,
+	directory,
+	version: JSON.parse(await readFile(join(modules, "@earendil-works/pi-coding-agent/package.json"), "utf8")).version,
+	mode,
+	theme,
+});
 const flush = async () => {
 	await new Promise((done) => setTimeout(done, 20));
 	ui.renderNow();
@@ -226,65 +240,59 @@ const waitForDetails = async () => {
 try {
 	ui.renderNow();
 	assert.equal(card.expanded, false);
+	assert(
+		card.render(100).some((line) => line.includes("OMPSS: worker started (root)")),
+		"collapsed launches show one compact acknowledgement row",
+	);
 	terminal.input("\x0f");
 	assert.equal(card.expanded, true);
 	assert.equal(other.expanded, true);
-	assert(card.render(100).some((line) => line.includes("hidden agents")));
-	assert(entry.render(100).some((line) => line.includes("hidden agents")));
+	// Host expansion reveals the captured acknowledgement text only, never a live per-run tree.
+	const expandedCard = card.render(100).join("\n");
+	assert(expandedCard.includes("Started run root (worker) in the background."));
+	assert(!expandedCard.includes("hidden agents"));
+	assert(!expandedCard.includes("grandchild"));
+	const entryText = entry.render(100).join("\n");
+	assert(
+		entryText.includes("OMPSS: worker started (root)"),
+		"slash-launch entries render the same compact acknowledgement",
+	);
+	assert(!entryText.includes("hidden agents"));
+	assert(!/\d+ descendants/.test(entryText));
 	const remapped = new KeybindingsManager({ "app.tools.expand": "ctrl+y" });
 	tui.setKeybindings(remapped);
 	editor.keybindings = remapped;
 	terminal.input("\x19");
 	assert.equal(card.expanded, false);
-	assert(
-		card.render(100).some((line) => line.includes("ctrl+y")),
-		"hint must use the host's actual configured action",
-	);
+	assert.equal(other.expanded, false);
 	terminal.input("\x19");
 	editor.setText("preserved prompt");
 	ui.renderNow();
-	const screen = mode === "fullscreen" ? ui.previousScreen : ui.render(100);
-	const row = screen.findIndex((line) => line.includes("grandchild-reader running"));
-	assert(row >= 0, "the validated grandchild must have its own clickable card row");
-	const siblingBefore = observations.node("session", "root", "child-2");
-	const parentBefore = observations.node("session", "root", "child-1");
-	terminal.input(`\x1b[<0;3;${row + 1}M`);
-	terminal.input(`\x1b[<0;3;${row + 1}m`);
-	await flush();
-	if (mode === "fullscreen") {
-		const clicked = await waitForDetails();
-		assert.notEqual(clicked, editor);
-		const saved = join(directory, "grandchild-session", "grandchild");
-		const task = JSON.parse(await readFile(join(saved, "config.json"), "utf8")).task;
-		const output = await readFile(join(saved, "output.md"), "utf8");
-		const details = clicked.render(100).join("\n");
-		assert(details.includes(output), "clicked grandchild must show its actual saved output through the detail reader");
-		assert(details.includes(task), "clicked grandchild must show its actual saved task through the detail reader");
-		assert(!details.includes("Selected task child-1"));
-		assert(!details.includes("Selected output child-2"));
-		assert.equal(observations.node("session", "root", "grandchild").owner, "grandchild-session");
-		assert.deepEqual(observations.node("session", "root", "child-2"), siblingBefore);
-		assert.deepEqual(observations.node("session", "root", "child-1"), parentBefore);
-		assert.equal(siblingBefore.state, "running");
-		assert.equal(parentBefore.state, "running");
-		terminal.input("\x1b");
-		await flush();
-	} else {
-		assert.equal(ui.getFocusedComponent(), editor);
-		assert(!terminal.writes.join("").includes("\x1b[?1006h"));
-	}
 	const inspecting = commands.get("ompss").handler("inspect", ctx);
 	await flush();
 	assert.notEqual(ui.getFocusedComponent(), editor);
-	// Account for the nested row while preserving the existing hidden-child selection.
+	await capture("tree");
+	// The documented fold keys hide a branch without discarding its retained rows.
 	terminal.input("\x1b[B");
-	for (let index = 0; index < 19; index++) terminal.input("\x1b[B");
+	terminal.input("\x1b[D");
+	await flush();
+	assert(!ui.getFocusedComponent().render(100).join("\n").includes("grandchild-reader"));
+	terminal.input("\x1b[C");
+	await flush();
+	assert(ui.getFocusedComponent().render(100).join("\n").includes("grandchild-reader"));
+	// Scroll by run identity: extra roots must not change which descendant is inspected.
+	for (let index = 0; index < 30; index++) {
+		if (/>\s+reader running \(child-19\)/.test(ui.getFocusedComponent().render(100).join("\n"))) break;
+		terminal.input("\x1b[B");
+	}
+	assert(/>\s+reader running \(child-19\)/.test(ui.getFocusedComponent().render(100).join("\n")));
 	terminal.input("\r");
 	const overlay = await waitForDetails();
 	assert(
 		overlay.render(100).join("\n").includes("Selected task child-19"),
 		"hidden retained agent must remain keyboard-accessible",
 	);
+	await capture("detail");
 	assert.equal(
 		observations.updateRoot(
 			{ ...root, state: "running" },
@@ -294,12 +302,19 @@ try {
 	);
 	await flush();
 	assert(
-		card.render(100).some((line) => line.includes("live_read")),
-		"live metadata invalidates the native card",
+		!card.render(100).some((line) => line.includes("live_read")),
+		"acknowledgements never repaint into live activity; that belongs to the fleet and modal",
 	);
 	terminal.columns = 45;
 	terminal.resize();
 	ui.renderNow();
+	await capture("narrow");
+	assert.equal(ui.getFocusedComponent(), overlay);
+	terminal.input("\r");
+	await waitForDetails();
+	await capture("narrow-detail");
+	terminal.input("\x1b"); // Return to the narrow tree before closing.
+	await flush();
 	assert.equal(ui.getFocusedComponent(), overlay);
 	terminal.input("\x1b");
 	await inspecting;
@@ -308,13 +323,15 @@ try {
 	assert.equal(cancelled, 0);
 	assert.equal(observations.node("session", "root", "root").state, "running");
 	viewer.dispose();
+	const afterDispose = card.render(100).join("\n");
 	assert(
-		card.render(100).some((line) => line.includes("unavailable")),
-		"disposed viewer must not replay old evidence",
+		afterDispose.includes("OMPSS: worker started (root)"),
+		"the static acknowledgement stays bounded after dispose",
 	);
+	assert(!afterDispose.includes("Selected output"), "disposed viewer must not replay saved evidence");
 } finally {
 	viewer.dispose();
 	ui.stop();
 	await rm(directory, { recursive: true, force: true });
 }
-console.log(JSON.stringify({ mode, verified: true }));
+console.log(JSON.stringify({ mode, theme, verified: true }));

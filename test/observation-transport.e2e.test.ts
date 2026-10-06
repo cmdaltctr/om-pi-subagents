@@ -106,7 +106,25 @@ describe.skipIf(!PI_AVAILABLE)("real child observation transport", () => {
 				trees.every((tree) => tree.nodes.every((node) => node.state === "completed")),
 			);
 			expect(final.every((tree) => !tree.incomplete)).toBe(true);
-			expect(JSON.stringify(final)).not.toMatch(/SECRET_|args|result|thinking|stderr|auth/);
+			// Task labels and provisional visible-answer previews are sanctioned display text.
+			// Tool arguments, raw results, thinking, stderr and authentication fields must stay out.
+			const state = JSON.stringify(final);
+			expect(state).not.toMatch(/SECRET_TOOL_ARGUMENTS|thinking|stderr|SECRET_AUTH|"args"|"result"/);
+			expect(state).toContain("taskSummary");
+			expect(state).toContain("assistantPreview");
+			// Each retained preview belongs to its own run: the leaf answer appears only on leaf nodes,
+			// and every root is labelled with the exact task its operator submitted.
+			// Tree order follows launch order; verify without depending on it for the root labels.
+			expect(new Set(final.map((tree) => tree.nodes[0].taskSummary))).toEqual(
+				new Set(["SECRET_ROOT_TASK_0", "SECRET_ROOT_TASK_1"]),
+			);
+			for (const tree of final) {
+				expect(tree.nodes[1].taskSummary).toBe("SECRET_MIDDLE_TASK");
+				expect(tree.nodes[2].taskSummary).toBe("SECRET_LEAF_TASK");
+				expect(tree.nodes[2].assistantPreview).toBe("SECRET_LEAF_OUTPUT");
+				expect(tree.nodes[1].assistantPreview).toBe("Middle answered");
+				expect(tree.nodes[0].assistantPreview).toBe("Delegator answered");
+			}
 			await fixture.waitFor(() => resultMessages(fixture).length === 2);
 			expect(resultMessages(fixture)).toHaveLength(2);
 			for (const body of fixture.model.requests as { messages: unknown[] }[])

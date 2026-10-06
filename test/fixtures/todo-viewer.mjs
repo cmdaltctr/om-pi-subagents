@@ -4,7 +4,8 @@ import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { parse } from "yaml";
 import { registerRuntime, SessionBinding } from "../../src/index.ts";
-import { createNotifier } from "../../src/notify.ts";
+import { FleetWidget } from "../../src/fleet-widget.ts";
+import { FleetStrip } from "../../src/fleet.ts";
 import { createWorkspace } from "./pi-rpc.ts";
 import { resolveTodoExtension, seedTodoPreferences } from "./todo.ts";
 import { createTodoViewerHost } from "./todo-viewer-host.mjs";
@@ -37,6 +38,11 @@ await writeFile(
 	`# Preserve mapping\nversion: 1\nlimits: { maxDepth: 3, maxConcurrentRuns: 4 }\nagents:\n  leaf:\n    persona: ./leaf.md\n    tools: [todo]\n    model: fake/counter\n    thinking: off\n    extensions: [${JSON.stringify(extension)}]\n`,
 );
 const mappingBefore = parse(await readFile(registryPath, "utf8")).agents;
+// The legacy display file is a read-only import source now; seed it as an upgrading operator would have it.
+const legacyPath = join(workspace.root, "config", "pi-subagents", "config.json");
+await mkdir(dirname(legacyPath), { recursive: true });
+await writeFile(legacyPath, `${JSON.stringify({ maxVisibleAgents: 1 }, null, 2)}\n`);
+const legacyBefore = await readFile(legacyPath, "utf8");
 const piSettings = join(workspace.agentDir, "settings.json");
 await writeFile(piSettings, '{"defaultModel":"counter","defaultProvider":"fake"}\n');
 const native = await createTodoViewerHost(modules, terminalMode, workspace.root);
@@ -142,10 +148,12 @@ try {
 	assert.deepEqual(getSessionMode(owner), parentMode);
 	assert.deepEqual(getSessionMode(childSessionId), { mode: "normal" });
 	const cacheBefore = getPreferences();
-	assert.deepEqual(
-		[...shortcuts].map(([key, value]) => [key, value.source]),
-		[["ctrl+shift+t", "todo"]],
-	);
+	assert.deepEqual([...shortcuts].map(([key, value]) => [key, value.source]).toSorted(), [
+		// Todo's default shortcut and OMPSS's view keys coexist in either load order.
+		["alt+i", "ompss"],
+		["alt+o", "ompss"],
+		["ctrl+shift+t", "todo"],
+	]);
 	const definitionsBefore = [...tools].map(([name, tool]) => [name, JSON.stringify(tool.parameters)]);
 	assert.deepEqual(tools.get("ompss").parameters.properties.action.enum, ["list", "run", "status", "cancel"]);
 
@@ -198,7 +206,7 @@ try {
 		await writeFile(join(directory, "output.md"), `Saved output ${node.runId}`);
 	}
 	runtime.viewer.activate(ctx);
-	const identity = { owner, runId: "root" };
+	const identity = { owner, runId: "root", agent: "leaf" };
 	const card = native.card(tools.get("ompss"), {
 		content: [{ type: "text", text: "Started run root (leaf)." }],
 		details: identity,
@@ -207,14 +215,28 @@ try {
 	// Exercise the real compact panel and session-bound messenger without launching a process.
 	const binding = new SessionBinding();
 	binding.bind(ctx);
-	const notifier = createNotifier({
-		messenger: () => binding.messenger(api("ompss")),
-		readOutput: forbidden,
-		directoryFor: () => workspace.root,
-		recordDelivery: forbidden,
+	// The real below-editor fleet strip over a session-bound messenger, without launching a process.
+	const fleet = new FleetWidget({
+		messenger: (sessionOwner) => binding.messenger(api("ompss"), sessionOwner),
+		runs: (sessionOwner) => (sessionOwner === owner ? [{ ...root, id: root.id }] : []),
+		trees: (sessionOwner) => runtime.observations.trees(sessionOwner),
+		visibleAgents: () => 4,
+		keys: () => ({ toggle: "alt+o", inspect: "alt+i" }),
+		strip: new FleetStrip(),
+		mode: () => "tui",
+		now: () => root.startedAt + 1000,
 	});
-	notifier.onChange(root);
-	assert.deepEqual([...host.extensionWidgetsAbove.keys()].toSorted(), ["ompss", "rpiv-todos"]);
+	fleet.attach(owner);
+	fleet.onChange(root);
+	await flush();
+	assert.deepEqual([...host.extensionWidgetsAbove.keys()].toSorted(), ["rpiv-todos"]);
+	assert.deepEqual([...host.extensionWidgetsBelow.keys()].toSorted(), ["ompss"]);
+	const fleetText = () => host.extensionWidgetsBelow.get("ompss").render(100).join("\n");
+	assert(
+		fleetText().includes("Agents: 1 active | 1 observed descendants"),
+		"the strip reports the run and its observed descendant",
+	);
+	assert(fleetText().includes("alt+o list"));
 	const todoWidget = host.extensionWidgetsAbove.get("rpiv-todos");
 	const todoText = () => todoWidget.render(100).join("\n");
 	assert(todoText().includes(todoMode === "normal" ? "Parent-only task" : "Preserve parent task"));
@@ -224,11 +246,13 @@ try {
 	assert.equal(card.expanded, false);
 	terminal.input("\x0f");
 	assert.equal(card.expanded, true);
-	assert(card.render(100).join("\n").includes("reader running"));
-	assert(entry.render(100).join("\n").includes("reader running"));
+	// Host expansion reveals the acknowledgement only; the live tree stays out of the transcript.
+	assert(card.render(100).join("\n").includes("OMPSS: leaf started (root)"));
+	assert(entry.render(100).join("\n").includes("OMPSS: leaf started (root)"));
+	assert(!card.render(100).join("\n").includes("reader running"));
 	await shortcuts.get("ctrl+shift+t").handler(ctx);
 	assert(todoText().includes("to expand"));
-	assert(card.render(100).join("\n").includes("reader running"));
+	assert(card.render(100).join("\n").includes("OMPSS: leaf started (root)"));
 	await shortcuts.get("ctrl+shift+t").handler(ctx);
 	assert.equal(todoText(), widgetBefore);
 
@@ -239,6 +263,8 @@ try {
 		"selected details",
 	);
 	assert(ui.getFocusedComponent().render(100).join("\n").includes("Saved output descendant"));
+	// The modal owns focus while the sibling keeps its widget and content untouched.
+	assert.equal(todoText(), widgetBefore);
 	terminal.input("\x1b");
 	await inspect;
 	assert.equal(ui.getFocusedComponent(), editor);
@@ -248,7 +274,8 @@ try {
 	await edit(1, "2");
 	await edit(2, "1");
 	await edit(0, "0", false);
-	await choose(3);
+	// Done follows the two shortcut fields and the per-agent capabilities menu.
+	await choose(6);
 	await settings;
 	assert.equal(ui.getFocusedComponent(), editor);
 	assert.equal(editor.getText(), "Preserved parent prompt");
@@ -257,10 +284,12 @@ try {
 	assert(savedRegistry.includes("maxConcurrentRuns: 2"));
 	assert(savedRegistry.includes("# Preserve mapping"));
 	assert.deepEqual(parse(savedRegistry).agents, mappingBefore);
+	assert.deepEqual(await readFile(legacyPath, "utf8"), legacyBefore);
 	assert.deepEqual(JSON.parse(await readFile(join(workspace.root, "config", "pi-subagents", "config.json"), "utf8")), {
 		maxVisibleAgents: 1,
 	});
-	assert(card.render(100).join("\n").includes("1 hidden agents"));
+	assert(card.render(100).join("\n").includes("OMPSS: leaf started (root)"));
+	assert(!card.render(100).join("\n").includes("hidden agents"));
 	assert.equal(runtime.observations.tree(owner, "root").nodes.length, 2);
 	assert.equal(runtime.observations.node(owner, "root", "root").state, "running");
 	assert.deepEqual(runtime.manager.list(owner), []);
@@ -278,10 +307,11 @@ try {
 		[...tools].map(([name, tool]) => [name, JSON.stringify(tool.parameters)]),
 		definitionsBefore,
 	);
-	assert.deepEqual(
-		[...shortcuts].map(([key, value]) => [key, value.source]),
-		[["ctrl+shift+t", "todo"]],
-	);
+	assert.deepEqual([...shortcuts].map(([key, value]) => [key, value.source]).toSorted(), [
+		["alt+i", "ompss"],
+		["alt+o", "ompss"],
+		["ctrl+shift+t", "todo"],
+	]);
 	assert.equal(workspace.model.requests.length, 0);
 	assert.deepEqual(messages, []);
 	assert.deepEqual(

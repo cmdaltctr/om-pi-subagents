@@ -1,13 +1,15 @@
 # OMPSS: Opinionated Modular Pi Subagents System
 
+<img src="docs/assets/om-pi-subagents-logo.svg" alt="OMPSS logo" width="168">
+
 OMPSS runs a subagent as a normal Pi child process. You decide the agent
 names, the persona text, and the tools each agent may use. All of it lives in
 one YAML file and plain Markdown files. OMPSS ships no agents of its own.
 
-- The parent gets the `ompss` tool, `/ompss` commands and an operator-only `/subagents-settings` menu.
+- The parent gets the `ompss` tool, `/ompss` commands and an operator-only `/ompss-settings` menu.
 - Each run is one child Pi process in the background.
 - YAML limits set each parent's direct-child capacity and maximum nesting depth. Both default to one.
-- The parent panel uses a visible-agent limit, default 4. Native cards show each run's observed descendants.
+- YAML `ui` settings set visible rows, default 5, and the Alt+O fleet and Alt+I inspection shortcuts.
 - The result arrives as a follow-up message when the child finishes.
 
 OMPSS does not use `pi-subagents`. It does not import it, copy it, or need it.
@@ -104,18 +106,32 @@ Approved children need an explicit skill path; see [setup](docs/SETUP.md#skills-
 
 ### Operator settings
 
-Run `/subagents-settings` in Pi, or through an RPC client that supports native dialogs.
-Select a setting, enter a whole number, then confirm its value and save destination:
+Run `/ompss-settings` in Pi, or through an RPC client that supports native dialogs.
+`/subagents-settings` is an alias of the same menu. Select a setting, enter a value,
+then confirm the shown value and save destination:
 
-| Setting                             | Accepted values                           | Save destination                                |
-| ----------------------------------- | ----------------------------------------- | ----------------------------------------------- |
-| Maximum nesting depth               | Safe integers of at least 0; root depth 0 | `limits.maxDepth` in the selected registry YAML |
-| Parallel direct children per parent | Safe integers of at least 1               | `limits.maxConcurrentRuns` in that YAML         |
-| Visible agents                      | Safe integers from 1 to 256; default 4    | `<config-dir>/pi-subagents/config.json`         |
+| Setting                             | Accepted values                                                 | Save destination                        |
+| ----------------------------------- | --------------------------------------------------------------- | --------------------------------------- |
+| Maximum nesting depth               | Safe integers of at least 0; root depth 0                       | `limits.maxDepth` in the registry YAML  |
+| Parallel direct children per parent | Safe integers of at least 1                                     | `limits.maxConcurrentRuns` in that YAML |
+| Visible agents                      | Safe integers from 1 to 256; default 5                          | `ui.maxVisibleAgents` in that YAML      |
+| Fleet list shortcut                 | A Pi key specification such as `alt+o`, or `off`; default Alt+O | `ui.toggleKey` in that YAML             |
+| Inspection shortcut                 | A Pi key specification such as `alt+i`, or `off`; default Alt+I | `ui.inspectKey` in that YAML            |
 
 `OMPSS_REGISTRY` selects the registry when set. The menu shows its resolved path.
-The display config uses absolute `XDG_CONFIG_HOME`, otherwise `~/.config`.
-Execution limits stay in YAML. OMPSS leaves todo preferences and Pi's `settings.json` untouched.
+Execution limits and UI settings stay in that one YAML file. OMPSS leaves todo preferences
+and Pi's `settings.json` untouched. Shortcut values are lowercase Pi key specifications.
+Ctrl+I and Tab are refused because legacy terminals send one byte for both, and a key already
+bound to an effective built-in action is refused with guidance. Both shortcuts can be `off`.
+
+Shortcuts bind when an interactive session starts. A saved shortcut needs `/reload` before it
+becomes active; the menu shows the saved and the active binding until then. Visible-agent and
+limit changes take effect without a reload, and the display repaints at once.
+
+Older OMPSS versions kept visible agents in `<config-dir>/pi-subagents/config.json`. That file
+is now a read-only fallback: when YAML omits `ui.maxVisibleAgents`, its valid value still applies
+and the menu labels its source. The menu offers a confirmed import that writes the value into
+YAML. YAML wins once it declares the field. OMPSS no longer writes the legacy file.
 
 Cancelling an input or declining confirmation leaves that setting unchanged.
 Earlier confirmed saves remain in effect. Creating a missing registry requires confirmation;
@@ -126,21 +142,35 @@ Saved limits apply to fresh launches. Existing runs continue, and an existing br
 Depth zero disables new launches. Raising per-parent capacity can multiply process and provider load.
 See [operator settings](docs/USAGE.md#operator-settings) for the procedure and write-failure guidance.
 
-### Live agent trees
+Memory and Todo are off for new agent mappings. Existing explicit mappings stay in effect.
+In `/ompss-settings`, choose **Agent capabilities**, then an agent and Memory or Todo.
+Select **Enable**, enter the installed package folder or its published Pi extension entry,
+and confirm the exact `tools` and `extensions` changes. Memory can also map its shipped
+skill. Approval for `memory` covers its whole tool, including write and portability modes.
+**On (configured)** reports mapped resources, not backend health. **Partial** needs an
+explicit correction; inspect the agent's lists before disabling an unrecognised wrapper.
+**Disable** removes the recognised extension, mapped skill and tool for future launches.
+No package is installed, no parent extension setting changes, and active children keep
+what they started with. See [optional child capabilities](docs/USAGE.md#optional-child-capabilities).
 
-Pi's native expansion action, `app.tools.expand`, opens the run cards. Its default key is Ctrl+O.
-The card hint follows your configured binding. Tool launches and TUI slash launches share the same tree:
+### Compact fleet and inspection
+
+One fleet strip below the editor reports every active direct run. It starts collapsed to a single
+content row; Alt+O or `/ompss fleet` expands it into a bounded root list with task labels, states, elapsed times and
+tool names. The default budget is five root rows, so expansion uses at most seven content rows and
+never more than one third of a small terminal:
 
 ```text
-builder running (root0001)
-|- reader running (child001) · read
-`- reviewer completed (child002)
-/ompss inspect · arrows select · Enter details · Escape close
+Agents: 5 active | 3 observed descendants | alt+o list | alt+i inspect
 ```
 
-Each root has its own card. The visible-agent limit applies to expanded cards and the compact widget;
-hidden nodes remain available in `/ompss inspect`. The status count still includes every active direct run.
-Missing observations produce an incomplete label. Display state never grants run-control authority.
+With the strip expanded and the editor empty, arrows select a root, Enter inspects it and Escape
+collapses without stopping work. Every active root stays reachable; hidden runs continue normally.
+When all work ends, the strip keeps one compact summary of the latest finished root.
+
+Each launch leaves one compact acknowledgement row in the transcript. Pi's native expansion action,
+`app.tools.expand` with Ctrl+O by default, reveals the acknowledgement text only. It never creates a
+second live tree. The complete retained hierarchy lives in the inspection modal:
 
 1. Run `/ompss inspect` to select any retained node in this session.
 2. Use arrows, then Enter, to read its saved task and output.
@@ -243,12 +273,12 @@ Run `/ompss` without arguments to see current-session status. Whitespace-only
 arguments also show status. A fresh session answers `No runs in this session.`
 Use `/ompss status <run-id>` for one run, or `/ompss cancel <run-id>` to stop it.
 
-The parent panel appears above the editor. It shows up to four active direct runs,
-with their ids, states and tool names. It reports the count of additional active runs.
-When all work ends, it retains the latest terminal summary and up to 240 characters of saved output.
-Failed previews are labelled partial. Cancellation sends no automatic result message.
+The fleet strip appears below the editor. Collapsed, it is one content row with the active count
+and observed descendants. Alt+O expands it into at most `ui.maxVisibleAgents` root rows plus a
+summary and a navigation row. When all work ends, it retains one compact summary of the latest
+finished root. Cancellation sends no automatic result message.
 
-The panel excludes tool arguments, raw tool results, thinking and stderr.
+The strip excludes tool arguments, raw tool results, thinking, stderr and answer previews.
 Terminal controls are removed from displayed text. The full saved answer and
 result message stay on their existing paths. Clients without widget support
 can use `/ompss` or the status line. OMPSS opens no extra Orca terminals.
@@ -281,7 +311,7 @@ after an error does not make a run pass.
 - Start-up has 30 seconds. A whole run has 30 minutes.
 - `/ompss cancel <run-id>` stops that owned subtree, including nested agents, without cancelling unrelated siblings.
 - A delegating child waits for owned runs and result-delivery attempts before final settlement.
-- `om-pi-todo` is optional. Child tasks stay local and never update the parent's OpenSpec checkboxes.
+- `om-pi-todo` and OMMS are optional and off for new child mappings. Child tasks stay local and never update the parent's OpenSpec checkboxes.
 - Reload, quit, or a new session stops active runs. No child outlives its
   parent.
 - If OMPSS cannot confirm that all processes stopped, the run fails and the
@@ -291,7 +321,7 @@ after an error does not make a run pass.
 
 These are outside this version:
 
-- Calls to the old `subagent` tool, workflow scripts, and fleet commands.
+- Calls to the old `subagent` tool and workflow scripts.
 - Councils, scheduling, remote workers, automatic worktrees, and provider
   fallback.
 - Resuming a run after a restart.

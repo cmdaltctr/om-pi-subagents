@@ -4,22 +4,22 @@ import { homedir } from "node:os";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { parseDocument } from "yaml";
-import { loadRegistry, type RunLimits } from "./config.ts";
+import { checkUiKey, loadRegistry, type Registry, type RunLimits } from "./config.ts";
+import type { CapabilityMapping } from "./capabilities.ts";
 
 const MAX_SETTINGS_BYTES = 256 * 1024;
-const DEFAULT_VISIBLE_AGENTS = 4;
+const CREATION_TEMPLATE = "version: 1\nlimits:\n  maxDepth: 1\n  maxConcurrentRuns: 1\nagents: {}\n";
 
 type Revision = Readonly<{ path: string; text: string | undefined }>;
 
 export interface LimitSettings extends Revision {
 	readonly limits: RunLimits;
+	readonly agents: Registry;
 	readonly missing: boolean;
 }
 
-export interface DisplaySettings extends Revision {
-	readonly value: number;
-	readonly diagnostics: readonly string[];
-}
+/** One editable `ui` field in the registry. */
+export type UiField = "maxVisibleAgents" | "toggleKey" | "inspectKey";
 
 /** Resolve only OMPSS display preferences; relative XDG paths use the home fallback. */
 export function displayPreferencesPath(env: NodeJS.ProcessEnv = process.env, home = homedir()): string {
@@ -42,7 +42,7 @@ function checkVisible(value: unknown): asserts value is number {
 	}
 }
 
-async function readText(path: string): Promise<string | undefined> {
+export async function readSettingsText(path: string): Promise<string | undefined> {
 	let file;
 	try {
 		// nosemgrep: AIK_ts_generic_path_traversal -- Private callers use the operator-selected registry or fixed display config, never model input. Evidence: docs/local-docs/agent-tree-viewer-settings-evidence.md.
@@ -69,7 +69,7 @@ async function readText(path: string): Promise<string | undefined> {
 	}
 }
 
-async function canonicalDestination(path: string): Promise<string> {
+export async function canonicalDestination(path: string): Promise<string> {
 	try {
 		return await realpath(path);
 	} catch (error) {
@@ -80,7 +80,7 @@ async function canonicalDestination(path: string): Promise<string> {
 }
 
 async function assertRevision(displayed: Revision): Promise<void> {
-	if ((await readText(displayed.path)) !== displayed.text) {
+	if ((await readSettingsText(displayed.path)) !== displayed.text) {
 		throw new Error(`Settings changed in ${displayed.path}. Reopen settings before saving.`);
 	}
 }
@@ -88,9 +88,9 @@ async function assertRevision(displayed: Revision): Promise<void> {
 /** Load fresh limits using the same complete registry validation as launches. */
 export async function readLimitSettings(path: string): Promise<LimitSettings> {
 	const destination = await canonicalDestination(path);
-	const text = await readText(destination);
-	const { limits } = await loadRegistry(destination);
-	const displayed = Object.freeze({ path: destination, text, limits, missing: text === undefined });
+	const text = await readSettingsText(destination);
+	const { limits, agents } = await loadRegistry(destination);
+	const displayed = Object.freeze({ path: destination, text, limits, agents, missing: text === undefined });
 	await assertRevision(displayed);
 	return displayed;
 }
@@ -157,85 +157,54 @@ export async function saveLimitSetting(
 ): Promise<void> {
 	checkLimit(key, value);
 	if (displayed.missing && !confirmCreation) throw new Error("Confirm registry creation before saving this limit.");
-	const document = parseDocument(
-		displayed.text ?? "version: 1\nlimits:\n  maxDepth: 1\n  maxConcurrentRuns: 1\nagents: {}\n",
-		{
-			schema: "core",
-			uniqueKeys: true,
-		},
-	);
+	const document = parseDocument(displayed.text ?? CREATION_TEMPLATE, {
+		schema: "core",
+		uniqueKeys: true,
+	});
 	if (document.errors.length) throw new Error("Fix the malformed YAML and reopen settings before saving.");
 	document.setIn(["limits", key], value);
 	await replaceSettings(displayed, document.toString(), loadRegistry);
 }
 
-function parseDisplay(text: string | undefined): { value: number; raw: Record<string, unknown> } {
-	const raw: unknown = text === undefined ? {} : JSON.parse(text);
-	if (!raw || typeof raw !== "object" || Array.isArray(raw))
-		throw new Error("Display settings must contain a JSON object.");
-	const stored = (raw as Record<string, unknown>).maxVisibleAgents;
-	const value = stored === undefined ? DEFAULT_VISIBLE_AGENTS : stored;
-	checkVisible(value);
-	return { value, raw: raw as Record<string, unknown> };
+/** Save one confirmed `ui` field without changing execution limits or any admitted run. */
+export async function saveUiSetting(
+	displayed: LimitSettings,
+	field: UiField,
+	value: number | string,
+	confirmCreation = false,
+): Promise<void> {
+	if (field === "maxVisibleAgents") checkVisible(value);
+	else checkUiKey(field, value);
+	if (displayed.missing && !confirmCreation) throw new Error("Confirm registry creation before saving this setting.");
+	const document = parseDocument(displayed.text ?? CREATION_TEMPLATE, {
+		schema: "core",
+		uniqueKeys: true,
+	});
+	if (document.errors.length) throw new Error("Fix the malformed YAML and reopen settings before saving.");
+	document.setIn(["ui", field], value);
+	// The temporary validation is the final net: bounds, unsafe keys and duplicate shortcuts reject here.
+	await replaceSettings(displayed, document.toString(), loadRegistry);
 }
 
-export interface DisplayPreferences {
-	readonly path: string;
-	readonly value: number;
-	refresh(): Promise<DisplaySettings>;
-	ensureLoaded(): Promise<DisplaySettings>;
-	save(displayed: DisplaySettings, value: number): Promise<void>;
-}
-
-/** Create a lazy cache. Rendering reads value; it performs no file access. */
-export function createDisplayPreferences(path = displayPreferencesPath()): DisplayPreferences {
-	let value = DEFAULT_VISIBLE_AGENTS;
-	let loaded: Promise<DisplaySettings> | undefined;
-	const refresh = async (): Promise<DisplaySettings> => {
-		let text: string | undefined;
-		// nosemgrep: AIK_ts_generic_path_traversal -- The factory receives the fixed OMPSS display path from trusted code, never model input. Evidence: docs/local-docs/agent-tree-viewer-settings-evidence.md.
-		let destination = resolve(path);
-		try {
-			destination = await canonicalDestination(path);
-			text = await readText(destination);
-			const parsed = parseDisplay(text);
-			const displayed = Object.freeze({ path: destination, text, value: parsed.value, diagnostics: [] });
-			await assertRevision(displayed);
-			value = parsed.value;
-			return displayed;
-		} catch (error) {
-			value = DEFAULT_VISIBLE_AGENTS;
-			return Object.freeze({
-				path: destination,
-				text,
-				value,
-				diagnostics: [
-					`${destination}: ${(error as Error).message} Fix the display config before saving; using four visible agents.`,
-				],
-			});
-		}
-	};
-	return {
-		// nosemgrep: AIK_ts_generic_path_traversal -- Cache the fixed OMPSS display destination from trusted extension code. Evidence: docs/local-docs/agent-tree-viewer-settings-evidence.md.
-		path: resolve(path),
-		get value() {
-			return value;
-		},
-		refresh() {
-			loaded = refresh();
-			return loaded;
-		},
-		ensureLoaded() {
-			loaded ??= refresh();
-			return loaded;
-		},
-		async save(displayed, nextValue) {
-			checkVisible(nextValue);
-			if (displayed.diagnostics.length) throw new Error(displayed.diagnostics.join("\n"));
-			const { raw } = parseDisplay(displayed.text);
-			await replaceSettings(displayed, `${JSON.stringify({ ...raw, maxVisibleAgents: nextValue }, null, 2)}\n`);
-			value = nextValue;
-			loaded = undefined;
-		},
-	};
+/** Save a selected agent's related lists in one revision-checked, validated replacement. */
+export async function saveCapabilityMapping(
+	displayed: LimitSettings,
+	agent: string,
+	mapping: CapabilityMapping,
+): Promise<void> {
+	if (!displayed.agents.has(agent) || displayed.missing) throw new Error("Select an existing mapped agent.");
+	const document = parseDocument(displayed.text!, { schema: "core", uniqueKeys: true });
+	if (document.errors.length) throw new Error("Fix the malformed YAML and reopen settings before saving.");
+	const existing = displayed.agents.get(agent)!;
+	const rawAgent = (document.toJS() as { agents: Record<string, Partial<CapabilityMapping>> }).agents[agent];
+	for (const field of ["tools", "extensions", "skills"] as const) {
+		const original = rawAgent[field];
+		const resolved = existing[field];
+		const kept = (original ?? []).filter((_entry, index) => mapping[field].includes(resolved[index]));
+		const added = mapping[field].filter((entry) => !resolved.includes(entry));
+		const next = [...kept, ...added];
+		if (original === undefined && next.length === 0) continue;
+		if (JSON.stringify(original) !== JSON.stringify(next)) document.setIn(["agents", agent, field], next);
+	}
+	await replaceSettings(displayed, document.toString(), loadRegistry);
 }

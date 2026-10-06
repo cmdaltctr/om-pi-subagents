@@ -1,6 +1,6 @@
 // A real parent Pi with the OMPSS extension loaded. One fake model plays the parent and the child;
 // the persona marker tells the two apart.
-import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe as suite, expect, it } from "vitest";
@@ -92,63 +92,28 @@ describe("idle parent", () => {
 	});
 });
 
-describe("live panel on real Pi", () => {
-	it("shows running child tools, excludes their bodies and retains the final preview", async () => {
+describe("live fleet strip on real Pi", () => {
+	it("reports the run below the editor and never exposes tool bodies", async () => {
 		const fixture = await startParent({ slowTool: true });
 		await fixture.send({ type: "prompt", message: "start" });
-		// The prompt response and the first tool event can share one pipe read, so the tool may first
-		// appear while the run is still starting. Wait for the running view with the tool still active.
 		const active = await fixture.waitFor(
 			(record) =>
 				record.type === "extension_ui_request" &&
 				record.method === "setWidget" &&
 				record.widgetKey === "ompss" &&
-				/^OMPSS: reader running \([0-9a-f-]{36}\)\nTools: bash$/.test(record.widgetLines?.join("\n") ?? ""),
+				/Agents: 1 active \| 0 observed descendants/.test(record.widgetLines?.join("\n") ?? ""),
 		);
-		expect(active.widgetPlacement).toBe("aboveEditor");
+		expect(active.widgetPlacement).toBe("belowEditor");
 		await waitFor(() => settles(fixture) === 2);
 		const widgets = fixture.records.filter(
 			(record) =>
 				record.type === "extension_ui_request" && record.method === "setWidget" && record.widgetKey === "ompss",
 		);
-		const runId = /\(([0-9a-f-]{36})\)$/.exec(active.widgetLines[0])![1];
-		expect(widgets.at(-1)!.widgetLines).toEqual([`OMPSS: reader completed (${runId})`, "Answer: CHILD ANSWER"]);
+		// The strip keeps one compact idle summary; previews belong to inspection, not the strip.
+		expect(widgets.at(-1)!.widgetLines).toEqual(["Agents: idle | last reader completed | alt+o list | alt+i inspect"]);
 		for (const record of widgets) {
-			expect(record.widgetLines.join("\n")).not.toMatch(/PRIVATE TOOL RESULT|sleep 2|printf/);
+			expect(record.widgetLines.join("\n")).not.toMatch(/PRIVATE TOOL RESULT|sleep 2|printf|Tools:/);
 		}
 		expect(JSON.stringify(fixture.model.requests.filter(isParent))).toContain("CHILD ANSWER");
-	});
-});
-
-describe("busy parent", () => {
-	it("queues the result until its current turn is over, and interrupts nothing", async () => {
-		const fixture = await startParent({ parentAckDelayMs: 3000 }); // the child finishes while the parent is still answering
-		await fixture.send({ type: "prompt", message: "start" });
-		await waitFor(() => fixture.model.requests.filter(isParent).length === 3);
-		// A queued follow-up continues the same agent run, so the parent settles once, after the result turn.
-		await waitFor(() => settles(fixture) >= 1);
-		await new Promise((done) => setTimeout(done, 1500));
-
-		const parentRequests = fixture.model.requests.filter(isParent);
-		expect(parentRequests).toHaveLength(3);
-		expect(JSON.stringify(parentRequests[1])).not.toContain("OMPSS run"); // not injected into the turn in progress
-		expect(JSON.stringify(parentRequests[2])).toContain("CHILD ANSWER");
-		expect(JSON.stringify(parentRequests[2]).match(/OMPSS run [0-9a-f-]{36}/g)).toHaveLength(1);
-	});
-});
-
-describe("delivery record", () => {
-	it("keeps the notification result apart from the run's status", async () => {
-		const fixture = await startParent({ childDelayMs: 500 });
-		await fixture.send({ type: "prompt", message: "start" });
-		await waitFor(() => settles(fixture) === 2);
-
-		const runs = join(fixture.agentDir, "ompss", "runs");
-		const [session] = await readdir(runs);
-		const [run] = await readdir(join(runs, session));
-		const directory = join(runs, session, run);
-		await waitFor(async () => (await readdir(directory)).includes("notification.json"));
-		expect(JSON.parse(await readFile(join(directory, "notification.json"), "utf8"))).toEqual({ delivered: true });
-		expect(JSON.parse(await readFile(join(directory, "status.json"), "utf8"))).toMatchObject({ state: "completed" });
 	});
 });

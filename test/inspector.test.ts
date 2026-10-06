@@ -390,3 +390,180 @@ describe("read-only inspector", () => {
 		fixture.inspector.dispose();
 	});
 });
+
+/** Root, two direct children and one grandchild beneath the first child. */
+function nestedSetup() {
+	const observations = new ObservationStore();
+	observations.updateRoot({
+		id: "root",
+		owner: "session",
+		agent: "builder",
+		cwd: "/work",
+		state: "running",
+		startedAt: 1,
+		nesting: { registryPath: "/r", rootSessionId: "session", depth: 1, maxDepth: 3 },
+	});
+	observations.bindChildSession({ owner: "session", runId: "root" }, "child-session");
+	const child = (runId: string, parentRunId: string, depth: number, owner = "child-session") =>
+		observations.ingest(
+			{ owner: "session", runId: "root" },
+			{
+				owner,
+				rootSessionId: "session",
+				runId,
+				parentRunId,
+				depth,
+				agent: "reader",
+				state: "running",
+				startedAt: 1,
+				revision: 1,
+				activeTools: [],
+			},
+		);
+	child("child-1", "root", 2);
+	// Deeper hops announce their own child session before their snapshots are accepted.
+	const first = observations.node("session", "root", "child-1")!;
+	expect(
+		observations.ingest(
+			{ owner: "session", runId: "root" },
+			{ ...first, childSessionId: "grandchild-session", revision: first.revision + 1 },
+		),
+	).toBe("accepted");
+	child("grandchild", "child-1", 3, "grandchild-session");
+	child("child-2", "root", 2);
+	const read = vi.fn(async (_root: string, id: string, _signal?: AbortSignal): Promise<RunDetails> => ({
+		node: observations.node("session", "root", id)!,
+		task: `Task for ${id}`,
+		output: `Output for ${id}`,
+		outputPath: "/saved/output.md",
+		partial: false,
+		taskTruncated: false,
+		outputTruncated: false,
+	}));
+	const inspector = new Inspector({
+		observations,
+		owner: "session",
+		read,
+		close: vi.fn(),
+		redraw: vi.fn(),
+		height: () => 30,
+	});
+	return { observations, read, inspector };
+}
+
+describe("session tree modal", () => {
+	it("orders rows parent-first with indentation beneath the immediate parent", () => {
+		const { inspector } = nestedSetup();
+		const lines = inspector.render(100);
+		const rowOf = (runId: string) => lines.findIndex((line) => line.includes(runId));
+		const indentOf = (runId: string) => /^\s*/.exec(lines[rowOf(runId)])![0].length;
+		expect(rowOf("root")).toBeGreaterThanOrEqual(0);
+		expect(rowOf("child-1")).toBeGreaterThan(rowOf("root"));
+		expect(rowOf("grandchild")).toBeGreaterThan(rowOf("child-1"));
+		expect(rowOf("child-2")).toBeGreaterThan(rowOf("grandchild"));
+		expect(indentOf("child-1")).toBeGreaterThan(indentOf("root"));
+		expect(indentOf("grandchild")).toBeGreaterThan(indentOf("child-1"));
+		expect(indentOf("child-2")).toBe(indentOf("child-1"));
+		inspector.dispose();
+	});
+
+	it("folds and unfolds a branch without discarding retained nodes", () => {
+		const { inspector, observations } = nestedSetup();
+		inspector.render(100);
+		// Select child-1, then fold its branch: the grandchild row disappears.
+		inspector.handleInput("\x1b[B");
+		inspector.handleInput("\x1b[D");
+		expect(inspector.render(100).join("\n")).not.toContain("grandchild");
+		expect(observations.node("session", "root", "grandchild")).toBeDefined();
+		inspector.handleInput("\x1b[C");
+		expect(inspector.render(100).join("\n")).toContain("grandchild");
+		inspector.dispose();
+	});
+
+	it("keeps every retained descendant reachable through unfolding", async () => {
+		const { inspector, read } = nestedSetup();
+		inspector.render(100);
+		inspector.handleInput("\x1b[B");
+		inspector.handleInput("\x1b[D");
+		inspector.handleInput("\r");
+		await flush();
+		expect(read).toHaveBeenLastCalledWith("root", "child-1", expect.any(AbortSignal));
+		inspector.handleInput("\x1b[C");
+		inspector.handleInput("\x1b[B");
+		inspector.handleInput("\r");
+		await flush();
+		expect(read).toHaveBeenLastCalledWith("root", "grandchild", expect.any(AbortSignal));
+		inspector.dispose();
+	});
+
+	it("keeps selection attached to run identity across folds and refreshes", () => {
+		const { inspector, observations } = nestedSetup();
+		inspector.render(100);
+		// Fold the first branch from its own row; the folded row keeps the selection.
+		inspector.handleInput("\x1b[B");
+		inspector.handleInput("\x1b[D");
+		expect(inspector.render(100).join("\n")).not.toContain("grandchild");
+		expect(inspector.render(100).some((line) => line.startsWith("> ") && line.includes("child-1"))).toBe(true);
+		inspector.handleInput("\x1b[C");
+		// A fresh refresh keeps the same selected run id on a later sibling.
+		inspector.handleInput("\x1b[B");
+		inspector.handleInput("\x1b[B");
+		observations.updateRoot({
+			id: "root",
+			owner: "session",
+			agent: "builder",
+			cwd: "/work",
+			state: "running",
+			startedAt: 1,
+			nesting: { registryPath: "/r", rootSessionId: "session", depth: 1, maxDepth: 3 },
+		});
+		const lines = inspector.render(100);
+		expect(lines.some((line) => line.startsWith("> ") && line.includes("child-2"))).toBe(true);
+		inspector.dispose();
+	});
+
+	it("shows the provisional assistant preview in selected details, labelled provisional", async () => {
+		const { inspector, observations } = nestedSetup();
+		inspector.render(100);
+		inspector.handleInput("\x1b[B");
+		inspector.handleInput("\r");
+		await flush();
+		expect(inspector.render(100).join("\n")).not.toMatch(/provisional/i);
+		expect(
+			observations.ingest(
+				{ owner: "session", runId: "root" },
+				{
+					...(observations.node("session", "root", "child-1") as unknown as Record<string, unknown>),
+					revision: (observations.node("session", "root", "child-1")!.revision ?? 1) + 1,
+					assistantPreview: "Latest visible answer text",
+					taskSummary: "Update validation",
+				},
+			),
+		).toBe("accepted");
+		await flush();
+		const text = inspector.render(100).join("\n");
+		expect(text).toContain("Latest visible answer text");
+		expect(text).toMatch(/provisional/i);
+		inspector.dispose();
+	});
+
+	it("updates live rows and previews while the modal stays open", async () => {
+		const { inspector, observations } = nestedSetup();
+		inspector.render(100);
+		inspector.handleInput("\x1b[B");
+		inspector.handleInput("\r");
+		await flush();
+		const child = observations.node("session", "root", "child-1")!;
+		expect(
+			observations.ingest(
+				{ owner: "session", runId: "root" },
+				{ ...child, state: "completed", revision: child.revision + 1 },
+			),
+		).toBe("accepted");
+		await flush();
+		const lines = inspector.render(100).join("\n");
+		expect(lines).toMatch(/reader completed \(child-1\)/);
+		expect(lines).toContain("Task for child-1");
+		inspector.dispose();
+	});
+});

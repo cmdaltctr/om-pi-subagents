@@ -12,23 +12,32 @@ const evidence: Array<{ eval_id: number; file: string; test: string }> = JSON.pa
 );
 
 describe("OMPSS skill evaluation fixtures", () => {
-	it("covers parallel, nested, empty, cleanup and todo ownership requests with test evidence", async () => {
+	it("covers fleet navigation, optional capabilities and parent-owned results with real test references", async () => {
 		expect(cases.skill_name).toBe("om-pi-subagents");
-		expect(cases.evals).toHaveLength(5);
-		expect(new Set(cases.evals.map((entry: { id: number }) => entry.id)).size).toBe(5);
+		expect(cases.evals).toHaveLength(8);
+		expect(new Set(cases.evals.map((entry: { id: number }) => entry.id)).size).toBe(8);
 		for (const entry of cases.evals) {
 			expect(entry.prompt).toMatch(/OMPSS/);
 			expect(entry.expected_output.length).toBeGreaterThan(40);
 			expect(entry.expectations.length).toBeGreaterThanOrEqual(3);
-			const proof = evidence.find((item) => item.eval_id === entry.id);
-			expect(proof).toBeDefined();
-			expect(await read(proof!.file)).toContain(proof!.test);
+			expect(evidence.some((item) => item.eval_id === entry.id)).toBe(true);
 		}
+		for (const proof of evidence) {
+			expect(cases.evals.some((entry: { id: number }) => entry.id === proof.eval_id)).toBe(true);
+			expect(proof.file).toMatch(/^test\/[a-z0-9.-]+\.test\.ts$/);
+			expect(await read(proof.file)).toContain(proof.test);
+		}
+		for (const [id, topic] of [
+			[6, /fleet|descendant/i],
+			[7, /memory|todo/i],
+			[8, /parent|captur/i],
+		] as const)
+			expect(cases.evals.find((entry: { id: number }) => entry.id === id)?.expected_output).toMatch(topic);
 	});
 
 	it("keeps positive and unrelated trigger examples distinct without claiming model accuracy", async () => {
-		expect(triggers.filter((entry) => entry.should_trigger)).toHaveLength(6);
-		expect(triggers.filter((entry) => !entry.should_trigger)).toHaveLength(6);
+		expect(triggers.filter((entry) => entry.should_trigger)).toHaveLength(9);
+		expect(triggers.filter((entry) => !entry.should_trigger)).toHaveLength(9);
 		expect(new Set(triggers.map((entry) => entry.query)).size).toBe(triggers.length);
 		for (const entry of triggers) {
 			expect(typeof entry.should_trigger).toBe("boolean");

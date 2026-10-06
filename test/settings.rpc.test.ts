@@ -1,4 +1,4 @@
-import { readFile, stat, writeFile } from "node:fs/promises";
+import { stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { loadRegistry } from "../src/config.ts";
@@ -8,7 +8,7 @@ import { editRpcSettings } from "./fixtures/settings.ts";
 const index = new URL("../src/index.ts", import.meta.url).pathname;
 
 describe.skipIf(!PI_AVAILABLE)("native RPC settings dialogs", () => {
-	it("saves independent confirmed settings without any model turn", async () => {
+	it("saves independent confirmed settings to YAML without any model turn", async () => {
 		const fixture = await startPi({
 			mcp: false,
 			args: ["-e", index],
@@ -24,15 +24,31 @@ describe.skipIf(!PI_AVAILABLE)("native RPC settings dialogs", () => {
 			expect((await editRpcSettings(fixture, 0, "0")).data.disposition).toBe("handled");
 			expect((await editRpcSettings(fixture, 1, "2")).data.disposition).toBe("handled");
 			expect((await editRpcSettings(fixture, 2, "2")).data.disposition).toBe("handled");
-			expect((await loadRegistry(join(fixture.agentDir, "om-pi-subagents.yaml"))).limits).toEqual({
-				maxDepth: 0,
-				maxConcurrentRuns: 2,
-			});
+			const registry = join(fixture.agentDir, "om-pi-subagents.yaml");
+			const saved = await loadRegistry(registry);
+			expect(saved.limits).toEqual({ maxDepth: 0, maxConcurrentRuns: 2 });
+			expect(saved.ui.maxVisibleAgents).toBe(2);
+			// The legacy display JSON is a read-only input and is never created.
 			const display = join(fixture.root, "config", "pi-subagents", "config.json");
-			expect(JSON.parse(await readFile(display, "utf8"))).toEqual({ maxVisibleAgents: 2 });
+			await expect(stat(display)).rejects.toMatchObject({ code: "ENOENT" });
 			expect(fixture.model.requests).toHaveLength(0);
 			expect(fixture.records.filter((record) => record.type === "tool_execution_start")).toEqual([]);
 			expect(fixture.records.filter((record) => record.entry?.customType?.includes("todo"))).toEqual([]);
+			expect(await fixture.exit()).toBe(0);
+		} finally {
+			await fixture.dispose();
+		}
+	});
+
+	it("saves view shortcuts through the alias command", async () => {
+		const fixture = await startPi({ mcp: false, args: ["-e", index] });
+		try {
+			expect((await editRpcSettings(fixture, 3, "alt+p", true, "/subagents-settings")).data.disposition).toBe(
+				"handled",
+			);
+			const saved = await loadRegistry(join(fixture.agentDir, "om-pi-subagents.yaml"));
+			expect(saved.ui.toggleKey).toBe("alt+p");
+			expect(fixture.model.requests).toHaveLength(0);
 			expect(await fixture.exit()).toBe(0);
 		} finally {
 			await fixture.dispose();

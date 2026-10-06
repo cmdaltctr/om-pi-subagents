@@ -20,6 +20,8 @@ describe("OMPSS skill resources", () => {
 		expect(metadata.name).toBe("om-pi-subagents");
 		expect(metadata.description.length).toBeGreaterThan(30);
 		expect(metadata.description.length).toBeLessThanOrEqual(1024);
+		for (const topic of ["fleet", "inspection", "/ompss-settings", "Memory", "Todo", "ownership"])
+			expect(metadata.description, topic).toContain(topic);
 		expect(metadata["allowed-tools"]).toBeUndefined();
 		expect(text.split("\n").length).toBeLessThan(500);
 		expect(text).not.toMatch(/\/Users\/|\/home\/|gpt-\d|glm-\d/);
@@ -27,6 +29,18 @@ describe("OMPSS skill resources", () => {
 		expect(references.length).toBeGreaterThanOrEqual(2);
 		for (const reference of references)
 			expect(await readFile(resolve(dirname(skill), reference.split("#")[0]), "utf8")).not.toBe("");
+		for (const instruction of [
+			"/ompss fleet",
+			"/ompss inspect",
+			"Alt+O",
+			"Alt+I",
+			"On (configured)",
+			"Partial",
+			"whole",
+			"immediate parent",
+		])
+			expect(text.toLowerCase(), instruction).toContain(instruction.toLowerCase());
+		expect(text).toMatch(/Loading this skill grants no tools/);
 	});
 
 	it("declares exactly the packaged skill root and file", async () => {
@@ -72,6 +86,51 @@ describe.skipIf(!PI_AVAILABLE)("real Pi skill discovery", () => {
 			await fixture.dispose();
 		}
 	});
+
+	it.each(["memory", "todo"] as const)(
+		"keeps %s blocked with the skill mapped but no exact tool approval",
+		async (tool) => {
+			const fixture = await startPi({
+				mcp: false,
+				seed: async ({ agentDir }) => writeFile(join(agentDir, "persona.md"), "Skill guard fixture"),
+				launch: ({ cwd, agentDir }) =>
+					buildLaunch({
+						snapshot: {
+							name: "child",
+							personaPath: "unused",
+							persona: "Skill guard fixture",
+							tools: ["read"],
+							thinking: "off",
+							skills: [skill],
+							extensions: [],
+						},
+						cwd,
+						personaFile: join(agentDir, "persona.md"),
+						guardPath: join(root, "src", "child-guard.ts"),
+						runToken: "skill-only-token",
+						lineage: fixtureLineage(join(agentDir, "om-pi-subagents.yaml")),
+						piBin: PI_BIN,
+						parentModel: "fake/counter",
+					}),
+			});
+			try {
+				fixture.model.script = [
+					{ tool, args: tool === "memory" ? { mode: "list" } : { action: "list" } },
+					{ text: "Not approved" },
+				];
+				await fixture.send({ type: "prompt", message: `Try ${tool} after loading the skill` });
+				await fixture.waitFor((record) => record.type === "agent_settled");
+				expect(
+					fixture.records.some(
+						(record) => record.entry?.customType === VIOLATION_ENTRY && record.entry.data.tool === tool,
+					),
+				).toBe(true);
+			} finally {
+				await fixture.exit();
+				await fixture.dispose();
+			}
+		},
+	);
 
 	it.each([
 		[true, true],

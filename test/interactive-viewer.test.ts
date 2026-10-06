@@ -6,12 +6,17 @@ import { describe, expect, it } from "vitest";
 
 const hosts = [
 	{ version: "0.99.1", modules: process.env.PI_HOST_MODULES ?? resolve(".pi-host/node_modules") },
-	{ version: "1.0.2", modules: process.env.OMPSS_CURRENT_HOST_MODULES },
+	{ version: "1.0.4", modules: process.env.OMPSS_CURRENT_HOST_MODULES },
 ];
 for (const host of hosts)
 	describe.skipIf(!host.modules)(`OMPSS native viewer ${host.version}`, () => {
 		for (const mode of ["regular", "fullscreen"])
-			it.each([false, true])(`${mode}: native viewer (delayed file reads: %s)`, (delayedReads) => {
+			it.each([
+				["dark", false],
+				["dark", true],
+				["light", false],
+				["light", true],
+			] as const)(`${mode}: %s theme (delayed file reads: %s)`, (theme, delayedReads) => {
 				const directory = mkdtempSync(join(tmpdir(), "ompss-viewer-aliases-"));
 				try {
 					const modules = resolve(host.modules!);
@@ -60,6 +65,7 @@ process.on("exit", () => assert(delayed > 0, "regression must delay actual detai
 							new URL("./fixtures/interactive-viewer.mjs", import.meta.url).pathname,
 							modules,
 							mode,
+							theme,
 						],
 						{
 							cwd: resolve("."),
@@ -71,7 +77,7 @@ process.on("exit", () => assert(delayed > 0, "regression must delay actual detai
 					);
 					expect(result.error).toBeUndefined();
 					expect(result.status, result.stderr).toBe(0);
-					expect(JSON.parse(result.stdout)).toEqual({ mode, verified: true });
+					expect(JSON.parse(result.stdout)).toEqual({ mode, theme, verified: true });
 				} finally {
 					rmSync(directory, { recursive: true, force: true });
 				}

@@ -12,6 +12,7 @@ This directory records significant architectural decisions made during developme
 | [004](./004-show-child-progress-in-a-parent-owned-widget.md)                 | Show child progress in a parent-owned widget                  | 2026-10-01 | Accepted (partly superseded by 005) |
 | [005](./005-configure-per-session-concurrency-and-nesting.md)                | Configure per-session concurrency and nesting                 | 2026-10-04 | Accepted                            |
 | [006](./006-add-read-only-native-agent-trees.md)                             | Add read-only native agent trees and operator settings        | 2026-10-05 | Accepted                            |
+| [007](./007-use-a-compact-fleet-with-independent-sibling-capabilities.md)    | Use a compact fleet with independent sibling capabilities     | 2026-10-06 | Proposed                            |
 
 ## Convention
 

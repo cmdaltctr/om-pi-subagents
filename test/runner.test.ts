@@ -62,6 +62,18 @@ describe("buildLaunch", () => {
 		expect(plan.env).toMatchObject({ PATH: "/usr/bin", OMPSS_CHILD: "1", OMPSS_RUN_TOKEN: "token-1" });
 	});
 
+	it("opts managed children out of sibling maintenance without touching the parent environment", () => {
+		const parent = { ...input().env, OMSS_DISABLE_WEB_AUTOSTART: "0" };
+		const plan = buildLaunch({ ...input(), env: parent });
+		// A mapped memory sibling must not become a web-app controller or history importer.
+		expect(plan.env).toMatchObject({
+			OMSS_DISABLE_WEB_AUTOSTART: "1",
+			OMSS_DISABLE_AUTO_BACKFILL: "1",
+		});
+		// The parent's own environment stays untouched.
+		expect(parent.OMSS_DISABLE_WEB_AUTOSTART).toBe("0");
+		expect(process.env.OMSS_DISABLE_WEB_AUTOSTART).toBeUndefined();
+	});
 	it("selects exactly the approved tools, and none for an empty list", () => {
 		expect(valueAfter(buildLaunch(input({ tools: ["read", "grep"] })).args, "--tools")).toBe("read,grep");
 		const none = buildLaunch(input({ tools: [] })).args;

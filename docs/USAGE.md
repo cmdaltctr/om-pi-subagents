@@ -46,7 +46,7 @@ The examples below use an agent called `reader` that may only read files.
    Check it with "ompss status 3f2c9b1e-8a4d-4c7e-9b2a-1d5e6f7a8b9c". The result arrives as a follow-up message.
    ```
 
-4. Watch the panel above the editor. It shows the run state and the tools the agent uses now.
+4. Watch the fleet strip below the editor. It reports active runs, and Alt+O expands the list.
 5. Read the result message when it arrives in the conversation.
 
 Pi shows full paths in its output. This guide writes `~` for your home folder.
@@ -65,6 +65,7 @@ You can type a slash command. You can also ask Pi in plain words, for example "A
 | `/ompss status <run-id>`    | Shows one run, its folder and any error.                             | `/ompss status 3f2c9b1e-8a4d-...-1d5e6f7a8b9c` |
 | `/ompss cancel <run-id>`    | Stops that run and every process it started.                         | `/ompss cancel 3f2c9b1e-8a4d-...-1d5e6f7a8b9c` |
 | `/ompss inspect [run-id]`   | Views retained nodes in this session without changing a run.         | `/ompss inspect`                               |
+| `/ompss fleet`              | Toggles or reports the session fleet without starting work.          | `/ompss fleet`                                 |
 
 `/ompss list` marks an agent as `write-capable` when it may use `bash`, `powershell`, `write` or `edit`. An agent with its own model shows it too:
 
@@ -75,7 +76,7 @@ fixer: tools [read, edit, bash]; model my-provider/my-model; write-capable
 The task is everything after the agent name. It can be long. A command that OMPSS does not recognise shows this hint:
 
 ```text
-Usage: /ompss list | run <agent> <task> | status [run-id] | cancel <run-id> | inspect [run-id]
+Usage: /ompss list | run <agent> <task> | status [run-id] | cancel <run-id> | inspect [run-id] | fleet
 ```
 
 ### The `ompss` tool
@@ -120,30 +121,48 @@ The `run` action returns at once. It does not wait for the agent to answer.
 
 ## While a run works
 
-### The panel
+### The fleet strip
 
-A panel appears above the editor. For example:
+One strip below the editor reports every active direct run. It starts collapsed to a single content row, no matter how many runs are active:
 
 ```text
-OMPSS: reader running (3f2c9b1e-8a4d-4c7e-9b2a-1d5e6f7a8b9c)
-Tools: read, grep
+Agents: 5 active | 3 observed descendants | alt+o list | alt+i inspect
 ```
 
-| Line                                | Meaning                                                                                      |
-| ----------------------------------- | -------------------------------------------------------------------------------------------- |
-| `OMPSS: <agent> <state> (<run-id>)` | The agent name and the run state. See [Run states](#run-states).                             |
-| `Tools: ...`                        | Tools the agent uses at this moment. It shows up to four names, then a count such as `(+2)`. |
-| `Answer: ...`                       | After a completed run: the first 240 characters of the saved answer.                         |
-| `Partial output: ...`               | After a failed run: the first 240 characters of what the agent wrote before it failed.       |
+| Part                           | Meaning                                                                                     |
+| ------------------------------ | ------------------------------------------------------------------------------------------- |
+| `Agents: N active`             | Direct runs that are starting, running or stopping. See [Run states](#run-states).          |
+| `M observed descendants`       | Retained nested runs across those roots. `(incomplete)` marks missing observation evidence. |
+| `alt+o list` / `alt+i inspect` | Your configured view keys. Omitted when a key is `off`; the commands still work.            |
 
-A fast tool can show while the state is still `starting`. This is normal. Tool calls made while the child process starts up do not show.
+Press Alt+O to expand the strip into a bounded list of direct agents. Each row shows the task label, the run state, the elapsed time, the tools in use and the observed descendant count:
 
-The panel shows only tool names and the short preview. It never shows tool arguments, tool results, the agent's thinking or error logs. OMPSS removes terminal control characters from the text.
+```text
+Agents: 5 active | 3 observed descendants
+  reader    Map the API       running   12s   reading
+> builder   Update validation running   18s   editing | 3 descendants
+  reviewer  Review changes    starting   1s
+Arrows select | Enter inspect | Esc collapse
+```
 
-The visible-agent setting bounds active direct-run summaries, defaulting to four. More active runs produce an overflow count.
+Expansion uses at most the `ui.maxVisibleAgents` root rows plus one summary and one navigation row: seven content rows with the default of five. A small terminal lowers the budget to one third of its height; if the rows cannot fit, the strip stays collapsed and inspection still reaches every run.
+
+With the strip expanded, an empty editor and editor focus give the arrow keys to the fleet: Up and Down select a root, Enter inspects it and Escape collapses the strip without stopping work. Typing returns input to the editor at once. A dialog or overlay that owns focus keeps its keys.
+
+The strip shows task labels, states, times and tool names only. It never shows tool arguments, tool results, the agent's thinking, error logs or answer previews. OMPSS removes terminal control characters from the text. Saved answers appear in inspection and in the result message, never in the strip.
+
+Each observed run also carries two bounded pieces of display text:
+
+- A one-line task label: the submitted task, sanitised to a single line of at most 160 characters.
+- A provisional assistant preview: the most recent visible assistant text, sanitised and capped at 4 KiB of UTF-8. Oversized text is cut and marked `[preview truncated]`. Rapid updates are coalesced to at most five preview refreshes per second per run.
+
+Previews contain visible assistant text only. Tool arguments, raw tool results, hidden thinking, stderr, system history and authentication fields never enter display state. Terminal control characters and direction overrides are removed without changing the saved files.
+A preview is provisional. It never proves that a run completed, and it never replaces the saved final answer: `output.md` in the run folder remains the only authoritative result. A stale preview stays labelled provisional after a run ends.
+
+The visible-agent setting bounds expanded root rows, defaulting to five. Every active root stays reachable through the arrows; hidden runs continue normally.
 This display bound does not restrict launches; `/ompss status` lists every direct owned run.
-Finishing one run leaves active siblings visible. When all runs end, the panel keeps the latest
-terminal summary until another launch or the session ends. Old previews cannot replace newer work.
+Finishing one run leaves active siblings visible. When all runs end, the strip keeps one compact
+summary of the latest finished root until another launch or the session ends. Old previews cannot replace newer work.
 
 ### The status line
 
@@ -152,7 +171,7 @@ The entry clears only when no owned run remains active.
 
 ### Checking with a command
 
-Some Pi clients do not show the panel. Use `/ompss` or `/ompss status` instead. A summary looks like this:
+Some Pi clients do not show the strip. Use `/ompss` or `/ompss status` instead. A summary looks like this:
 
 ```text
 run 3f2c9b1e-8a4d-4c7e-9b2a-1d5e6f7a8b9c: running
@@ -166,26 +185,31 @@ OMPSS opens no extra terminal tabs or panes, also in Orca. The agent has no term
 
 ## Agent trees and inspection
 
-Every interactive run has a native tree card. Tool launches use their result card; slash launches create a TUI entry.
-Pi's `app.tools.expand` action expands both. Ctrl+O is its default, and hints use your configured key.
-Other tool cards keep Pi's global expansion behaviour.
+Each launch leaves one compact acknowledgement row in the transcript, for example `OMPSS: reader started (3f2c9b1e)`.
+It shows the agent, the short run id and the launch state. Pi's `app.tools.expand` action, Ctrl+O by default,
+reveals the acknowledgement text only. It never re-creates a live per-run tree, and other tool cards keep their normal expansion.
 
-Expanded cards indent descendants and show observed lifecycle states with active tool names.
-Identical agent names remain distinct through run ids. Each root keeps its own tree.
-The visible-agent setting bounds card rows and the compact widget. Hidden counts include retained nodes outside that bound.
+The hierarchy lives in the fleet strip and the inspection modal. Identical agent names stay distinct through run ids.
+Expanded strip rows are bounded by the visible-agent setting; the modal lists every retained node without that bound.
 Status counts still include all active direct children.
 
 1. Run `/ompss inspect` to open the current session's retained nodes.
-2. Select a node with arrow keys.
-3. Press Enter to read its saved task and output.
-4. Use PageUp or PageDown to scroll the detail area.
-5. Press Escape to return to Pi's editor.
+2. Move with Up and Down. Rows sit beneath their immediate parent, indented by depth.
+3. Fold a branch with Left; unfold it with Right. Folded rows show `+N folded`; nothing is discarded.
+4. Press Enter to read the selected node's saved task and output.
+5. Use PageUp or PageDown to scroll the detail area.
+6. Press Escape to return to Pi's editor.
 
-You can also run `/ompss inspect <run-id>` to open a selected node directly.
-Fullscreen mode supports clicks on card rows and inspector rows. Regular mode uses keyboard input.
-The inspector includes retained hidden nodes and completed short runs. Resizing keeps the selection and focus.
-Closing the inspector releases its subscriptions and pending reads. The run continues.
+You can also run `/ompss inspect <run-id>` to open a selected node directly, or press Enter on a fleet row to inspect that root.
+Fullscreen mode supports clicks on tree rows. Regular mode uses keyboard input; a narrow terminal shows the tree and details
+one after the other, and Escape steps back from the detail screen before closing the modal.
+The modal includes retained hidden descendants and completed short runs, and it updates while agents run.
+Resizing keeps the selected run. Closing the modal restores your editor draft and releases its pending reads; the run continues.
 An empty session answers `No runs to inspect in this session.` without reading the mapping or display preferences.
+
+Selected details show the lineage, state, known model, active tools, the submitted task, any provisional assistant preview
+and the saved output. The preview is live visible answer text labelled provisional; it never proves completion and never
+replaces `output.md`, which stays the only authoritative final answer. Failed or cancelled output stays labelled partial.
 
 ### Observation and control
 
@@ -264,6 +288,53 @@ skills:
 Use the package folder shown by `pi list` if yours differs. Skill loading grants no tools.
 Add `ompss` to that child's tools only when you approve delegation.
 
+### Optional child capabilities
+
+Memory and Todo default to Off for a new mapping. Existing explicit mappings remain in effect.
+The parent keeps its own extension settings and OpenSpec tasks. Each descendant uses its
+own mapping, even when its immediate parent has either capability enabled.
+
+1. Install `om-memory-system` or `om-pi-todo` separately if needed.
+2. Run `/ompss-settings` and choose **Agent capabilities**.
+3. Choose an existing agent, then **Memory** or **Todo**.
+4. Choose **Enable** and enter the installed package folder or its published Pi extension entry.
+5. Confirm the exact changes to that agent's lists and the YAML destination.
+
+The helper reads the package's published `pi.extensions` metadata. Memory also offers
+**Enable with shipped skill** when `omms-memory` is present in its published skills.
+It adds `memory` or `todo` to `tools`, and the selected entry to `extensions`.
+No separate permission flag or sibling configuration block is needed:
+
+```yaml
+agents:
+  researcher:
+    persona: ./researcher.md
+    tools: [read, memory]
+    thinking: off
+    extensions:
+      - /path/to/om-memory-system/dist/adapters/pi/extension.js
+    skills:
+      - /path/to/om-memory-system/skills/omms-memory/SKILL.md
+```
+
+Use the installed entry shown in your package manifest; the example path is a placeholder.
+`memory` grants the **whole** tool, including write and portability modes. Grant it only
+when the child needs those operations. Memory recall and settled capture belong to OMMS;
+child tasks belong to the real todo extension. OMPSS stores neither sibling's state.
+
+**On (configured)** means the entry and exact tool are mapped; it does not prove backend
+health. **Partial** means an incomplete or ambiguous mapping. Check the agent's YAML lists
+and correct an unrecognised wrapper by hand. A missing package, cancelled edit or changed
+YAML leaves the file unchanged. Reopen settings after a save conflict.
+Choose **Disable** to remove recognised sibling entries, mapped skills and matching tool
+approval together. Future launches have no memory hooks or child todo bootstrap. An
+admitted child keeps its original resources. Other agents and parent extensions stay as they were.
+
+For a handoff, the parent searches its own memory and chooses a bounded task. Give the child
+only verified context. After the result arrives, the parent checks the saved output and
+completion state before updating its own todo or recording useful knowledge in memory.
+A provisional preview or a child's capture does not prove a completed run.
+
 ## Run states
 
 | State       | What it means                                                                                             | What to do                                                                                |
@@ -327,9 +398,9 @@ There is no machine-wide budget. Concurrent writers need separate safe working d
 
 ### Operator settings
 
-1. Run `/subagents-settings` with no arguments.
+1. Run `/ompss-settings` with no arguments. `/subagents-settings` is an alias of the same menu.
 2. Select a setting from the menu.
-3. Enter a whole number.
+3. Enter a whole number for limits and visible rows, or a key specification for a shortcut.
 4. Read the value, destination and any load warning.
 5. Confirm the save, or decline it.
 6. Select Done to close the menu.
@@ -337,22 +408,41 @@ There is no machine-wide budget. Concurrent writers need separate safe working d
 Native selection, input and confirmation dialogs work in interactive Pi and supported RPC clients.
 The command starts no agent or model request. Clients without dialogs receive an error before any settings file access.
 
-| Menu item                           | Validation                                  | Save destination                            |
-| ----------------------------------- | ------------------------------------------- | ------------------------------------------- |
-| Maximum nesting depth               | Safe integer of at least 0; root depth is 0 | `limits.maxDepth` in registry YAML          |
-| Parallel direct children per parent | Safe integer of at least 1                  | `limits.maxConcurrentRuns` in registry YAML |
-| Visible agents                      | Safe integer from 1 to 256; default 4       | `<config-dir>/pi-subagents/config.json`     |
+| Menu item                           | Validation                                     | Save destination                        |
+| ----------------------------------- | ---------------------------------------------- | --------------------------------------- |
+| Maximum nesting depth               | Safe integer of at least 0; root depth is 0    | `limits.maxDepth` in registry YAML      |
+| Parallel direct children per parent | Safe integer of at least 1                     | `limits.maxConcurrentRuns` in that YAML |
+| Visible agents                      | Safe integer from 1 to 256; default 5          | `ui.maxVisibleAgents` in that YAML      |
+| Fleet list shortcut                 | Pi key specification or `off`; default `alt+o` | `ui.toggleKey` in that YAML             |
+| Inspection shortcut                 | Pi key specification or `off`; default `alt+i` | `ui.inspectKey` in that YAML            |
+| Agent capabilities                  | Select an agent, then Memory or Todo           | That agent's existing YAML lists        |
+| Import legacy visible agents        | Offered while a valid legacy value applies     | `ui.maxVisibleAgents` in that YAML      |
 
 Parallel agents and direct children share the same per-parent limit.
-The menu shows the selected registry path, including any `OMPSS_REGISTRY` override.
-The display config uses absolute `XDG_CONFIG_HOME`, otherwise `~/.config`.
-Unrelated JSON keys remain intact; OMPSS does not write todo preferences or Pi's `settings.json`.
+The menu shows the selected registry path, including any `OMPSS_REGISTRY` override, and labels
+the source of the effective visible-agent value: YAML, the legacy display file or the default.
+OMPSS does not write todo preferences or Pi's `settings.json`.
+
+Shortcut keys are lowercase Pi key specifications, such as `alt+o`. Tab and Ctrl+I are refused,
+and so is a key already bound to an effective built-in action, with guidance to choose another.
+The two shortcuts must differ; either or both can be `off`.
+
+Shortcuts bind when an interactive session starts. A saved shortcut needs `/reload` before it
+becomes active; the menu shows the saved and the active binding until then. A visible-agent
+save repaints the display at once.
+
+Older OMPSS versions kept visible agents in `<config-dir>/pi-subagents/config.json`, selected by
+absolute `XDG_CONFIG_HOME` and otherwise `~/.config`. That file is now a read-only fallback:
+while YAML omits `ui.maxVisibleAgents`, its valid value still applies and is labelled `legacy`.
+Malformed legacy data is diagnosed and the default applies. The import entry writes the shown
+value into YAML after confirmation. YAML wins once it declares the field, and the legacy file
+is never written or deleted.
 
 Cancelling an input or declining confirmation changes nothing for that setting.
 Earlier confirmed saves remain in effect. Confirming creation of a missing registry creates version one with `agents: {}`.
-YAML comments, agent mappings, resource paths and the other limit remain intact after a limit edit.
+YAML comments, agent mappings, resource paths and the other limit remain intact after an edit.
 
-Malformed or unreadable files must be corrected before saving. Invalid display config uses four visible agents in the cache.
+Malformed or unreadable files must be corrected before saving.
 A file changed by another session or editor causes a conflict: reopen settings before saving.
 Writes use private temporary files and atomic replacement. A failed write leaves the destination and display cache unchanged.
 Short-lived locks apply to individual destinations and allow concurrent Pi sessions.
@@ -469,7 +559,7 @@ Only your user can read these files. The folders have mode `0700` and the files 
 | `the response was cut off (stop reason length)`                    | The answer was too long for the model.                                                  | Ask for a shorter answer, or split the task.                                    |
 | `run exceeded the total deadline of 1800000 ms`                    | The run took more than 30 minutes.                                                      | Split the task into smaller runs.                                               |
 | `result message not delivered: the owning session has ended`       | The session ended before the run finished.                                              | Read `output.md` in the run folder.                                             |
-| No panel shows                                                     | Your Pi client does not show widgets.                                                   | Use `/ompss` or the status line.                                                |
+| No fleet strip shows                                               | Your Pi client does not show widgets.                                                   | Use `/ompss` or the status line.                                                |
 
 Slash command errors start with `OMPSS:`. Tool errors go to Pi's model without that prefix.
 

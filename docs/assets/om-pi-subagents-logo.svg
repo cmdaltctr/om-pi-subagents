@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1254" height="1254" viewBox="0 0 1254 1254">
+  <rect width="1254" height="1254" fill="#0D1116"/>
+  <rect x="64" y="64" width="1126" height="1126" fill="none" stroke="#9EC89A" stroke-width="32"/>
+
+  <!-- top green row -->
+  <rect x="333" y="242" width="181" height="181" fill="#9ECF9B"/>
+  <rect x="536" y="242" width="181" height="181" fill="#9ECF9B"/>
+  <rect x="739" y="242" width="181" height="181" fill="#9ECF9B"/>
+
+  <!-- left middle green -->
+  <rect x="333" y="445" width="181" height="181" fill="#9ECF9B"/>
+
+  <!-- diagonal yellow bridge (slightly lowered, with gap preserved) -->
+  <rect x="536" y="560" width="181" height="181" fill="#F3C54E"/>
+
+  <!-- right middle blue -->
+  <rect x="739" y="666" width="181" height="181" fill="#A8C8F0"/>
+
+  <!-- bottom blue row -->
+  <rect x="333" y="869" width="181" height="181" fill="#A8C8F0"/>
+  <rect x="536" y="869" width="181" height="181" fill="#A8C8F0"/>
+  <rect x="739" y="869" width="181" height="181" fill="#A8C8F0"/>
+</svg>

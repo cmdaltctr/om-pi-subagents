@@ -13,10 +13,26 @@ export interface FakeModel {
 	readonly baseUrl: string;
 	/** Every chat-completion request body received. The count is the number of model requests. */
 	readonly requests: unknown[];
+	/** Every embeddings request body received, for fake embedding providers. */
+	readonly embeddings: unknown[];
 	/** Answers by request order (the last turn repeats), or chosen per request from its body and index. */
 	script: Turn[] | ((body: any, index: number) => Turn);
 	close(): Promise<void>;
 }
+
+/** A deterministic embedding: same text always maps to the same unit vector. */
+const fakeEmbedding = (input: string, dimensions: number): number[] => {
+	const vector = Array.from<number>({ length: dimensions }).fill(0);
+	for (const token of input.toLowerCase().split(/[^a-z0-9]+/)) {
+		if (!token) continue;
+		let hash = 2166136261;
+		for (const character of token) hash = Math.imul(hash ^ character.charCodeAt(0), 16777619);
+		// A plain modulo keeps every index inside the declared dimension count.
+		vector[hash % dimensions] += 1;
+	}
+	const magnitude = Math.sqrt(vector.reduce((total, value) => total + value * value, 0)) || 1;
+	return vector.map((value) => value / magnitude);
+};
 
 const readBody = async (request: IncomingMessage): Promise<string> => {
 	const chunks: Buffer[] = [];
@@ -30,8 +46,29 @@ const chunk = (delta: object, finish: string | null, extra: object = {}) =>
 /** Local OpenAI-compatible endpoint that counts requests and answers from `script`. */
 export async function startFakeModel(): Promise<FakeModel> {
 	const requests: unknown[] = [];
+	const embeddings: unknown[] = [];
 	const model = { script: [{ text: "fake reply" }] as FakeModel["script"] };
 	const server: Server = createServer(async (request, response) => {
+		if (request.method === "POST" && request.url?.endsWith("/embeddings")) {
+			const body = JSON.parse(await readBody(request));
+			embeddings.push(body);
+			const input = Array.isArray(body.input) ? body.input.map(String) : [String(body.input ?? "")];
+			const dimensions = 64;
+			response.writeHead(200, { "content-type": "application/json" });
+			response.end(
+				JSON.stringify({
+					object: "list",
+					model: body.model ?? "fake-embeddings",
+					data: input.map((text: string, index: number) => ({
+						object: "embedding",
+						index,
+						embedding: fakeEmbedding(text, dimensions),
+					})),
+					usage: { prompt_tokens: 1, total_tokens: 1 },
+				}),
+			);
+			return;
+		}
 		if (request.method === "POST" && request.url?.endsWith("/chat/completions")) {
 			requests.push(JSON.parse(await readBody(request)));
 			const body = requests[requests.length - 1];
@@ -73,6 +110,7 @@ export async function startFakeModel(): Promise<FakeModel> {
 	return {
 		baseUrl: `http://127.0.0.1:${port}/v1`,
 		requests,
+		embeddings,
 		get script() {
 			return model.script;
 		},

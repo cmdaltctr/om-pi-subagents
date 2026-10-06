@@ -2,12 +2,21 @@ import { OBSERVATION_LIMITS, parseObservation } from "./observation-validation.t
 import type { ObservationConnection, ObservationStore } from "./observation.ts";
 import { parseObservationEnvelope, type ObservationEnvelope } from "./observation-transport.ts";
 import { OBSERVATION_ENTRY } from "./protocol.ts";
+import { plain } from "./plain.ts";
 import type { RpcChannel, RpcRecord } from "./rpc.ts";
 import { isTerminal, type RunView } from "./runs.ts";
 
 interface Progress {
 	model?: string;
 	tools: Map<string, { id: string; name: string }>;
+	taskSummary?: string;
+	/** Latest published preview. */
+	preview?: string;
+	/** Set once the supervisor submits this run's task; startup replay never populates text. */
+	taskAccepted?: boolean;
+	previewPublishedAt?: number;
+	pendingPreview?: string;
+	previewTimer?: ReturnType<typeof setTimeout>;
 }
 interface RelayDeps {
 	observations: ObservationStore;
@@ -16,6 +25,8 @@ interface RelayDeps {
 	/** Absent at the viewing root. Managed parents append private entries with their own hop token. */
 	publish?(envelope: ObservationEnvelope): void | Promise<void>;
 	token?: string;
+	/** Clock for preview coalescing. */
+	now?: () => number;
 }
 
 /** Display-only supervision adapter. It neither submits tasks nor judges results. */
@@ -24,22 +35,29 @@ export class ObservationRelay {
 	private readonly owners = new Map<string, () => void>();
 	private readonly connections = new Set<() => void>();
 	private readonly sent = new Map<string, Map<string, { deduplicationKey: string; revision: number }>>();
+	private readonly now: () => number;
 	private closed = false;
 
-	constructor(private readonly deps: RelayDeps) {}
+	constructor(private readonly deps: RelayDeps) {
+		this.now = deps.now ?? Date.now;
+	}
 
 	/** Register direct roots from RunManager's change callback, including their terminal evidence. */
 	onChange(run: RunView): void {
 		if (this.closed) return;
 		this.listen(run);
 		const progress = this.progress.get(run.id);
-		this.deps.observations.updateRoot(
-			run,
-			progress ? { model: progress.model, activeTools: [...progress.tools.values()] } : {},
-		);
+		this.deps.observations.updateRoot(run, progress ? this.display(progress) : {});
 		// Keep authoritative updates available even when the display subscription could not be installed.
 		this.forward(this.connection(run));
-		if (isTerminal(run.state)) this.progress.delete(run.id);
+		if (isTerminal(run.state)) this.forget(run.id);
+	}
+
+	/** Forget display-only progress for a finished run, stopping its pending preview timer. */
+	private forget(runId: string): void {
+		const progress = this.progress.get(runId);
+		if (progress?.previewTimer) clearTimeout(progress.previewTimer);
+		this.progress.delete(runId);
 	}
 
 	/** The readiness gate supplies the child's resolved model, rather than a guessed parent model. */
@@ -48,10 +66,18 @@ export class ObservationRelay {
 		this.contain(run, () => {
 			const progress = this.forRun(run);
 			progress.model = info.model;
-			this.deps.observations.updateRoot(this.deps.current(run), {
-				model: info.model,
-				activeTools: [...progress.tools.values()],
-			});
+			this.deps.observations.updateRoot(this.deps.current(run), this.display(progress));
+		});
+	}
+
+	/** Label the run with its submitted task. The supervisor calls this when it sends the task prompt. */
+	onTask(run: RunView, task: string): void {
+		if (this.closed) return;
+		this.contain(run, () => {
+			const progress = this.forRun(run);
+			progress.taskAccepted = true;
+			progress.taskSummary = plain(task, OBSERVATION_LIMITS.summaryChars);
+			this.deps.observations.updateRoot(this.deps.current(run), this.display(progress));
 		});
 	}
 
@@ -86,7 +112,7 @@ export class ObservationRelay {
 				}
 				progress.tools.set(id, { id, name });
 			}
-			this.deps.observations.updateRoot(current, { model: progress.model, activeTools: [...progress.tools.values()] });
+			this.deps.observations.updateRoot(current, this.display(progress));
 		});
 	}
 
@@ -150,12 +176,80 @@ export class ObservationRelay {
 		for (const detach of this.owners.values()) detach();
 		this.owners.clear();
 		this.sent.clear();
+		for (const progress of this.progress.values()) if (progress.previewTimer) clearTimeout(progress.previewTimer);
 		this.progress.clear();
 		this.deps.observations.dispose();
 	}
 
 	private connection(run: RunView): ObservationConnection {
 		return { owner: run.owner, runId: run.id };
+	}
+
+	private display(
+		progress: Progress,
+		preview?: string,
+	): {
+		model?: string;
+		activeTools: { id: string; name: string }[];
+		taskSummary?: string;
+		assistantPreview?: string;
+	} {
+		return {
+			model: progress.model,
+			activeTools: [...progress.tools.values()],
+			...(progress.taskSummary !== undefined ? { taskSummary: progress.taskSummary } : {}),
+			assistantPreview: preview ?? progress.preview,
+		};
+	}
+
+	/** Only typed assistant text events for the submitted task become preview text. */
+	private assistantPreview(run: RunView, record: RpcRecord): void {
+		const progress = this.progress.get(run.id);
+		if (!progress?.taskAccepted) return;
+		const current = this.deps.current(run);
+		if (isTerminal(current.state)) return;
+		const message = record.message;
+		if (!message || message.role !== "assistant" || !Array.isArray(message.content)) return;
+		const text = (message.content as unknown[])
+			.filter(
+				(block): block is { type: string; text: string } =>
+					typeof block === "object" &&
+					block !== null &&
+					(block as { type?: unknown }).type === "text" &&
+					typeof (block as { text?: unknown }).text === "string",
+			)
+			.map((block) => block.text)
+			.join("\n");
+		if (!text.trim()) return;
+		this.publishPreview(run, progress, current, boundedPreview(text));
+	}
+
+	/** Publish at most five preview updates per second per run, with a trailing edge for the latest text. */
+	private publishPreview(run: RunView, progress: Progress, current: RunView, preview: string): void {
+		const interval = 1000 / 5;
+		const now = this.now();
+		const since = now - (progress.previewPublishedAt ?? Number.NEGATIVE_INFINITY);
+		if (since >= interval) {
+			this.commitPreview(run, progress, current, preview, now);
+			return;
+		}
+		progress.pendingPreview = preview;
+		progress.previewTimer ??= setTimeout(() => {
+			progress.previewTimer = undefined;
+			const pending = progress.pendingPreview;
+			progress.pendingPreview = undefined;
+			if (pending === undefined || this.closed) return;
+			const live = this.deps.current(run);
+			if (isTerminal(live.state)) return;
+			this.commitPreview(run, progress, live, pending, this.now());
+		}, interval - since);
+	}
+
+	private commitPreview(run: RunView, progress: Progress, current: RunView, preview: string, at: number): void {
+		progress.previewPublishedAt = at;
+		progress.preview = preview;
+		this.deps.observations.updateRoot(current, this.display(progress, preview));
+		this.forward(this.connection(run));
 	}
 
 	private forRun(run: RunView): Progress {
@@ -179,6 +273,10 @@ export class ObservationRelay {
 		const connection = this.connection(run);
 		if (record.type === "protocol_error") {
 			this.deps.observations.markIncomplete(connection);
+			return;
+		}
+		if (record.type === "message_end") {
+			this.assistantPreview(run, record);
 			return;
 		}
 		if (record.type !== "entry_appended" || record.entry?.customType !== OBSERVATION_ENTRY) return;
@@ -246,4 +344,18 @@ export class ObservationRelay {
 			}
 		}
 	}
+}
+
+const PREVIEW_MARKER = " [preview truncated]";
+
+/** Sanitise visible assistant text and bound it to the preview byte budget, marking any cut. */
+function boundedPreview(text: string): string {
+	const sanitised = plain(text, text.length);
+	if (Buffer.byteLength(sanitised, "utf8") <= OBSERVATION_LIMITS.previewBytes) return sanitised;
+	const budget = OBSERVATION_LIMITS.previewBytes - Buffer.byteLength(PREVIEW_MARKER, "utf8");
+	const cut = Buffer.from(sanitised, "utf8")
+		.subarray(0, budget)
+		.toString("utf8")
+		.replace(/\uFFFD+$/, "");
+	return `${cut}${PREVIEW_MARKER}`;
 }
