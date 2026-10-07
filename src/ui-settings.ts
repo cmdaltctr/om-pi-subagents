@@ -117,6 +117,7 @@ async function load(registryPath: string, legacyPath: string): Promise<UiSetting
 export function createUiSettings(registryPath: string, legacyPath = displayPreferencesPath()): UiSettingsCache {
 	// nosemgrep: AIK_ts_generic_path_traversal -- Trusted extension code selects these fixed destinations.
 	const destination = resolvePath(registryPath);
+	// nosemgrep: AIK_ts_generic_path_traversal -- Normalise the fixed operator legacy path; no file read. Evidence: docs/local-docs/final-pr-security-triage.md.
 	const legacy = resolvePath(legacyPath);
 	let value = DEFAULTS;
 	let loaded: Promise<UiSettingsState> | undefined;
