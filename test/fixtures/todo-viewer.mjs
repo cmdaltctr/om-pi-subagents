@@ -1,3 +1,4 @@
+import { stripVTControlCharacters } from "node:util";
 import assert from "node:assert/strict";
 import { mkdir, readFile, realpath, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
@@ -219,14 +220,14 @@ try {
 	// Exercise the real compact panel and session-bound messenger without launching a process.
 	const binding = new SessionBinding();
 	binding.bind(ctx);
-	// The real below-editor fleet strip over a session-bound messenger, without launching a process.
+	// The real fleet widgets over a session-bound messenger, without launching a process.
 	const fleet = new FleetWidget({
 		messenger: (sessionOwner) => binding.messenger(api("omps"), sessionOwner),
 		runs: (sessionOwner) => (sessionOwner === owner ? [{ ...root, id: root.id }] : []),
 		trees: (sessionOwner) => runtime.observations.trees(sessionOwner),
+		toolUses: () => 2,
 		visibleAgents: () => 4,
-		keys: () => ({ toggle: "alt+o", inspect: "alt+i" }),
-		// Start collapsed so the one-row hint assertions below still describe the opt-in toggle path.
+		// Start collapsed so the toggle path below still proves the opt-in expansion.
 		strip: new FleetStrip(() => "collapsed"),
 		mode: () => "tui",
 		now: () => root.startedAt + 1000,
@@ -234,19 +235,18 @@ try {
 	fleet.attach(owner);
 	fleet.onChange(root);
 	await flush();
-	assert.deepEqual([...host.extensionWidgetsAbove.keys()].toSorted(), ["rpiv-todos"]);
+	// The OMPS tree joins todo above the editor under its own key; the list stays below.
+	assert.deepEqual([...host.extensionWidgetsAbove.keys()].toSorted(), ["omps-agents", "rpiv-todos"]);
 	assert.deepEqual([...host.extensionWidgetsBelow.keys()].toSorted(), ["omps"]);
-	const fleetText = () => host.extensionWidgetsBelow.get("omps").render(100).join("\n");
-	assert(
-		fleetText().includes("Agents: 1 active | 1 observed descendants"),
-		"the strip reports the run and its observed descendant",
-	);
-	assert(fleetText().includes("alt+o list"));
+	// Pi's theme colours the tree; compare the visible text.
+	const treeText = () => stripVTControlCharacters(host.extensionWidgetsAbove.get("omps-agents").render(100).join("\n"));
+	assert.equal(treeText(), "● Agents · 1 running", "the collapsed tree reports the run in its heading");
 	const todoWidget = host.extensionWidgetsAbove.get("rpiv-todos");
 	const todoText = () => todoWidget.render(100).join("\n");
-	// Visual evidence: the expanded fleet below the editor with the todo widget above it.
+	// Visual evidence: the expanded tree beside the todo widget, then the list below the editor.
 	fleet.toggle();
 	await flush();
+	assert.match(treeText(), /└─ \S leaf/);
 	await createSnapshotCapture({
 		ui,
 		terminal,
@@ -256,6 +256,7 @@ try {
 		theme: todoMode,
 	})(`beside-todo-${order}`, [
 		...todoWidget.render(100),
+		...host.extensionWidgetsAbove.get("omps-agents").render(100),
 		"─".repeat(20),
 		...host.extensionWidgetsBelow.get("omps").render(100),
 	]);

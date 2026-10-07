@@ -23,7 +23,7 @@ function setup(mode: "tui" | "rpc" | "print") {
 	const run = vi.fn(async () => "Started run owned (worker) in the background.");
 	const service = {
 		run,
-		list: vi.fn(async () => "worker"),
+		listForms: vi.fn(async () => ({ full: "worker: tools [read, grep]", compact: "worker: 2 tools (read-only)" })),
 		status: vi.fn(() => "running"),
 		cancel: vi.fn(() => "cancelled"),
 	} as unknown as OmpsService;
@@ -32,7 +32,8 @@ function setup(mode: "tui" | "rpc" | "print") {
 		toggle: vi.fn(),
 		attach: vi.fn(),
 		repaint: vi.fn(),
-		renderLines: vi.fn((): string[] => []),
+		treeLines: vi.fn((): string[] => []),
+		listLines: vi.fn((): string[] => []),
 	};
 	registerOmps(
 		pi as unknown as ExtensionAPI,
@@ -48,8 +49,44 @@ function setup(mode: "tui" | "rpc" | "print") {
 		sessionManager: { getSessionId: () => "session" },
 		ui: { notify: vi.fn(), custom: vi.fn() },
 	} as unknown as ExtensionCommandContext;
-	return { tool: tool!, commands, entryRenderer, appendEntry, activate, render, fleet, run, ctx };
+	return { tool: tool!, commands, entryRenderer, appendEntry, activate, render, fleet, run, service, ctx };
 }
+describe("compact agent list", () => {
+	it("shows the compact form for /omps list", async () => {
+		const fixture = setup("tui");
+		await fixture.commands.get("omps")!.handler("list", fixture.ctx);
+		expect(fixture.ctx.ui.notify).toHaveBeenCalledExactlyOnceWith("worker: 2 tools (read-only)", "info");
+	});
+
+	it("gives the model every tool name but renders the compact form until expanded", async () => {
+		const fixture = setup("tui");
+		const result = await fixture.tool.execute(
+			"call",
+			{ action: "list" },
+			new AbortController().signal,
+			undefined,
+			fixture.ctx as unknown as ExtensionToolContext,
+		);
+		expect(result.content).toEqual([{ type: "text", text: "worker: tools [read, grep]" }]);
+		const text = (expanded: boolean) =>
+			(
+				fixture.tool.renderResult!(
+					result as never,
+					{ expanded, isPartial: false },
+					undefined as never,
+					undefined as never,
+				) as {
+					render(width: number): string[];
+				}
+			)
+				.render(100)
+				.join("\n")
+				.trim();
+		expect(text(false)).toBe("worker: 2 tools (read-only)");
+		expect(text(true)).toBe("worker: tools [read, grep]");
+	});
+});
+
 describe("native tree registration", () => {
 	it.each(["tui", "rpc", "print"] as const)("%s: creates slash-launch entries only for TUI", async (mode) => {
 		const fixture = setup(mode);
@@ -102,20 +139,18 @@ describe("native tree registration", () => {
 		const fixture = setup(mode);
 		await fixture.commands.get("omps")!.handler("fleet", fixture.ctx);
 		expect(fixture.fleet.toggle).toHaveBeenCalledTimes(1);
-		expect(fixture.fleet.renderLines).toHaveBeenCalledExactlyOnceWith("session", 200, 40);
+		expect(fixture.fleet.treeLines).toHaveBeenCalledExactlyOnceWith("session", 200);
+		expect(fixture.fleet.listLines).toHaveBeenCalledExactlyOnceWith("session", 200);
 		expect(fixture.ctx.ui.notify).toHaveBeenCalledExactlyOnceWith("No runs in this session.", "info");
 		expect(fixture.run).not.toHaveBeenCalled();
 	});
 
 	it("rpc: /omps fleet returns bounded plain text without terminal components", async () => {
 		const fixture = setup("rpc");
-		fixture.fleet.renderLines.mockReturnValue(["Agents: 1 active | 0 observed descendants | alt+o list"]);
+		fixture.fleet.treeLines.mockReturnValue(["● Agents · 1 running"]);
 		await fixture.commands.get("omps")!.handler("fleet", fixture.ctx);
 		expect(fixture.fleet.toggle).toHaveBeenCalledTimes(1);
-		expect(fixture.ctx.ui.notify).toHaveBeenCalledExactlyOnceWith(
-			"Agents: 1 active | 0 observed descendants | alt+o list",
-			"info",
-		);
+		expect(fixture.ctx.ui.notify).toHaveBeenCalledExactlyOnceWith("● Agents · 1 running", "info");
 		expect(fixture.ctx.ui.custom).not.toHaveBeenCalled();
 	});
 
@@ -124,7 +159,7 @@ describe("native tree registration", () => {
 		await fixture.commands.get("omps")!.handler("fleet extra", fixture.ctx);
 		expect(fixture.ctx.ui.notify).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("fleet"), "warning");
 		expect(fixture.fleet.toggle).not.toHaveBeenCalled();
-		expect(fixture.fleet.renderLines).not.toHaveBeenCalled();
+		expect(fixture.fleet.treeLines).not.toHaveBeenCalled();
 		expect(fixture.run).not.toHaveBeenCalled();
 	});
 

@@ -62,7 +62,7 @@
 		{
 			"id": 6,
 			"prompt": "OMPS is running five agents. Show me their tasks without filling the editor, then inspect a grandchild while preserving my draft.",
-			"expected_output": "The below-editor fleet shows the agent tree by default. Press Down in an empty prompt to select a direct agent, then Enter to inspect it, or use /omps inspect to open the descendant modal. Closing restores the editor draft without stopping work.",
+			"expected_output": "The Agents tree above the editor shows every running agent by default. Press Down in an empty prompt to select a direct agent in the list below the editor, then Enter to inspect it, or use /omps inspect to open the descendant modal. Closing restores the editor draft without stopping work.",
 			"files": [],
 			"expectations": [
 				"Show five active roots in the default expanded tree within its row budget",

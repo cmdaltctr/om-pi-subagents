@@ -119,7 +119,7 @@ describe("OMPS in that environment", () => {
 		const fixture = handle.fixture;
 
 		await fixture.send({ type: "prompt", message: "/omps list" });
-		await waitFor(() => notices(handle).some((text) => /^reader: tools \[read\]$/.test(text)));
+		await waitFor(() => notices(handle).some((text) => /^reader: 1 tool \(read-only\)$/.test(text)));
 
 		fixture.model.script = (body): Turn => {
 			const text = JSON.stringify(body);
@@ -159,6 +159,6 @@ describe("OMPS in that environment", () => {
 		const fixture = handle.fixture;
 		await fixture.send({ type: "new_session" });
 		await fixture.send({ type: "prompt", message: "/omps list" });
-		await waitFor(() => notices(handle).some((text) => /^reader: tools \[read\]$/.test(text)));
+		await waitFor(() => notices(handle).some((text) => /^reader: 1 tool \(read-only\)$/.test(text)));
 	});
 });

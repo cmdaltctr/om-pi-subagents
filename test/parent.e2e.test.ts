@@ -93,27 +93,35 @@ describe("idle parent", () => {
 });
 
 describe("live fleet strip on real Pi", () => {
-	it("reports the run below the editor and never exposes tool bodies", async () => {
+	it("reports the run in the tree above the editor and never exposes tool bodies", async () => {
 		const fixture = await startParent({ slowTool: true });
 		await fixture.send({ type: "prompt", message: "start" });
 		const active = await fixture.waitFor(
 			(record) =>
 				record.type === "extension_ui_request" &&
 				record.method === "setWidget" &&
-				record.widgetKey === "omps" &&
-				/Agents: 1 active \| 0 observed descendants/.test(record.widgetLines?.join("\n") ?? ""),
+				record.widgetKey === "omps-agents" &&
+				// The task summary arrives with task submission, after the first render.
+				/^└─ \S reader {2}\S/.test(record.widgetLines?.[1] ?? ""),
 		);
-		expect(active.widgetPlacement).toBe("belowEditor");
+		expect(active.widgetPlacement).toBe("aboveEditor");
 		await waitFor(() => settles(fixture) === 2);
 		const widgets = fixture.records.filter(
 			(record) =>
-				record.type === "extension_ui_request" && record.method === "setWidget" && record.widgetKey === "omps",
+				record.type === "extension_ui_request" &&
+				record.method === "setWidget" &&
+				(record.widgetKey === "omps" || record.widgetKey === "omps-agents"),
 		);
-		// The default view shows the run row without a key press.
-		expect(active.widgetLines.length).toBeGreaterThan(1);
-		expect(active.widgetLines.join("\n")).toMatch(/reader|start/);
-		// The strip keeps one compact idle summary; previews belong to inspection, not the strip.
-		expect(widgets.at(-1)!.widgetLines).toEqual(["Agents: idle | last reader completed"]);
+		// The default view shows the running agent's two tree lines without a key press.
+		expect(active.widgetLines[2]).toContain("⎿");
+		// The list below the editor offers navigation for the same run.
+		expect(widgets.some((record) => record.widgetKey === "omps" && record.widgetPlacement === "belowEditor")).toBe(
+			true,
+		);
+		// After completion the tree keeps tintin's finished line until the linger ends.
+		const finished = widgets.findLast((record) => record.widgetKey === "omps-agents")!;
+		expect(finished.widgetLines[0]).toBe("○ Agents");
+		expect(finished.widgetLines[1]).toMatch(/^└─ ✓ reader {2}\S.* · \d+ tool uses? · \d+\.\ds$/);
 		for (const record of widgets) {
 			expect(record.widgetLines.join("\n")).not.toMatch(/PRIVATE TOOL RESULT|sleep 2|printf|Tools:/);
 		}

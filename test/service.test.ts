@@ -68,6 +68,21 @@ describe("list", () => {
 		expect(text).toContain("p/own");
 	});
 
+	it("gives a compact line per agent with a tool count and its capability", async () => {
+		const text = await setup().service.list("compact");
+		expect(text).toMatch(/^reader: 2 tools \(read-only\)$/m);
+		expect(text).toMatch(/^writer: 2 tools \(write-capable\)/m);
+		expect(text).not.toMatch(/grep|bash/);
+		expect(text).toContain("model p/own");
+	});
+
+	it("names one tool in the singular", async () => {
+		await writeYaml(
+			"version: 1\nagents:\n  solo:\n    persona: ./personas/reader.md\n    tools: [read]\n    thinking: off\n",
+		);
+		expect(await setup().service.list("compact")).toBe("solo: 1 tool (read-only)");
+	});
+
 	it("says so when nothing is mapped", async () => {
 		await writeYaml("version: 1\nagents: {}\n");
 		expect(await setup().service.list()).toBe("No personas mapped.");

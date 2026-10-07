@@ -24,28 +24,28 @@ Write each test, run it, and confirm it fails for the intended reason before imp
 
 Write each test, run it, and confirm it fails for the intended reason before section 4.
 
-- [ ] 3.1 New `test/agent-tree-widget.test.ts`, with a plain test theme: four running roots render `● Agents`, then two lines each with `├─`, spinner, name, task, `N tool uses`, elapsed time and `│    ⎿  activity`; the last root uses `└─` and a blank indent.
-- [ ] 3.2 Same file: `describeActivity` gives `reading…`, `reading 2 files…`, `searching 3 patterns…`, the first preview line truncated to 60 characters, and `thinking…`. Compare its output with tintin's for the same inputs.
-- [ ] 3.3 Same file: finished lines show `✓` for completed, `✗` and the first 60 error characters for failed, `■` for cancelled, each with tool uses and duration. No active run gives the dim `○ Agents` heading.
-- [ ] 3.4 Same file: content over 12 lines keeps running agents first, then finished, then `+N more (N running, N finished)`; every line fits the given width.
-- [ ] 3.5 Same file: linger. A completed run leaves after one parent `turn_start`; a failed or cancelled run leaves after two; a restart resets the age. A completed run whose next `turn_start` arrives within 4000 ms stays until 4000 ms have passed since it ended (fake clock); a failed run gets no time floor. The spinner timer runs at 80 ms only while a run is active and stops when no row remains.
-- [ ] 3.6 `test/fleet-widget.test.ts`: the tree registers with key `omps-agents` and placement `aboveEditor`; the list keeps its own key below the editor; `collapsed` shows only the heading with counts and no list; `off` registers neither. Remove the 10-second clear tests.
-- [ ] 3.7 `test/fleet.test.ts`: the list renders the hint row, `●` on the selected row, `○` on the others, and `↑ N more` and `↓ N more` markers; a finished row leaves the list after 4000 ms (fake timers). Remove the flat-row assertions.
-- [ ] 3.8 `test/observation-relay.test.ts` (or the nearest existing relay test): tool uses count each distinct task tool-call identifier once per run; startup replay, invalid events and sibling runs do not change the count.
-- [ ] 3.9 `test/service.test.ts` and `test/viewer-registration.test.ts`: `/omps list` prints `<name>: N tools (read-only)` or `(write-capable)` with no tool names; the `omps` tool `list` text still contains every tool name; its collapsed render shows the compact form and its expanded render the full form.
-- [ ] 3.10 `test/release.test.ts`: the packed files include `THIRD_PARTY_NOTICES.md`.
+- [x] 3.1 New `test/agent-tree-widget.test.ts`, with a plain test theme: four running roots render `● Agents`, then two lines each with `├─`, spinner, name, task, `N tool uses`, elapsed time and `│    ⎿  activity`; the last root uses `└─` and a blank indent.
+- [x] 3.2 Same file: `describeActivity` gives `reading…`, `reading 2 files…`, `searching 3 patterns…`, the first preview line truncated to 60 characters, and `thinking…`. Compare its output with tintin's for the same inputs.
+- [x] 3.3 Same file: finished lines show `✓` for completed, `✗` and the first 60 error characters for failed, `■` for cancelled, each with tool uses and duration. No active run gives the dim `○ Agents` heading.
+- [x] 3.4 Same file: content over 12 lines keeps running agents first, then finished, then `+N more (N running, N finished)`; every line fits the given width.
+- [x] 3.5 Same file: linger. A completed run leaves after one parent `turn_start`; a failed or cancelled run leaves after two; a restart resets the age. A completed run whose next `turn_start` arrives within 4000 ms stays until 4000 ms have passed since it ended (fake clock); a failed run gets no time floor. The spinner timer runs at 80 ms only while a run is active and stops when no row remains.
+- [x] 3.6 `test/fleet-widget.test.ts`: the tree registers with key `omps-agents` and placement `aboveEditor`; the list keeps its own key below the editor; `collapsed` shows only the heading with counts and no list; `off` registers neither. Remove the 10-second clear tests.
+- [x] 3.7 `test/fleet.test.ts`: the list renders the hint row, `●` on the selected row, `○` on the others, and `↑ N more` and `↓ N more` markers; a finished row leaves the list after 4000 ms (fake timers). Remove the flat-row assertions.
+- [x] 3.8 `test/observation-relay.test.ts` (or the nearest existing relay test): tool uses count each distinct task tool-call identifier once per run; startup replay, invalid events and sibling runs do not change the count.
+- [x] 3.9 `test/service.test.ts` and `test/viewer-registration.test.ts`: `/omps list` prints `<name>: N tools (read-only)` or `(write-capable)` with no tool names; the `omps` tool `list` text still contains every tool name; its collapsed render shows the compact form and its expanded render the full form.
+- [x] 3.10 `test/release.test.ts`: the packed files include `THIRD_PARTY_NOTICES.md`.
 
 ## 4. Implementation (tintin port)
 
-- [ ] 4.1 Create `src/agent-tree-widget.ts` from tintin `src/ui/agent-widget.ts` at commit `e955e29`, close to verbatim, as in design decision 1. Start the file with `Adapted from tintinweb/pi-subagents (MIT), commit e955e29`.
-- [ ] 4.2 Register the tree above the editor with key `omps-agents` in `src/fleet-widget.ts` and `src/index.ts`. Feed parent `turn_start` events to its linger ages.
-- [ ] 4.3 Remove the 10-second clear timer and its code from `src/fleet-widget.ts`.
-- [ ] 4.4 Restyle the below-editor list after tintin `fleet-list.ts`: hint row, `●` and `○` markers, window markers and a 4000 ms finished linger. Credit tintin in the file header.
-- [ ] 4.5 Apply `ui.fleetView` to both widgets as in design decision 4.
-- [ ] 4.6 Count tool uses in the observation relay and pass `toolUses` and the assistant preview through `FleetWidget.roots()`.
-- [ ] 4.7 Split `describeAgent` in `src/service.ts` into compact and full forms. Use the compact form in `/omps list` and in the collapsed `renderResult`; keep the full form in the tool text and the expanded render.
-- [ ] 4.8 Add `THIRD_PARTY_NOTICES.md` with tintin's MIT licence text, the repository URL and the commit. Add it to `package.json` `files` and to the allow-list and required list in `test/release.test.ts`.
-- [ ] 4.9 Run each test from section 3 and confirm it passes. Break each safeguard in a disposable copy and confirm the matching test fails. Record the evidence in ignored `docs/local-docs/`.
+- [x] 4.1 Create `src/agent-tree-widget.ts` from tintin `src/ui/agent-widget.ts` at commit `e955e29`, close to verbatim, as in design decision 1. Start the file with `Adapted from tintinweb/pi-subagents (MIT), commit e955e29`.
+- [x] 4.2 Register the tree above the editor with key `omps-agents` in `src/fleet-widget.ts` and `src/index.ts`. Feed parent `turn_start` events to its linger ages.
+- [x] 4.3 Remove the 10-second clear timer and its code from `src/fleet-widget.ts`.
+- [x] 4.4 Restyle the below-editor list after tintin `fleet-list.ts`: hint row, `●` and `○` markers, window markers and a 4000 ms finished linger. Credit tintin in the file header.
+- [x] 4.5 Apply `ui.fleetView` to both widgets as in design decision 4.
+- [x] 4.6 Count tool uses in the observation relay and pass `toolUses` and the assistant preview through `FleetWidget.roots()`.
+- [x] 4.7 Split `describeAgent` in `src/service.ts` into compact and full forms. Use the compact form in `/omps list` and in the collapsed `renderResult`; keep the full form in the tool text and the expanded render.
+- [x] 4.8 Add `THIRD_PARTY_NOTICES.md` with tintin's MIT licence text, the repository URL and the commit. Add it to `package.json` `files` and to the allow-list and required list in `test/release.test.ts`.
+- [x] 4.9 Run each test from section 3 and confirm it passes. Break each safeguard in a disposable copy and confirm the matching test fails. Record the evidence in ignored `docs/local-docs/`.
 
 ## 5. Documentation and skill
 

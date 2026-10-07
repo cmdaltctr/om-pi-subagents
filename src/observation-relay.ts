@@ -17,7 +17,12 @@ interface Progress {
 	previewPublishedAt?: number;
 	pendingPreview?: string;
 	previewTimer?: ReturnType<typeof setTimeout>;
+	/** Task tool-call ids already counted, so a repeated start counts once. */
+	counted?: Set<string>;
 }
+
+/** Bound on remembered tool-call ids per run; later calls still count, without de-duplication. */
+const COUNTED_IDS = 1024;
 interface RelayDeps {
 	observations: ObservationStore;
 	/** Resolve the current authoritative view. Supervisor callbacks hold their initial starting snapshot. */
@@ -32,6 +37,8 @@ interface RelayDeps {
 /** Display-only supervision adapter. It neither submits tasks nor judges results. */
 export class ObservationRelay {
 	private readonly progress = new Map<string, Progress>();
+	/** Tool-use counts by run, kept after a run ends so its finished line can show them. */
+	private readonly uses = new Map<string, number>();
 	private readonly owners = new Map<string, () => void>();
 	private readonly connections = new Set<() => void>();
 	private readonly sent = new Map<string, Map<string, { deduplicationKey: string; revision: number }>>();
@@ -102,6 +109,7 @@ export class ObservationRelay {
 				return;
 			}
 			const progress = this.forRun(run);
+			if (record.type === "tool_execution_start" && progress.taskAccepted) this.countToolUse(run.id, progress, id);
 			if (record.type === "tool_execution_end") {
 				if (!progress.tools.delete(id)) return;
 			} else {
@@ -114,6 +122,18 @@ export class ObservationRelay {
 			}
 			this.deps.observations.updateRoot(current, this.display(progress));
 		});
+	}
+
+	/** Task tool calls started by this run. The count outlives the run's display progress. */
+	toolUses(runId: string): number {
+		return this.uses.get(runId) ?? 0;
+	}
+
+	private countToolUse(runId: string, progress: Progress, id: string): void {
+		progress.counted ??= new Set();
+		if (progress.counted.has(id)) return;
+		if (progress.counted.size < COUNTED_IDS) progress.counted.add(id);
+		this.uses.set(runId, this.toolUses(runId) + 1);
 	}
 
 	/** Subscribe before task submission. Private replay uses observer revisions, independently of task-tool replay. */
@@ -178,6 +198,7 @@ export class ObservationRelay {
 		this.sent.clear();
 		for (const progress of this.progress.values()) if (progress.previewTimer) clearTimeout(progress.previewTimer);
 		this.progress.clear();
+		this.uses.clear();
 		this.deps.observations.dispose();
 	}
 

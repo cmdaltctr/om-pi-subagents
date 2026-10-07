@@ -17,6 +17,8 @@ export interface TerminalFacts {
 	requestRender(): void;
 	/** Public focus accessors for view navigation; absent where the host exposes none. */
 	readonly focus?: { getFocusedComponent(): unknown; hasOverlay(): boolean };
+	/** The host theme, when it supplies one; renderers fall back to plain text. */
+	readonly theme?: { fg(colour: string, text: string): string; bold(text: string): string };
 }
 
 /** A live widget component; the host renders, invalidates and disposes it. */
@@ -36,7 +38,8 @@ export interface Messenger {
 	): Promise<void>;
 	/** Absent when the parent has no UI. */
 	setStatus?: (text: string | undefined) => void;
-	setWidget?: (content: WidgetContent, placement?: "aboveEditor" | "belowEditor") => void;
+	/** `key` defaults to the original `omps` widget; the tree registers under its own key. */
+	setWidget?: (content: WidgetContent, placement?: "aboveEditor" | "belowEditor", key?: string) => void;
 }
 
 export interface NotifierDeps {

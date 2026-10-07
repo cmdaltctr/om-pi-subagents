@@ -75,7 +75,8 @@ const widgets = [];
 const uiContext = {
 	notify: (message, level) => notifications.push({ message, level }),
 	setStatus() {},
-	setWidget: (_key, lines) => widgets.push(lines),
+	// The tree registers beside the list; counting the list key keeps one count per fleet action.
+	setWidget: (key, lines) => key === "omps" && widgets.push(lines),
 	custom() {},
 	select: async () => undefined,
 	confirm: async () => false,

@@ -26,7 +26,8 @@
 		"docs/SETUP.md",
 		"docs/USAGE.md",
 		"docs/UNINSTALL.md",
-		"CHANGELOG.md"
+		"CHANGELOG.md",
+		"THIRD_PARTY_NOTICES.md"
 	],
 	"type": "module",
 	"publishConfig": {
