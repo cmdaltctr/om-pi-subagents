@@ -16,6 +16,62 @@ The `● Agents` tree and the navigation list are adapted from
 [tintinweb/pi-subagents](https://github.com/tintinweb/pi-subagents) under its MIT licence.
 OMPS does not import or need that package. Its own runtime, settings and inspection stay separate.
 
+## Features
+
+![The OMPS agent tree above the editor in a real Pi session, with one finished agent and three running agents](docs/assets/omps-agent-tree.png)
+
+The screenshot is a real Pi 1.0.4 session with four real child Pi processes. A local fake model drives
+the agents, so the task names and answers are synthetic. `scripts/readme-demo.tape` records it with
+[vhs](https://github.com/charmbracelet/vhs).
+
+- **Agent tree.** The `● Agents` tree above the editor shows each running agent with a spinner, its task,
+  its tool-use count, the elapsed time and what it does now. Finished agents show `✓`, `✗` or `■` for a
+  short time. The tree is adapted from [tintinweb/pi-subagents](https://github.com/tintinweb/pi-subagents)
+  under its MIT licence.
+- **Arrow-key list.** From an empty prompt, press Down to select an agent in the list below the editor.
+  Press Enter to inspect it and Escape to go back. No modifier keys are needed.
+- **Inspector.** `/omps inspect` opens the whole run tree, including nested agents, with live tools and
+  saved output.
+- **Isolated children.** Each agent runs as its own Pi process. Before the task is sent, OMPS checks that
+  the child loaded its tool guard, its tools, its model and its working directory. The guard refuses
+  any tool the mapping does not approve.
+- **Limits.** YAML limits set how many direct children each parent may run at once and how deep agents
+  may nest.
+- **Saved runs.** Each run keeps its task, events, output and status in a private run folder.
+- **Settings.** `/omps-settings` edits the limits, the fleet view, the shortcuts and the optional
+  capabilities of each agent.
+- **Short agent list.** `/omps list` shows one line per agent, such as `reader: 4 tools (read-only)`.
+  The model still receives every tool name.
+
+![Selecting an agent in the list below the editor with the arrow keys](docs/assets/omps-agent-list.png)
+
+<details>
+<summary>Recording of the whole run</summary>
+
+![Four agents start, work and finish while the tree updates](docs/assets/omps-demo.gif)
+
+</details>
+
+## Works with om-pi-todo and OMMS
+
+Both [om-pi-todo](https://www.npmjs.com/package/om-pi-todo) and OMMS (`om-memory-system`) are optional.
+They are off for every new agent. To turn one on for an agent:
+
+1. Run `/omps-settings`.
+2. Choose **Agent capabilities**, then the agent, then **Todo** or **Memory**.
+3. Select **Enable** and confirm the exact changes to that agent's tools and extensions.
+
+The change applies to the next launch. OMPS installs no package.
+
+**Todo.** Each child starts with its own empty task list in normal mode. It never sees or changes the
+parent's tasks, and it never ticks the parent's OpenSpec checkboxes. The parent's todo widget and the
+OMPS tree both show above the editor without changing each other. After you check a child's saved result, update the parent's tasks yourself.
+
+**Memory.** OMMS keeps its own recall, tools and capture. OMPS never reads, copies or changes memory
+stores. A child gets the `memory` tool, and the OMMS skill if mapped, only when you enable it. That
+child then works in the same project scope as OMMS normally uses, under its own session. The shipped
+OMPS skill guides the parent to search memory before it delegates and to pass on only verified context.
+
 ## What to read
 
 | You want to                                                     | Read                                  |

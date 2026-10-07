@@ -55,15 +55,15 @@ Write each test, run it, and confirm it fails for the intended reason before sec
 - [x] 5.4 `docs/SETUP.md`: describe what `expanded`, `collapsed` and `off` show in each widget.
 - [x] 5.5 `skills/om-pi-subagents/SKILL.md` and `test/fixtures/skill-evals/evals.json`: describe the tree, the list and the compact `list` output.
 - [x] 5.6 Run `bun run test test/docs.test.ts test/skill.test.ts test/release.test.ts` and fix any failure.
-- [ ] 5.7 `README.md`: add a Features section near the top with the real screenshot, and a "Works with om-pi-todo and OMMS" section. Check every claim against the code, specs and existing README text. Keep the example markers intact.
+- [x] 5.7 `README.md`: add a Features section near the top with the real screenshot, and a "Works with om-pi-todo and OMMS" section. Check every claim against the code, specs and existing README text. Keep the example markers intact.
 
 ## 6. Visual test before any push or pull request
 
-- [ ] 6.1 Extend `test/fixtures/interactive-fleet.mjs` and `test/interactive-fleet.test.ts` to capture snapshots through `capture-snapshot.mjs` with `OMPS_CAPTURE_DIR`. Capture: `tree-four-running`, `finished-linger`, `error-linger`, `tree-overflow` (more than 12 lines), `narrow` (under 80 columns), `beside-todo` (with the real todo extension), `arrow-list` and `collapsed`. Remove the `after-linger` stage of the 10-second clear.
-- [ ] 6.2 Run the interactive suites with the pinned host: `bun run test test/interactive-fleet.test.ts test/interactive-shortcuts.test.ts`. Review every snapshot by eye against tintin's screenshot.
-- [ ] 6.3 Run the same suites with the operator's Pi: `OMPS_PI_BIN=~/.pi/agent/bin/pi bun run test test/interactive-fleet.test.ts test/interactive-shortcuts.test.ts`. Record any difference between Pi 0.99.1 and Pi 1.0.4.
-- [ ] 6.4 Save the reviewed snapshots in ignored `docs/local-docs/visual/`.
-- [ ] 6.4a Record a real Pi 1.0.4 session with `scripts/readme-demo.tape` (vhs) in a disposable agent directory with the fake model. Save `docs/assets/omps-agent-tree.png`, `docs/assets/omps-agent-list.png` and `docs/assets/omps-demo.gif` (under about 2 MB). Read each image and confirm the tree shows, with no personal paths or errors.
+- [x] 6.1 Extend `test/fixtures/interactive-fleet.mjs` and `test/interactive-fleet.test.ts` to capture snapshots through `capture-snapshot.mjs` with `OMPS_CAPTURE_DIR`. Capture: `tree-four-running`, `finished-linger`, `error-linger`, `tree-overflow` (more than 12 lines), `narrow` (under 80 columns), `beside-todo` (with the real todo extension), `arrow-list` and `collapsed`. Remove the `after-linger` stage of the 10-second clear.
+- [x] 6.2 Run the interactive suites with the pinned host: `bun run test test/interactive-fleet.test.ts test/interactive-shortcuts.test.ts`. Review every snapshot by eye against tintin's screenshot.
+- [x] 6.3 Run the same suites with the operator's Pi: `OMPS_PI_BIN=~/.pi/agent/bin/pi bun run test test/interactive-fleet.test.ts test/interactive-shortcuts.test.ts`. Record any difference between Pi 0.99.1 and Pi 1.0.4.
+- [x] 6.4 Save the reviewed snapshots in ignored `docs/local-docs/visual/`.
+- [x] 6.4a Record a real Pi 1.0.4 session with `scripts/readme-demo.tape` (vhs) in a disposable agent directory with the fake model. Save `docs/assets/omps-agent-tree.png`, `docs/assets/omps-agent-list.png` and `docs/assets/omps-demo.gif` (under about 2 MB). Read each image and confirm the tree shows, with no personal paths or errors.
 - [ ] 6.5 Run `bun run ci`. Fix every failure.
 - [ ] 6.6 Manual check in the operator's terminal (Orca, `xterm-256color`, Pi 1.0.4). Load the worktree build, set the parallel limit to 4, and start four runs that each take at least 30 seconds. Check: the tree shows above the editor with spinners, tool uses, elapsed time and activity lines; Down, Enter and Escape work from an empty prompt; Up still recalls history outside selection; finished lines linger as specified; `omps list` is compact.
 - [ ] 6.7 Save screenshots of 6.6 in ignored `docs/local-docs/`. Commit none of them.
