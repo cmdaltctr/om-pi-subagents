@@ -6,7 +6,7 @@ import { editRpcSettings } from "./settings.ts";
 import { resolveTodoExtension, seedTodoPreferences } from "./todo.ts";
 
 /** Verify actual child-local todo ids while operator inspection and settings leave work running. */
-export async function verifyTodoViewerChild(mode: "normal" | "openspec", order: "ompss-first" | "todo-first") {
+export async function verifyTodoViewerChild(mode: "normal" | "openspec", order: "omps-first" | "todo-first") {
 	const extension = await resolveTodoExtension();
 	const index = new URL("../../src/index.ts", import.meta.url).pathname;
 	const args: string[] = [];
@@ -15,7 +15,7 @@ export async function verifyTodoViewerChild(mode: "normal" | "openspec", order: 
 	const fixture = await startPi({
 		mcp: false,
 		args,
-		env: { OMPSS_PI_BIN: PI_BIN, OMPSS_CHILD: "" },
+		env: { OMPS_PI_BIN: PI_BIN, OMPS_CHILD: "" },
 		seed: async ({ cwd, agentDir }) => {
 			preferences = await seedTodoPreferences(agentDir, mode);
 			const change = join(cwd, "openspec", "changes", "preserve-parent");
@@ -47,9 +47,10 @@ agents:
 			args.push(
 				"-e",
 				seed,
-				...[order === "ompss-first" ? index : extension, order === "ompss-first" ? extension : index].flatMap(
-					(path) => ["-e", path],
-				),
+				...[order === "omps-first" ? index : extension, order === "omps-first" ? extension : index].flatMap((path) => [
+					"-e",
+					path,
+				]),
 			);
 		},
 	});
@@ -68,12 +69,12 @@ agents:
 					tool: "todo",
 					args: mode === "normal" ? { action: "create", subject: "Parent-only task" } : { action: "list" },
 				};
-			if (count === 1) return { tool: "ompss", args: { action: "run", agent: "leaf", task: "Track child-local work" } };
+			if (count === 1) return { tool: "omps", args: { action: "run", agent: "leaf", task: "Track child-local work" } };
 			return { text: "Parent launch recorded" };
 		};
 		await fixture.send({ type: "prompt", message: "Track parent work and delegate" });
 		const launch = await fixture.waitFor(
-			(record) => record.type === "tool_execution_end" && record.toolName === "ompss",
+			(record) => record.type === "tool_execution_end" && record.toolName === "omps",
 		);
 		assert.equal(launch.isError, false, JSON.stringify(launch.result));
 		runId = launch.result.details.runId;
@@ -84,7 +85,7 @@ agents:
 		while (childRequests().length < 3 && Date.now() < deadline) await new Promise((done) => setTimeout(done, 20));
 		assert.equal(childRequests().length, 3);
 		const state = (await fixture.send({ type: "get_state" })).data;
-		const directory = join(fixture.agentDir, "ompss", "runs", state.sessionId, runId!);
+		const directory = join(fixture.agentDir, "omps", "runs", state.sessionId, runId!);
 		const configPath = join(directory, "config.json");
 		const configBefore = await readFile(configPath);
 		const eventsPath = join(directory, "events.jsonl");
@@ -118,7 +119,7 @@ agents:
 		const toolsBefore = fixture.records.filter((record) => record.type === "tool_execution_start").length;
 		const inspectionStart = fixture.records.length;
 		assert.equal(
-			(await fixture.send({ type: "prompt", message: `/ompss inspect ${runId}` })).data.disposition,
+			(await fixture.send({ type: "prompt", message: `/omps inspect ${runId}` })).data.disposition,
 			"handled",
 		);
 		assert(
@@ -135,7 +136,7 @@ agents:
 		assert.deepEqual(await readFile(configPath), configBefore);
 		const config = JSON.parse(configBefore.toString());
 		assert.deepEqual(config.agent.tools, ["todo"]);
-		assert(!config.agent.tools.includes("ompss"));
+		assert(!config.agent.tools.includes("omps"));
 		const after = (await events()).findLast(
 			(record) => record.type === "tool_execution_end" && record.toolName === "todo",
 		);
@@ -160,11 +161,11 @@ agents:
 			),
 		);
 		assert.equal(
-			fixture.records.some((record) => record.message?.customType === "ompss-result"),
+			fixture.records.some((record) => record.message?.customType === "omps-result"),
 			false,
 		);
 	} finally {
-		if (runId) await fixture.send({ type: "prompt", message: `/ompss cancel ${runId}` });
+		if (runId) await fixture.send({ type: "prompt", message: `/omps cancel ${runId}` });
 		await fixture.exit();
 		await fixture.dispose();
 	}

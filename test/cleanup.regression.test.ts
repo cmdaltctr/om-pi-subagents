@@ -3,7 +3,7 @@ import { decide, ResultJudge, type Assessment, type FinalFacts } from "../src/re
 
 const cleanupEntry = (token: string, error = "descendant process tree cannot be inspected") => ({
 	type: "entry_appended",
-	entry: { customType: "ompss-cleanup-failed", data: { token, runId: "descendant", error } },
+	entry: { customType: "omps-cleanup-failed", data: { token, runId: "descendant", error } },
 });
 
 describe("cleanup uncertainty survives every result gate", () => {

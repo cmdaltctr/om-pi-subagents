@@ -6,17 +6,17 @@ import { describe, expect, it } from "vitest";
 
 const hosts = [
 	{ version: "0.99.1", modules: process.env.PI_HOST_MODULES ?? resolve(".pi-host/node_modules") },
-	{ version: "1.0.4", modules: process.env.OMPSS_CURRENT_HOST_MODULES },
+	{ version: "1.0.4", modules: process.env.OMPS_CURRENT_HOST_MODULES },
 ];
 for (const host of hosts)
-	describe.skipIf(!host.modules)(`OMPSS fleet navigation ${host.version}`, () => {
+	describe.skipIf(!host.modules)(`OMPS fleet navigation ${host.version}`, () => {
 		it.each([
 			["regular", "dark"],
 			["regular", "light"],
 			["fullscreen", "dark"],
 			["fullscreen", "light"],
 		] as const)("keeps %s input safe with the %s theme", (mode, theme) => {
-			const directory = mkdtempSync(join(tmpdir(), "ompss-fleet-"));
+			const directory = mkdtempSync(join(tmpdir(), "omps-fleet-"));
 			try {
 				const modules = resolve(host.modules!);
 				expect(existsSync(join(modules, "@earendil-works/pi-tui/dist/index.js"))).toBe(true);

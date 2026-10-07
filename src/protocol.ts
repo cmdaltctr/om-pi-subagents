@@ -15,15 +15,15 @@ export interface ChildLineage extends Nesting {
 	readonly runId: string;
 }
 
-export const PREFLIGHT_COMMAND = "ompss-child-preflight";
-export const READY_ENTRY = "ompss-ready";
-export const VIOLATION_ENTRY = "ompss-violation";
+export const PREFLIGHT_COMMAND = "omps-child-preflight";
+export const READY_ENTRY = "omps-ready";
+export const VIOLATION_ENTRY = "omps-violation";
 /** Correlated evidence that this child's owned subtree could not be fully cleaned up. */
-export const CLEANUP_ENTRY = "ompss-cleanup-failed";
+export const CLEANUP_ENTRY = "omps-cleanup-failed";
 /** Private display metadata carried by the existing child connection, never conversation messages. */
-export const OBSERVATION_ENTRY = "ompss-observation";
+export const OBSERVATION_ENTRY = "omps-observation";
 
-/** Policy the parent passes to a child through OMPSS_POLICY. It holds no credentials. */
+/** Policy the parent passes to a child through OMPS_POLICY. It holds no credentials. */
 export interface ChildPolicy {
 	/** Exact approved tool names. */
 	tools: readonly string[];
@@ -61,21 +61,21 @@ function parseLineage(value: unknown): ChildLineage | string {
 
 /** Validate the complete parent-created policy. No credentials are accepted here. */
 export function parseChildPolicy(value: unknown): ChildPolicy | string {
-	if (typeof value !== "object" || value === null) return "OMPSS_POLICY is missing or invalid";
+	if (typeof value !== "object" || value === null) return "OMPS_POLICY is missing or invalid";
 	const data = value as Record<string, unknown>;
 	if (
 		!Array.isArray(data.tools) ||
 		!data.tools.every((tool) => typeof tool === "string" && /^[A-Za-z0-9][A-Za-z0-9_.-]*$/.test(tool))
 	)
-		return "OMPSS_POLICY tools must be exact tool names";
+		return "OMPS_POLICY tools must be exact tool names";
 	if (
 		typeof data.startupDeadlineMs !== "number" ||
 		!Number.isSafeInteger(data.startupDeadlineMs) ||
 		data.startupDeadlineMs < 1
 	)
-		return "OMPSS_POLICY startupDeadlineMs must be a positive safe integer";
+		return "OMPS_POLICY startupDeadlineMs must be a positive safe integer";
 	if (data.model !== undefined && (typeof data.model !== "string" || data.model.trim() === ""))
-		return "OMPSS_POLICY model must be a non-empty string";
+		return "OMPS_POLICY model must be a non-empty string";
 	const lineage = parseLineage(data.lineage);
 	if (typeof lineage === "string") return lineage;
 	return Object.freeze({
@@ -89,13 +89,13 @@ export function parseChildPolicy(value: unknown): ChildPolicy | string {
 /** Read the policy shared by the guard and the explicitly loaded managed entry. */
 export function readChildPolicy(env: NodeJS.ProcessEnv = process.env): ChildPolicy | string {
 	try {
-		return parseChildPolicy(JSON.parse(env.OMPSS_POLICY ?? ""));
+		return parseChildPolicy(JSON.parse(env.OMPS_POLICY ?? ""));
 	} catch {
-		return "OMPSS_POLICY is missing or invalid";
+		return "OMPS_POLICY is missing or invalid";
 	}
 }
 
-/** Data of the private `ompss-ready` session entry. `ok: false` carries the reasons. */
+/** Data of the private `omps-ready` session entry. `ok: false` carries the reasons. */
 export interface Readiness {
 	token: string;
 	ok: boolean;
@@ -106,7 +106,7 @@ export interface Readiness {
 	lineage?: ChildLineage;
 }
 
-/** Data of the private `ompss-violation` session entry, written when a tool call or a prompt is blocked. */
+/** Data of the private `omps-violation` session entry, written when a tool call or a prompt is blocked. */
 export interface Violation {
 	token: string;
 	/** The blocked tool. */

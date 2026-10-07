@@ -3,7 +3,7 @@ import { accessSync, constants, existsSync, readFileSync, readdirSync } from "no
 import { resolve, join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { parse } from "yaml";
-import { registerOmpss } from "../src/index.ts";
+import { registerOmps } from "../src/index.ts";
 
 const ROOT = resolve(import.meta.dirname, "..");
 const read = (file: string) => readFileSync(join(ROOT, file), "utf8");
@@ -30,8 +30,8 @@ describe("tooling agrees with the documentation", () => {
 		expect(read("docs/INSTALL.md")).toContain("pi install npm:om-pi-subagents");
 		expect(read("README.md")).toContain("pi install npm:om-pi-subagents");
 		expect(read("docs/INSTALL.md")).toContain("No personas mapped.");
-		expect(read("docs/USAGE.md")).toContain("/ompss run reader Summarise the README");
-		expect(read("docs/UNINSTALL.md")).toContain("~/.pi/agent/ompss/runs/");
+		expect(read("docs/USAGE.md")).toContain("/omps run reader Summarise the README");
+		expect(read("docs/UNINSTALL.md")).toContain("~/.pi/agent/omps/runs/");
 	});
 
 	it("shows a packaged, self-contained SVG logo without executable content", () => {
@@ -46,7 +46,7 @@ describe("tooling agrees with the documentation", () => {
 
 	it("uses real tool actions and fields in the usage examples", () => {
 		let properties: Record<string, { enum?: string[] }> = {};
-		registerOmpss(
+		registerOmps(
 			{
 				registerTool: (tool: { parameters: { properties: typeof properties } }) => {
 					properties = tool.parameters.properties;
@@ -74,7 +74,7 @@ describe("tooling agrees with the documentation", () => {
 			expect(text, path).toContain("Agent capabilities");
 			expect(text, path).toMatch(/Off|off/);
 			expect(text, path).toContain("Partial");
-			expect(text, path).toContain("/ompss-settings");
+			expect(text, path).toContain("/omps-settings");
 		}
 		const usage = read("docs/USAGE.md");
 		const example = usage.match(/```yaml\n(agents:\n  researcher:[\s\S]*?)```/)?.[1];
@@ -104,6 +104,11 @@ describe("tooling agrees with the documentation", () => {
 	});
 
 	it("documents every script with its exact command", () => {
+		expect(read("README.md")).toContain("! bun run release:approve");
+		expect(read("README.md")).toContain("bun run release:approve <stage-uuid>");
+		expect(read("README.md")).toContain("npm 11.15 or newer");
+		expect(read("README.md")).toContain("pi update npm:om-pi-subagents");
+		expect(pkg.scripts["release:approve"]).toBe("./scripts/release-approve.sh");
 		for (const name of Object.keys(pkg.scripts)) expect(read("README.md"), name).toContain(`\`bun run ${name}\``);
 		expect(pkg.scripts.ci.split(" && ")).toEqual(steps.map((step) => `bun run ${step}`));
 		expect(pkg.scripts.lint).toBe("oxlint --deny-warnings");
@@ -152,7 +157,7 @@ describe("tooling agrees with the documentation", () => {
 		const clean = read("scripts/ci-clean.sh");
 		for (const command of ["git clone", "export HUSKY=0", "bun install --frozen-lockfile", "bun run ci"])
 			expect(clean).toContain(command);
-		expect(clean).toContain('export OMPSS_PI_BIN="$PWD/.pi-host/node_modules/.bin/pi"');
+		expect(clean).toContain('export OMPS_PI_BIN="$PWD/.pi-host/node_modules/.bin/pi"');
 		const hook = read(".husky/pre-push");
 		expect(hook.indexOf("./scripts/setup-host.sh")).toBeLessThan(hook.indexOf("bun run ci:clean"));
 		for (const path of ["scripts/setup-host.sh", "scripts/ci-clean.sh", ".husky/pre-push"])
@@ -178,7 +183,7 @@ describe("tooling agrees with the documentation", () => {
 			"bun run setup:host",
 			...steps.map((step) => `bun run ${step}`),
 		]);
-		expect(workflow.jobs.check.env.OMPSS_PI_BIN).toBe("${{ github.workspace }}/.pi-host/node_modules/.bin/pi");
+		expect(workflow.jobs.check.env.OMPS_PI_BIN).toBe("${{ github.workspace }}/.pi-host/node_modules/.bin/pi");
 		expect(workflow.jobs.audit.steps.at(-1).run).toBe("bun run audit");
 	});
 

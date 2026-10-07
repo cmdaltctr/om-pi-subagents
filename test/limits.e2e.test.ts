@@ -19,7 +19,7 @@ const waitFor = async (check: () => boolean | Promise<boolean>) => {
 	}
 };
 async function saved(fixture: PiFixture, file: string) {
-	const root = join(fixture.agentDir, "ompss", "runs");
+	const root = join(fixture.agentDir, "omps", "runs");
 	const paths = (await readdir(root, { recursive: true }).catch(() => [])).filter((path) => path.endsWith(`/${file}`));
 	return Promise.all(
 		paths.map(async (path) => ({ path, value: JSON.parse(await readFile(join(root, path), "utf8")) })),
@@ -31,7 +31,7 @@ describe.skipIf(!PI_AVAILABLE)("real configured limit scenarios", () => {
 		const fixture = await startPi({
 			mcp: false,
 			args: ["-e", index],
-			env: { OMPSS_PI_BIN: PI_BIN },
+			env: { OMPS_PI_BIN: PI_BIN },
 			seed: async ({ agentDir }) => {
 				await writeFile(join(agentDir, "worker.md"), "CAPACITY-WORKER-MARKER");
 				await writeFile(
@@ -45,13 +45,13 @@ describe.skipIf(!PI_AVAILABLE)("real configured limit scenarios", () => {
 				if (JSON.stringify(body.messages).includes("CAPACITY-WORKER-MARKER")) return { hang: true };
 				const launches = body.messages.filter((message: { role: string }) => message.role === "tool").length;
 				return launches < 5
-					? { tool: "ompss", args: { action: "run", agent: "worker", task: `Independent task ${launches}` } }
+					? { tool: "omps", args: { action: "run", agent: "worker", task: `Independent task ${launches}` } }
 					: { text: "Capacity checked" };
 			};
 			await fixture.send({ type: "prompt", message: "Try five launches" });
 			await fixture.waitFor((record) => record.type === "agent_settled");
 			const results = fixture.records.filter(
-				(record) => record.type === "tool_execution_end" && record.toolName === "ompss",
+				(record) => record.type === "tool_execution_end" && record.toolName === "omps",
 			);
 			expect(results).toHaveLength(5);
 			expect(results.filter((record) => !record.isError)).toHaveLength(capacity);
@@ -77,12 +77,12 @@ describe.skipIf(!PI_AVAILABLE)("real configured limit scenarios", () => {
 		const fixture = await startPi({
 			mcp: false,
 			args: ["-e", index],
-			env: { OMPSS_PI_BIN: PI_BIN },
+			env: { OMPS_PI_BIN: PI_BIN },
 			seed: async ({ agentDir }) => {
 				await writeFile(join(agentDir, "worker.md"), "DEEP-WORKER-MARKER");
 				await writeFile(
 					join(agentDir, "om-pi-subagents.yaml"),
-					"version: 1\nlimits:\n  maxConcurrentRuns: 4\n  maxDepth: 5\nagents:\n  worker:\n    persona: ./worker.md\n    tools: [ompss]\n    thinking: off\n",
+					"version: 1\nlimits:\n  maxConcurrentRuns: 4\n  maxDepth: 5\nagents:\n  worker:\n    persona: ./worker.md\n    tools: [omps]\n    thinking: off\n",
 				);
 			},
 		});
@@ -91,10 +91,10 @@ describe.skipIf(!PI_AVAILABLE)("real configured limit scenarios", () => {
 				const messages = JSON.stringify(body.messages);
 				const level = Number(/LEVEL:(\d+)/.exec(messages)?.[1] ?? 0);
 				const hasTool = body.messages.some((message: { role: string }) => message.role === "tool");
-				if (!hasTool) return { tool: "ompss", args: { action: "run", agent: "worker", task: `LEVEL:${level + 1}` } };
+				if (!hasTool) return { tool: "omps", args: { action: "run", agent: "worker", task: `LEVEL:${level + 1}` } };
 				if (level === 5) return { text: "Depth five refused the sixth generation" };
 				return {
-					text: messages.includes("OMPSS run")
+					text: messages.includes("OMPS run")
 						? `Level ${level} used descendant results`
 						: `Level ${level} early answer`,
 				};
@@ -113,7 +113,7 @@ describe.skipIf(!PI_AVAILABLE)("real configured limit scenarios", () => {
 			expect(statuses.some((entry) => alive(entry.value.pid))).toBe(false);
 			const deepest = configurations.find((entry) => entry.value.nesting.depth === 5)!;
 			const log = await readFile(
-				join(fixture.agentDir, "ompss", "runs", deepest.path.replace("config.json", "events.jsonl")),
+				join(fixture.agentDir, "omps", "runs", deepest.path.replace("config.json", "events.jsonl")),
 				"utf8",
 			);
 			expect(log).toMatch(/current depth 5, attempted depth 6, limits.maxDepth 5/);

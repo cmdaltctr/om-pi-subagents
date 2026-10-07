@@ -20,7 +20,7 @@ export default function subscriptionFailure(pi: ExtensionAPI): void {
 			observations,
 			current: (run) => manager.status(run.owner, run.id),
 			publish: (envelope) => pi.appendEntry(OBSERVATION_ENTRY, envelope),
-			token: process.env.OMPSS_RUN_TOKEN,
+			token: process.env.OMPS_RUN_TOKEN,
 		});
 		const manager = new RunManager(
 			async (_run, _request, hooks) => {

@@ -8,27 +8,27 @@ import { verifyTodoViewerChild } from "./fixtures/todo-viewer-rpc.ts";
 
 describe.skipIf(!PI_AVAILABLE)("real managed todo child during operator UI actions", () => {
 	it.each([
-		["normal", "ompss-first"],
+		["normal", "omps-first"],
 		["normal", "todo-first"],
-		["openspec", "ompss-first"],
+		["openspec", "omps-first"],
 		["openspec", "todo-first"],
 	] as const)("%s, %s: keeps child id one and parent binding untouched", verifyTodoViewerChild);
 });
 
 const hosts = [
 	{ version: "0.99.1", modules: process.env.PI_HOST_MODULES ?? resolve(".pi-host/node_modules") },
-	{ version: "1.0.4", modules: process.env.OMPSS_CURRENT_HOST_MODULES },
+	{ version: "1.0.4", modules: process.env.OMPS_CURRENT_HOST_MODULES },
 ];
 
 // Each process isolates the real todo package's preference cache, session slots and foreground widget.
 // Native UI handlers are exercised without a complete interactive AgentSession or a physical terminal.
 for (const host of hosts)
-	describe.skipIf(!host.modules)(`real todo with OMPSS viewer on Pi ${host.version}`, () => {
+	describe.skipIf(!host.modules)(`real todo with OMPS viewer on Pi ${host.version}`, () => {
 		for (const terminalMode of ["regular", "fullscreen"])
 			for (const todoMode of ["normal", "openspec"])
-				for (const order of ["ompss-first", "todo-first"])
+				for (const order of ["omps-first", "todo-first"])
 					it(`${terminalMode}, ${todoMode}, ${order}: isolates expansion, inspection and settings`, () => {
-						const directory = mkdtempSync(join(tmpdir(), "ompss-todo-viewer-"));
+						const directory = mkdtempSync(join(tmpdir(), "omps-todo-viewer-"));
 						try {
 							const modules = resolve(host.modules!);
 							expect(existsSync(join(modules, "@earendil-works/pi-tui/dist/index.js"))).toBe(true);
@@ -74,8 +74,8 @@ for (const host of hosts)
 										XDG_CONFIG_HOME: directory,
 										PI_OFFLINE: "1",
 										PI_SKIP_VERSION_CHECK: "1",
-										OMPSS_CHILD: "",
-										OMPSS_REGISTRY: "",
+										OMPS_CHILD: "",
+										OMPS_REGISTRY: "",
 										PATH: `${resolve("node_modules/.bin")}:${process.env.PATH}`,
 									},
 								},

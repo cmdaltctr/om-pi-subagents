@@ -1,4 +1,4 @@
-// Compact transcript acknowledgements for OMPSS launches.
+// Compact transcript acknowledgements for OMPS launches.
 //
 // Per-launch transcript entries stay static: one bounded row carrying the agent, short identity and
 // launch state, plus an optional bounded reveal of the acknowledgement text. Host expansion (Ctrl+O)
@@ -45,8 +45,8 @@ export function acknowledgementLines(
 	const shortId = plain(data.runId, 128).slice(0, 8);
 	const agent = data.agent === undefined ? "" : plain(data.agent, ACK_MAX_AGENT_CHARS);
 	const row = agent
-		? `OMPSS: ${agent} started (${shortId})`
-		: `OMPSS: historical launch (${shortId}) · evidence unavailable`;
+		? `OMPS: ${agent} started (${shortId})`
+		: `OMPS: historical launch (${shortId}) · evidence unavailable`;
 	const lines = [fit(row, width)];
 	if (!expanded || !detail) return lines;
 	let budget = ACK_MAX_DETAIL_CHARS;

@@ -15,8 +15,8 @@ const processSpies = vi.hoisted(() => ({
 
 vi.mock("node:child_process", () => processSpies);
 
-import ompss, { registerOmpss, resolvePiBin, resolveRegistryPath, SessionBinding } from "../src/index.ts";
-import type { OmpssService } from "../src/service.ts";
+import omps, { registerOmps, resolvePiBin, resolveRegistryPath, SessionBinding } from "../src/index.ts";
+import type { OmpsService } from "../src/service.ts";
 
 type Notify = (message: string, level: string) => void;
 type Ctx = {
@@ -38,17 +38,18 @@ type Tool = {
 };
 type Command = { handler: (args: string, ctx: Ctx) => Promise<void> };
 
-function loadExtension(register: (pi: any) => void = (pi) => ompss(pi)) {
+function loadExtension(register: (pi: any) => void = (pi) => omps(pi)) {
 	const tools = new Map<string, Tool>();
 	const commands = new Map<string, Command>();
 	const handlers = new Map<string, (event: unknown, ctx: Ctx) => unknown>();
+	const renderers = vi.fn();
 	register({
 		registerTool: (tool: Tool) => tools.set(tool.name, tool),
 		registerCommand: (name: string, command: Command) => commands.set(name, command),
 		on: (event: string, handler: (event: unknown, ctx: Ctx) => unknown) => handlers.set(event, handler),
-		registerEntryRenderer: vi.fn(),
+		registerEntryRenderer: renderers,
 	});
-	return { tools, commands, handlers };
+	return { tools, commands, handlers, renderers };
 }
 
 const ctx = (notify: Notify = vi.fn()): Ctx => ({
@@ -66,7 +67,7 @@ function fakeService() {
 		run: async (...args: unknown[]) => (calls.push(["run", ...args]), "RUN"),
 		status: (...args: unknown[]) => (calls.push(["status", ...args]), "STATUS"),
 		cancel: (...args: unknown[]) => (calls.push(["cancel", ...args]), "CANCEL"),
-	} as unknown as OmpssService;
+	} as unknown as OmpsService;
 	return { service, calls };
 }
 
@@ -75,10 +76,20 @@ beforeEach(() => {
 });
 
 describe("registration", () => {
-	it("registers the ompss tool and the /ompss command, and starts no process", () => {
+	it("registers only the canonical OMPS tool, commands and transcript renderers", () => {
+		const { tools, commands, renderers } = loadExtension();
+		expect([...tools.keys()]).toEqual(["omps"]);
+		expect([...commands.keys()]).toEqual(["omps", "omps-settings", "subagents-settings"]);
+		const names = renderers.mock.calls.map(([name]) => name);
+		expect(names).toContain("omps-tree");
+		expect(names.some((name) => name.startsWith("ompss-"))).toBe(false);
+		for (const spy of Object.values(processSpies)) expect(spy).not.toHaveBeenCalled();
+	});
+
+	it("registers the omps tool and the /omps command, and starts no process", () => {
 		const { tools, commands } = loadExtension();
-		expect([...tools.keys()]).toEqual(["ompss"]);
-		expect([...commands.keys()]).toEqual(["ompss", "ompss-settings", "subagents-settings"]);
+		expect([...tools.keys()]).toEqual(["omps"]);
+		expect([...commands.keys()]).toEqual(["omps", "omps-settings", "subagents-settings"]);
 		for (const [name, spy] of Object.entries(processSpies)) expect(spy, name).not.toHaveBeenCalled();
 	});
 
@@ -86,8 +97,8 @@ describe("registration", () => {
 		expect([...loadExtension().handlers.keys()].sort()).toEqual(["session_shutdown", "session_start"]);
 	});
 
-	it("registers nothing when OMPSS_CHILD=1, so a child never exposes another launcher", () => {
-		vi.stubEnv("OMPSS_CHILD", "1");
+	it("registers nothing when OMPS_CHILD=1, so a child never exposes another launcher", () => {
+		vi.stubEnv("OMPS_CHILD", "1");
 		try {
 			const { tools, commands, handlers } = loadExtension();
 			expect([...tools.keys(), ...commands.keys(), ...handlers.keys()]).toEqual([]);
@@ -99,19 +110,19 @@ describe("registration", () => {
 	it("builds the service only when it is first used", async () => {
 		const build = vi.fn(() => fakeService().service);
 		const { commands } = loadExtension((pi) => {
-			let service: OmpssService | undefined;
-			registerOmpss(pi, () => (service ??= build()));
+			let service: OmpsService | undefined;
+			registerOmps(pi, () => (service ??= build()));
 		});
 		expect(build).not.toHaveBeenCalled();
-		await commands.get("ompss")!.handler("list", ctx());
+		await commands.get("omps")!.handler("list", ctx());
 		expect(build).toHaveBeenCalledTimes(1);
 	});
 
 	it("rejects an unknown action with a clear error and calls nothing", async () => {
 		const { service, calls } = fakeService();
-		const { tools } = loadExtension((pi) => registerOmpss(pi, () => service));
+		const { tools } = loadExtension((pi) => registerOmps(pi, () => service));
 		for (const action of ["bogus", "toString", "constructor", ""]) {
-			await expect(tools.get("ompss")!.execute("1", { action }, undefined, undefined, ctx())).rejects.toThrow(
+			await expect(tools.get("omps")!.execute("1", { action }, undefined, undefined, ctx())).rejects.toThrow(
 				/unknown action .*use list, run, status or cancel/,
 			);
 		}
@@ -119,7 +130,7 @@ describe("registration", () => {
 	});
 
 	it("describes the four actions in the tool schema", () => {
-		const tool = loadExtension().tools.get("ompss")!;
+		const tool = loadExtension().tools.get("omps")!;
 		expect(tool.parameters.required).toEqual(["action"]);
 		expect(tool.parameters.properties.action.enum).toEqual(["list", "run", "status", "cancel"]);
 	});
@@ -127,10 +138,10 @@ describe("registration", () => {
 
 describe("default wiring with no mapping file", () => {
 	it("reports no runs for a bare command without reading the registry or starting a child", async () => {
-		vi.stubEnv("OMPSS_REGISTRY", "/nonexistent/registry.yaml");
+		vi.stubEnv("OMPS_REGISTRY", "/nonexistent/registry.yaml");
 		try {
 			const notify = vi.fn();
-			await loadExtension().commands.get("ompss")!.handler("", ctx(notify));
+			await loadExtension().commands.get("omps")!.handler("", ctx(notify));
 			expect(notify).toHaveBeenCalledExactlyOnceWith("No runs in this session.", "info");
 			for (const spy of Object.values(processSpies)) expect(spy).not.toHaveBeenCalled();
 		} finally {
@@ -139,15 +150,15 @@ describe("default wiring with no mapping file", () => {
 	});
 
 	it("lists zero personas through the command and the tool, with no process", async () => {
-		const agentDir = mkdtempSync(join(tmpdir(), "ompss-agent-"));
+		const agentDir = mkdtempSync(join(tmpdir(), "omps-agent-"));
 		vi.stubEnv("PI_CODING_AGENT_DIR", agentDir);
 		try {
 			const { tools, commands } = loadExtension();
 			const notify = vi.fn();
-			await commands.get("ompss")!.handler("list", ctx(notify));
+			await commands.get("omps")!.handler("list", ctx(notify));
 			expect(notify).toHaveBeenCalledWith("No personas mapped.", "info");
 			expect(
-				(await tools.get("ompss")!.execute("1", { action: "list" }, undefined, undefined, ctx())).content[0].text,
+				(await tools.get("omps")!.execute("1", { action: "list" }, undefined, undefined, ctx())).content[0].text,
 			).toBe("No personas mapped.");
 			for (const [name, spy] of Object.entries(processSpies)) expect(spy, name).not.toHaveBeenCalled();
 		} finally {
@@ -160,10 +171,10 @@ describe("default wiring with no mapping file", () => {
 describe("tool and command apply the same service calls", () => {
 	const run = async (action: "tool" | "command", tool: any, command: string) => {
 		const { service, calls } = fakeService();
-		const { tools, commands } = loadExtension((pi) => registerOmpss(pi, () => service));
+		const { tools, commands } = loadExtension((pi) => registerOmps(pi, () => service));
 		const notify = vi.fn();
-		if (action === "tool") await tools.get("ompss")!.execute("1", tool, undefined, undefined, ctx(notify));
-		else await commands.get("ompss")!.handler(command, ctx(notify));
+		if (action === "tool") await tools.get("omps")!.execute("1", tool, undefined, undefined, ctx(notify));
+		else await commands.get("omps")!.handler(command, ctx(notify));
 		return { calls, notify };
 	};
 
@@ -201,12 +212,12 @@ describe("tool and command apply the same service calls", () => {
 
 	it("returns the service text from the tool and reports it from the command", async () => {
 		const { service } = fakeService();
-		const { tools, commands } = loadExtension((pi) => registerOmpss(pi, () => service));
+		const { tools, commands } = loadExtension((pi) => registerOmps(pi, () => service));
 		const notify = vi.fn();
 		expect(
-			(await tools.get("ompss")!.execute("1", { action: "status" }, undefined, undefined, ctx())).content[0].text,
+			(await tools.get("omps")!.execute("1", { action: "status" }, undefined, undefined, ctx())).content[0].text,
 		).toBe("STATUS");
-		await commands.get("ompss")!.handler("status", ctx(notify));
+		await commands.get("omps")!.handler("status", ctx(notify));
 		expect(notify).toHaveBeenCalledWith("STATUS", "info");
 	});
 
@@ -221,7 +232,7 @@ describe("tool and command apply the same service calls", () => {
 		"shows usage for the command input %j",
 		async (input) => {
 			const { notify, calls } = await run("command", {}, input);
-			expect(notify).toHaveBeenCalledWith(expect.stringContaining("Usage: /ompss"), "warning");
+			expect(notify).toHaveBeenCalledWith(expect.stringContaining("Usage: /omps"), "warning");
 			expect(calls).toEqual([]);
 		},
 	);
@@ -230,13 +241,13 @@ describe("tool and command apply the same service calls", () => {
 		const failing = {
 			...fakeService().service,
 			run: async () => Promise.reject(new Error("unknown agent")),
-		} as unknown as OmpssService;
-		const { tools, commands } = loadExtension((pi) => registerOmpss(pi, () => failing));
+		} as unknown as OmpsService;
+		const { tools, commands } = loadExtension((pi) => registerOmps(pi, () => failing));
 		const notify = vi.fn();
-		await commands.get("ompss")!.handler("run nobody go", ctx(notify));
-		expect(notify).toHaveBeenCalledWith("OMPSS: unknown agent", "error");
+		await commands.get("omps")!.handler("run nobody go", ctx(notify));
+		expect(notify).toHaveBeenCalledWith("OMPS: unknown agent", "error");
 		await expect(
-			tools.get("ompss")!.execute("1", { action: "run", agent: "nobody", task: "go" }, undefined, undefined, ctx()),
+			tools.get("omps")!.execute("1", { action: "run", agent: "nobody", task: "go" }, undefined, undefined, ctx()),
 		).rejects.toThrow("unknown agent");
 	});
 });
@@ -265,12 +276,12 @@ describe("SessionBinding", () => {
 			{ customType: "x", content: "c", display: true, details: {} },
 			{ deliverAs: "followUp", triggerTurn: true },
 		);
-		messenger.setStatus!("ompss: reader running");
+		messenger.setStatus!("omps: reader running");
 		expect(sendMessage).toHaveBeenCalledWith(
 			{ customType: "x", content: "c", display: true, details: {} },
 			{ deliverAs: "followUp", triggerTurn: true },
 		);
-		expect(setStatus).toHaveBeenCalledWith("ompss", "ompss: reader running");
+		expect(setStatus).toHaveBeenCalledWith("omps", "omps: reader running");
 		expect(binding.owner).toBe("session-1");
 	});
 
@@ -279,8 +290,8 @@ describe("SessionBinding", () => {
 		const setWidget = vi.fn();
 		binding.bind(session(true, vi.fn(), setWidget));
 		const messenger = binding.messenger(pi(), "session-1")!;
-		messenger.setWidget!(["OMPSS: reader running"]);
-		expect(setWidget).toHaveBeenCalledWith("ompss", ["OMPSS: reader running"], { placement: "belowEditor" });
+		messenger.setWidget!(["OMPS: reader running"]);
+		expect(setWidget).toHaveBeenCalledWith("omps", ["OMPS: reader running"], { placement: "belowEditor" });
 		// Interactive hosts keep a live component fed with real terminal facts.
 		const painted: string[] = [];
 		messenger.setWidget!((terminal) => ({
@@ -314,8 +325,8 @@ describe("SessionBinding", () => {
 		binding.bind(session(true, setStatus, setWidget));
 		const old = binding.messenger(pi(sendMessage))!;
 		binding.end();
-		expect(setStatus).toHaveBeenCalledExactlyOnceWith("ompss", undefined);
-		expect(setWidget).toHaveBeenCalledExactlyOnceWith("ompss", undefined);
+		expect(setStatus).toHaveBeenCalledExactlyOnceWith("omps", undefined);
+		expect(setWidget).toHaveBeenCalledExactlyOnceWith("omps", undefined);
 		old.setStatus!("late");
 		old.setWidget!(["late"]);
 		// A dropped send must reject, so the delivery record cannot claim success.
@@ -361,7 +372,7 @@ describe("SessionBinding", () => {
 			),
 		);
 		expect(() => binding.end()).not.toThrow();
-		expect(setWidget).toHaveBeenCalledWith("ompss", undefined);
+		expect(setWidget).toHaveBeenCalledWith("omps", undefined);
 		expect(binding.owner).toBeUndefined();
 	});
 
@@ -383,9 +394,30 @@ describe("SessionBinding", () => {
 	});
 });
 
+describe("old namespace rejection", () => {
+	it("ignores the old binary environment override", () => {
+		expect(resolvePiBin("/agent", { OMPSS_PI_BIN: "/old/pi" }, () => false)).toBe("pi");
+	});
+
+	it("ignores the old registry environment override", () => {
+		expect(resolveRegistryPath("/agent", { OMPSS_REGISTRY: "/old/agents.yaml" })).toBe("/agent/om-pi-subagents.yaml");
+	});
+
+	it("refuses a process marked only as an old child before registering an unguarded launcher", () => {
+		vi.stubEnv("OMPS_CHILD", "");
+		vi.stubEnv("OMPSS_CHILD", "1");
+		try {
+			expect(() => loadExtension()).toThrow(/old.*child|restart/i);
+			for (const spy of Object.values(processSpies)) expect(spy).not.toHaveBeenCalled();
+		} finally {
+			vi.unstubAllEnvs();
+		}
+	});
+});
+
 describe("resolvePiBin", () => {
 	it("prefers the explicit override", () => {
-		expect(resolvePiBin("/agent", { OMPSS_PI_BIN: "/custom/pi" }, () => true)).toBe("/custom/pi");
+		expect(resolvePiBin("/agent", { OMPS_PI_BIN: "/custom/pi" }, () => true)).toBe("/custom/pi");
 	});
 
 	it("uses the managed launcher of the agent directory when it exists", () => {
@@ -399,7 +431,7 @@ describe("resolvePiBin", () => {
 
 describe("resolveRegistryPath", () => {
 	it("prefers the explicit override", () => {
-		expect(resolveRegistryPath("/agent", { OMPSS_REGISTRY: "/custom/agents.yaml" })).toBe("/custom/agents.yaml");
+		expect(resolveRegistryPath("/agent", { OMPS_REGISTRY: "/custom/agents.yaml" })).toBe("/custom/agents.yaml");
 	});
 
 	it("reads the operator's file in the agent directory, outside the installed package", () => {

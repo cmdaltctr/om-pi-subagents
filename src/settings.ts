@@ -83,7 +83,7 @@ async function showSettings(ctx: ExtensionCommandContext, resources: SettingsRes
 		const active = resources.activeKeys?.();
 		const items = menuItems(limits, ui, active);
 		const choice = await ctx.ui.select(
-			`Subagent settings\nRegistry: ${limits.path}\nLegacy display input: ${resources.ui.legacyPath}`,
+			`OMPS settings\nRegistry: ${limits.path}\nLegacy display input: ${resources.ui.legacyPath}`,
 			items,
 		);
 		if (choice === undefined || choice === "Done") return;
@@ -288,17 +288,17 @@ async function showCapabilities(ctx: ExtensionCommandContext, limits: LimitSetti
 		await saveCapabilityMapping(limits, name, mapping);
 		ctx.ui.notify(`${name} ${capability} saved to ${limits.path}. New launches use the edited mapping.`, "info");
 	} catch (error) {
-		ctx.ui.notify(`OMPSS capability settings: ${(error as Error).message}`, "error");
+		ctx.ui.notify(`OMPS capability settings: ${(error as Error).message}`, "error");
 	}
 }
 
 /** Register only native operator dialogs. File access starts after syntax and UI checks. */
-export function registerOmpssSettings(pi: ExtensionAPI, getResources: () => SettingsResources): void {
+export function registerOmpsSettings(pi: ExtensionAPI, getResources: () => SettingsResources): void {
 	const handler = async (args: string, ctx: ExtensionCommandContext) => {
-		if (args.trim()) return void ctx.ui.notify("Usage: /ompss-settings (alias: /subagents-settings)", "warning");
+		if (args.trim()) return void ctx.ui.notify("Usage: /omps-settings (alias: /subagents-settings)", "warning");
 		if (!ctx.hasUI) {
 			ctx.ui.notify(
-				"/ompss-settings requires supported UI dialogs. Use interactive Pi or a client with RPC dialogs.",
+				"/omps-settings requires supported UI dialogs. Use interactive Pi or a client with RPC dialogs.",
 				"error",
 			);
 			return;
@@ -306,15 +306,15 @@ export function registerOmpssSettings(pi: ExtensionAPI, getResources: () => Sett
 		try {
 			await showSettings(ctx, getResources());
 		} catch (error) {
-			ctx.ui.notify(`OMPSS settings: ${(error as Error).message}`, "error");
+			ctx.ui.notify(`OMPS settings: ${(error as Error).message}`, "error");
 		}
 	};
-	pi.registerCommand("ompss-settings", {
+	pi.registerCommand("omps-settings", {
 		description: "Set subagent limits, fleet shortcuts and optional per-agent capabilities",
 		handler,
 	});
 	pi.registerCommand("subagents-settings", {
-		description: "Alias of /ompss-settings",
+		description: "Alias of /omps-settings",
 		handler,
 	});
 }

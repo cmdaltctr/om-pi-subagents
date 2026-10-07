@@ -13,9 +13,9 @@ describe.skipIf(!PI_AVAILABLE)("real child lineage validation", () => {
 			mcp: false,
 			args: ["-e", guard],
 			env: {
-				OMPSS_CHILD: "1",
-				OMPSS_RUN_TOKEN: "token",
-				OMPSS_POLICY: JSON.stringify({ tools: [], startupDeadlineMs: 500, lineage }),
+				OMPS_CHILD: "1",
+				OMPS_RUN_TOKEN: "token",
+				OMPS_POLICY: JSON.stringify({ tools: [], startupDeadlineMs: 500, lineage }),
 			},
 		});
 		try {

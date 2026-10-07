@@ -18,8 +18,8 @@ let dir: string;
 let outside: string;
 
 beforeEach(async () => {
-	dir = await mkdtemp(join(tmpdir(), "ompss-invalid-"));
-	outside = await mkdtemp(join(tmpdir(), "ompss-outside-"));
+	dir = await mkdtemp(join(tmpdir(), "omps-invalid-"));
+	outside = await mkdtemp(join(tmpdir(), "omps-outside-"));
 	for (const spy of Object.values(processSpies)) spy.mockClear();
 });
 

@@ -9,7 +9,7 @@ const extension = await resolveTodoExtension();
 describe.skipIf(!PI_AVAILABLE)("real todo lists during parallel nested settlement", () => {
 	it("keeps id one local to siblings and a grandchild while real reminders and nested results finish", async () => {
 		const fixture = await startTodoChild({
-			tools: ["ompss", "todo"],
+			tools: ["omps", "todo"],
 			mode: "openspec",
 			maxDepth: 3,
 			seed: async ({ agentDir }) => {
@@ -24,7 +24,7 @@ limits:
 agents:
   delegate:
     persona: ./delegate.md
-    tools: [ompss, todo]
+    tools: [omps, todo]
     thinking: off
     extensions: [${JSON.stringify(extension)}]
   leaf:
@@ -56,11 +56,11 @@ agents:
 						args: { action: "update", id: 1, status: "in_progress", activeForm: "tracking owned work" },
 					};
 				if (delegate && results === 2)
-					return { tool: "ompss", args: { action: "run", agent: "leaf", task: "GRANDCHILD-LEAF-TASK" } };
+					return { tool: "omps", args: { action: "run", agent: "leaf", task: "GRANDCHILD-LEAF-TASK" } };
 				if (!leaf && !delegate && results === 2)
-					return { tool: "ompss", args: { action: "run", agent: "delegate", task: "DELEGATOR-TASK" } };
+					return { tool: "omps", args: { action: "run", agent: "delegate", task: "DELEGATOR-TASK" } };
 				if (!leaf && !delegate && results === 3)
-					return { tool: "ompss", args: { action: "run", agent: "leaf", task: "SIBLING-LEAF-TASK" } };
+					return { tool: "omps", args: { action: "run", agent: "leaf", task: "SIBLING-LEAF-TASK" } };
 				const beforeCompletion = leaf ? 2 : delegate ? 3 : 4;
 				if (results === beforeCompletion && messages.includes("Todo check:"))
 					return { tool: "todo", args: { action: "update", id: 1, status: "completed" } };
@@ -78,7 +78,7 @@ agents:
 				(record) => record.type === "tool_execution_end" && record.toolName === "todo",
 			)!;
 			expect(rootList.result.details.tasks).toMatchObject([{ id: 1, subject: "Root-only task", status: "completed" }]);
-			const root = join(fixture.agentDir, "ompss", "runs");
+			const root = join(fixture.agentDir, "omps", "runs");
 			const paths = (await readdir(root, { recursive: true })).filter((path) => path.endsWith("config.json"));
 			expect(paths).toHaveLength(3);
 			const subjects: string[] = [];

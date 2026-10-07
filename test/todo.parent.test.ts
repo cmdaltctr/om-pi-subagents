@@ -10,9 +10,9 @@ const checklist = "# Tasks\n\n- [ ] 1.1 Preserve parent task\n";
 
 describe.skipIf(!PI_AVAILABLE)("parent todo ownership with the real package", () => {
 	it.each([
-		["normal", "ompss-first"],
+		["normal", "omps-first"],
 		["normal", "todo-first"],
-		["openspec", "ompss-first"],
+		["openspec", "omps-first"],
 		["openspec", "todo-first"],
 	] as const)("preserves %s parent tasks with %s load order", async (mode, order) => {
 		const args: string[] = [];
@@ -21,7 +21,7 @@ describe.skipIf(!PI_AVAILABLE)("parent todo ownership with the real package", ()
 		const fixture = await startPi({
 			mcp: false,
 			args,
-			env: { OMPSS_PI_BIN: PI_BIN },
+			env: { OMPS_PI_BIN: PI_BIN },
 			seed: async ({ cwd, agentDir }) => {
 				preferences = await seedTodoPreferences(agentDir, mode);
 				const change = join(cwd, "openspec", "changes", "preserve-parent");
@@ -60,7 +60,7 @@ agents:
 				args.push(
 					"-e",
 					seed,
-					...[order === "ompss-first" ? index : todoExtension, order === "ompss-first" ? todoExtension : index].flatMap(
+					...[order === "omps-first" ? index : todoExtension, order === "omps-first" ? todoExtension : index].flatMap(
 						(path) => ["-e", path],
 					),
 				);
@@ -68,7 +68,7 @@ agents:
 		});
 		try {
 			const commands = (await fixture.send({ type: "get_commands" })).data.commands;
-			for (const name of ["todos", "ompss"])
+			for (const name of ["todos", "omps"])
 				expect(commands.some((command: { name: string }) => command.name === name)).toBe(true);
 			fixture.model.script = (body) => {
 				const messages = JSON.stringify(body.messages);
@@ -90,8 +90,8 @@ agents:
 						args: mode === "normal" ? { action: "create", subject: "Parent-only task" } : { action: "list" },
 					};
 				if (results.length === 1)
-					return { tool: "ompss", args: { action: "run", agent: "leaf", task: "Correct child-local task status" } };
-				if (messages.includes("OMPSS run")) {
+					return { tool: "omps", args: { action: "run", agent: "leaf", task: "Correct child-local task status" } };
+				if (messages.includes("OMPS run")) {
 					return results.length === 2 ? { tool: "todo", args: { action: "list" } } : { text: "Parent tasks preserved" };
 				}
 				return { text: "Parent launch recorded" };
@@ -118,7 +118,7 @@ agents:
 			expect(JSON.stringify(parentList)).not.toContain("Child-only task");
 			expect(await readFile(tasks, "utf8")).toBe(checklist);
 			expect(JSON.parse(await readFile(preferences, "utf8"))).toEqual({ mode });
-			const result = fixture.records.find((record) => record.message?.customType === "ompss-result");
+			const result = fixture.records.find((record) => record.message?.customType === "omps-result");
 			expect(result).toBeDefined();
 			expect(result!.message.content).toContain("Leaf final after todo correction");
 			expect(result!.message.content).not.toContain("Early child answer");
@@ -127,7 +127,7 @@ agents:
 					.filter((entry: { customType?: string }) => entry.customType === "fixture-widget-call")
 					.map((entry: { data: { key: string } }) => entry.data.key);
 				expect(keys).toContain("rpiv-todos");
-				expect(keys).toContain("ompss");
+				expect(keys).toContain("omps");
 			}
 			expect(await fixture.exit()).toBe(0);
 		} finally {

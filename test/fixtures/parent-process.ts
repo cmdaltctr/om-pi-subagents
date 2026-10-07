@@ -1,4 +1,4 @@
-// Test-only "parent": launches an OMPSS child through the real gate, reports its pid, then idles.
+// Test-only "parent": launches an OMPS child through the real gate, reports its pid, then idles.
 // The test kills this process without warning to prove that no child outlives its parent.
 import type { AgentSnapshot } from "../../src/config.ts";
 import { launchChild } from "../../src/startup.ts";

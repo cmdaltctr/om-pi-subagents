@@ -42,7 +42,7 @@ export interface Workspace {
 
 export async function createWorkspace(options: WorkspaceOptions = {}): Promise<Workspace> {
 	const model = await startFakeModel();
-	const root = await mkdtemp(join(tmpdir(), "ompss-pi-"));
+	const root = await mkdtemp(join(tmpdir(), "omps-pi-"));
 	const agentDir = join(root, "agent");
 	const cwd = join(root, "work");
 	const mcpCallLog = join(root, "mcp-calls.log");
@@ -121,7 +121,7 @@ export interface FixtureOptions extends WorkspaceOptions {
 	args?: string[];
 	/** Extra environment for the child. */
 	env?: Record<string, string>;
-	/** Build the command line with OMPSS's own launcher instead of the fixed isolation flags. */
+	/** Build the command line with OMPS's own launcher instead of the fixed isolation flags. */
 	launch?: (paths: { cwd: string; agentDir: string }) => LaunchPlan;
 	/** Reuse a caller-owned workspace; the caller then disposes it after every fixture. */
 	workspace?: Workspace;

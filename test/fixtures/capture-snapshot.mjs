@@ -5,7 +5,7 @@ import { stripVTControlCharacters } from "node:util";
 /** Capture the focused component, not the editor underneath a regular-mode overlay. */
 export function createSnapshotCapture({ ui, terminal, directory, version, mode, theme }) {
 	return async (stage, suppliedLines) => {
-		const destination = process.env.OMPSS_CAPTURE_DIR;
+		const destination = process.env.OMPS_CAPTURE_DIR;
 		if (!destination) return;
 		if (!/^[a-z-]+$/.test(stage)) throw new Error("Snapshot stage must use lowercase words and hyphens.");
 		ui.renderNow();

@@ -5,7 +5,7 @@
 import { plain } from "./plain.ts";
 import type { RunView } from "./runs.ts";
 
-export const RESULT_MESSAGE = "ompss-result";
+export const RESULT_MESSAGE = "omps-result";
 /** Most result text put into the parent's conversation. The full text stays in output.md. */
 export const MAX_OUTPUT_CHARS = 4000;
 /** Agent-name bound for the single-run status line. */
@@ -60,8 +60,8 @@ export function createNotifier(deps: NotifierDeps) {
 	function status(owner: string): string | undefined {
 		const runs = [...(active.get(owner)?.values() ?? [])];
 		if (!runs.length) return undefined;
-		if (runs.length > 1) return `ompss: ${runs.length} active runs`;
-		return `ompss: ${plain(runs[0].agent, MAX_NAME_CHARS)} ${runs[0].state}`;
+		if (runs.length > 1) return `omps: ${runs.length} active runs`;
+		return `omps: ${plain(runs[0].agent, MAX_NAME_CHARS)} ${runs[0].state}`;
 	}
 
 	function apply(run: RunView): void {
@@ -83,7 +83,7 @@ export function createNotifier(deps: NotifierDeps) {
 
 	function compose(run: RunView, output: string | undefined): string {
 		const directory = deps.directoryFor(run);
-		const lines = [`OMPSS run ${run.id} (${run.agent}) ${run.state}.`, `Files: ${directory}`];
+		const lines = [`OMPS run ${run.id} (${run.agent}) ${run.state}.`, `Files: ${directory}`];
 		if (run.error) lines.push(`Error: ${run.error}`);
 		if (output === undefined) lines.push("No output was saved.");
 		else

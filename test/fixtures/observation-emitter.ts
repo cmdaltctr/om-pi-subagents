@@ -17,8 +17,8 @@ export default function observationEmitter(pi: ExtensionAPI): void {
 			model: "fake/counter",
 		};
 		const emit = (snapshot: object, reasons: string[] = [], extra: object = {}) =>
-			pi.appendEntry("ompss-observation", {
-				token: process.env.OMPSS_RUN_TOKEN,
+			pi.appendEntry("omps-observation", {
+				token: process.env.OMPS_RUN_TOKEN,
 				snapshot,
 				reasons,
 				evidenceRevision: ++evidenceRevision,

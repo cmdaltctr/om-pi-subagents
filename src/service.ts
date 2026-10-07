@@ -1,4 +1,4 @@
-// The four OMPSS actions. The `ompss` tool and the `/ompss` command both call these, so they cannot drift apart.
+// The four OMPS actions. The `omps` tool and the `/omps` command both call these, so they cannot drift apart.
 
 import { stat } from "node:fs/promises";
 import { isAbsolute } from "node:path";
@@ -32,7 +32,7 @@ const describeAgent = (agent: AgentSnapshot): string => {
 	const parts = [`tools [${agent.tools.join(", ")}]`];
 	if (agent.model) parts.push(`model ${agent.model}`);
 	if (agent.tools.some((tool) => WRITE_CAPABLE.includes(tool))) parts.push("write-capable");
-	if (agent.tools.includes("ompss")) parts.push("delegation-capable (can select write-capable targets)");
+	if (agent.tools.includes("omps")) parts.push("delegation-capable (can select write-capable targets)");
 	return `${agent.name}: ${parts.join("; ")}`;
 };
 
@@ -107,7 +107,7 @@ export function createService({ registry, manager, directoryFor, flush, delivery
 				cwd,
 				parent: { model: context.model },
 			});
-			return `Started run ${run.id} (${run.agent}) in the background.\nFiles: ${directoryFor(owner, run.id)}\nCheck it with "ompss status ${run.id}". The result arrives as a follow-up message.`;
+			return `Started run ${run.id} (${run.agent}) in the background.\nFiles: ${directoryFor(owner, run.id)}\nCheck it with "omps status ${run.id}". The result arrives as a follow-up message.`;
 		},
 
 		status(owner: string, runId?: string): string {
@@ -131,4 +131,4 @@ export function createService({ registry, manager, directoryFor, flush, delivery
 	};
 }
 
-export type OmpssService = ReturnType<typeof createService>;
+export type OmpsService = ReturnType<typeof createService>;

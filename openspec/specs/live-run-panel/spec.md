@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Let the owning parent see an OMPSS child's run state and current tool activity without opening another terminal.
+Let the owning parent see an OMPS child's run state and current tool activity without opening another terminal.
 
 ## Requirements
 
@@ -19,7 +19,7 @@ The system SHALL show one session-wide fleet strip below the editor when the own
 #### Scenario: Several background runs start
 
 - **WHEN** one parent starts five valid direct runs
-- **THEN** collapsed persistent OMPSS widget content occupies exactly one row
+- **THEN** collapsed persistent OMPS widget content occupies exactly one row
 - **AND** expansion makes every active root selectable without replacing sibling state
 
 #### Scenario: More runs exist than the panel can show
@@ -129,7 +129,7 @@ An old run's delayed preview MUST NOT replace active work, another run's data or
 #### Scenario: A session ends while work or an output read is pending
 
 - **WHEN** the owning session shuts down or is replaced
-- **THEN** its OMPSS panel is cleared
+- **THEN** its OMPS panel is cleared
 - **AND** later callbacks send neither panel updates nor results to the replacement session
 
 #### Scenario: A new run starts before an old preview finishes loading
@@ -177,7 +177,7 @@ Display failures MUST NOT affect run state, saved output, cleanup or terminal re
 
 ### Requirement: Bound expanded fleet content
 
-Expanded fleet content SHALL contain a summary, at most the effective visible-root budget and at most one navigation/overflow row. The configured default SHALL be five visible roots. The collapsed view MUST NOT show per-agent activity rows or answer previews. Changing view state SHALL affect only this session's OMPSS presentation.
+Expanded fleet content SHALL contain a summary, at most the effective visible-root budget and at most one navigation/overflow row. The configured default SHALL be five visible roots. The collapsed view MUST NOT show per-agent activity rows or answer previews. Changing view state SHALL affect only this session's OMPS presentation.
 
 #### Scenario: Default expansion is used
 
@@ -188,5 +188,5 @@ Expanded fleet content SHALL contain a summary, at most the effective visible-ro
 #### Scenario: Another extension has a widget
 
 - **WHEN** the fleet is expanded or collapsed beside a todo widget
-- **THEN** only the OMPSS widget changes
+- **THEN** only the OMPS widget changes
 - **AND** todo's contents and expansion state remain unchanged

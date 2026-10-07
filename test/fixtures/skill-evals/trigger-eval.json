@@ -1,20 +1,20 @@
 [
-	{ "query": "Configure OMPSS for four parallel subagents and three generations.", "should_trigger": true },
-	{ "query": "My OMPSS child needs to delegate using the mapped ompss tool.", "should_trigger": true },
-	{ "query": "Why does OMPSS refuse another run after failed cleanup?", "should_trigger": true },
-	{ "query": "Cancel one OMPSS subtree while its siblings keep working.", "should_trigger": true },
-	{ "query": "Keep om-pi-todo tasks separate in OMPSS children and a sync parent.", "should_trigger": true },
-	{ "query": "OMPSS has no mapped agents. Help me set up its YAML.", "should_trigger": true },
+	{ "query": "Configure OMPS for four parallel subagents and three generations.", "should_trigger": true },
+	{ "query": "My OMPS child needs to delegate using the mapped omps tool.", "should_trigger": true },
+	{ "query": "Why does OMPS refuse another run after failed cleanup?", "should_trigger": true },
+	{ "query": "Cancel one OMPS subtree while its siblings keep working.", "should_trigger": true },
+	{ "query": "Keep om-pi-todo tasks separate in OMPS children and a sync parent.", "should_trigger": true },
+	{ "query": "OMPS has no mapped agents. Help me set up its YAML.", "should_trigger": true },
 	{
-		"query": "How do I expand the OMPSS compact fleet and inspect a descendant without losing my draft?",
+		"query": "How do I expand the OMPS compact fleet and inspect a descendant without losing my draft?",
 		"should_trigger": true
 	},
 	{
-		"query": "Use /ompss-settings to enable OMMS and Todo on one agent, then disable both safely.",
+		"query": "Use /omps-settings to enable OMMS and Todo on one agent, then disable both safely.",
 		"should_trigger": true
 	},
 	{
-		"query": "A nested OMPSS run finished; should the parent update its linked todo and memory now?",
+		"query": "A nested OMPS run finished; should the parent update its linked todo and memory now?",
 		"should_trigger": true
 	},
 	{ "query": "Summarise this README without delegating any work.", "should_trigger": false },
@@ -23,7 +23,7 @@
 	{ "query": "Explain JavaScript event loops and promises.", "should_trigger": false },
 	{ "query": "Find a paper about cancer metabolism.", "should_trigger": false },
 	{ "query": "Fix the CSS spacing in this dashboard.", "should_trigger": false },
-	{ "query": "Help me enable a standalone memory plugin outside OMPSS.", "should_trigger": false },
+	{ "query": "Help me enable a standalone memory plugin outside OMPS.", "should_trigger": false },
 	{ "query": "Show the built-in Pi tool output expansion keyboard shortcut.", "should_trigger": false },
 	{ "query": "Write a short summary for a published research paper.", "should_trigger": false }
 ]

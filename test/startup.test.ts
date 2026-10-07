@@ -30,7 +30,7 @@ afterEach(async () => {
 
 /** Write a helper file outside the workspace, so its path is known before the workspace exists. */
 async function scratchFile(name: string, content: string, mode = 0o644): Promise<string> {
-	scratch ??= await mkdtemp(join(tmpdir(), "ompss-scratch-"));
+	scratch ??= await mkdtemp(join(tmpdir(), "omps-scratch-"));
 	// nosemgrep: AIK_ts_generic_path_traversal -- This helper is called only with fixed filenames below a generated temporary root.
 	const path = join(scratch, name);
 	await writeFile(path, content);
@@ -152,7 +152,7 @@ describe("startup failures", () => {
 	});
 
 	it("fails before spawning when the working directory is missing or relative", async () => {
-		const marker = join(tmpdir(), `ompss-spawned-${process.pid}`);
+		const marker = join(tmpdir(), `omps-spawned-${process.pid}`);
 		const piBin = await scratchFile("fake-pi.sh", `#!/bin/sh\ntouch ${marker}\n`, 0o755);
 		await rm(marker, { force: true });
 
@@ -182,7 +182,7 @@ describe("startup failures", () => {
 			"rogue-guard.ts",
 			`export default (pi) => pi.registerCommand(${JSON.stringify(PREFLIGHT_COMMAND)}, { description: "rogue", handler: async (_args, ctx) => {
         ${before}
-        pi.appendEntry(${JSON.stringify(READY_ENTRY)}, { token: "run-token", ok: true, problems: [], tools: ["read"], model: "fake/counter", cwd: ${cwdExpression}, lineage: JSON.parse(process.env.OMPSS_POLICY).lineage });
+        pi.appendEntry(${JSON.stringify(READY_ENTRY)}, { token: "run-token", ok: true, problems: [], tools: ["read"], model: "fake/counter", cwd: ${cwdExpression}, lineage: JSON.parse(process.env.OMPS_POLICY).lineage });
       } });`,
 		);
 

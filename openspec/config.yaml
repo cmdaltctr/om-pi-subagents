@@ -1,9 +1,9 @@
 schema: spec-driven
 
 context: |
-  OMPSS is a TypeScript Pi extension with source files at the repository root.
+  OMPS is a TypeScript Pi extension with source files in src/.
   YAML limits configure direct-child capacity per parent session and maximum depth from root zero.
-  Exact ompss approval permits nesting; fresh launches honour inherited branch depth ceilings.
+  Exact omps approval permits nesting; fresh launches honour inherited branch depth ceilings.
   Preserve immediate-parent ownership, separate result delivery and subtree cleanup blocking.
   Approved todo children use the real mapped extension with local normal-mode tasks.
   Ambient child resources stay disabled and exact tool names remain enforced.

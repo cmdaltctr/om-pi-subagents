@@ -32,6 +32,13 @@ function scripted(script: { commands: unknown[]; prompt: RpcRecord }, records: R
 const handled = { success: true, data: { disposition: "handled" } };
 
 describe("runGate", () => {
+	it("rejects an old namespace preflight rather than sending a task", async () => {
+		const oldCommand = { ...guardCommand, name: "ompss-child-preflight" };
+		await expect(runGate(input, scripted({ commands: [oldCommand], prompt: handled }), 1000, fail)).rejects.toThrow(
+			/child guard is not loaded/,
+		);
+	});
+
 	it("accepts a loaded guard, a handled preflight and a valid readiness entry", async () => {
 		const readiness = await runGate(input, scripted({ commands: [guardCommand], prompt: handled }), 1000, fail);
 		expect(readiness.ok).toBe(true);

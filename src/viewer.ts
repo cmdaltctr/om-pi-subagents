@@ -21,7 +21,7 @@ export interface VisibleAgentsInput {
 	ensureLoaded(): Promise<{ diagnostics: readonly string[] }>;
 }
 
-export const TREE_ENTRY = "ompss-tree";
+export const TREE_ENTRY = "omps-tree";
 /** A launch acknowledgement's own data: identity plus the captured agent label. */
 export interface RunCardIdentity extends AcknowledgementData {}
 interface ViewerOptions {
@@ -113,7 +113,7 @@ export class RunViewer {
 				return undefined;
 			})
 			.catch((error: unknown) => {
-				this.notify(owner, `OMPSS display settings: ${(error as Error).message}`);
+				this.notify(owner, `OMPS display settings: ${(error as Error).message}`);
 			});
 	}
 
@@ -156,7 +156,7 @@ export class RunViewer {
 		const owner = ctx.sessionManager.getSessionId();
 		const trees = this.options.observations.trees(owner);
 		const selected = runId ? trees.find((tree) => tree.nodes.some((node) => node.runId === runId)) : undefined;
-		if (runId && !selected) throw new Error("Unknown or unowned run. Use /ompss inspect without an id.");
+		if (runId && !selected) throw new Error("Unknown or unowned run. Use /omps inspect without an id.");
 		if (!trees.length) return void ctx.ui.notify("No runs to inspect in this session.", "info");
 		this.activate(ctx);
 		const read = createDetailReader(this.options.storeRoot, this.options.observations, owner);

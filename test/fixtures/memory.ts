@@ -22,7 +22,7 @@ const entryOf = (manifestDir: string): string => {
  * then this machine's global Pi-managed copy. Absent everywhere, the caller reports a test gap.
  */
 export function resolveMemoryExtension(): string | undefined {
-	if (process.env.OMPSS_OMMS_ENTRY) return process.env.OMPSS_OMMS_ENTRY;
+	if (process.env.OMPS_OMMS_ENTRY) return process.env.OMPS_OMMS_ENTRY;
 	const candidates = [
 		join(process.cwd(), "node_modules", "om-memory-system"),
 		join(homedir(), ".pi", "agent", "npm", "node_modules", "om-memory-system"),
@@ -93,7 +93,7 @@ export async function startMemoryChild(
 	return startPi({
 		mcp: false,
 		workspace: options.workspace,
-		env: { OMPSS_PI_BIN: PI_BIN },
+		env: { OMPS_PI_BIN: PI_BIN },
 		seed: async (paths) => {
 			if (options.deadEmbeddings) {
 				const config = join(paths.home, ".config", "omms");

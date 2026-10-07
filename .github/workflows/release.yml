@@ -8,10 +8,12 @@ name: Release
 #      creates a GitHub release.
 #   4. The publish job tests that exact commit, then STAGES the version on npm.
 #      Nothing is installable yet.
-#   5. You approve the staged version with two-factor authentication:
+#   5. The release note records the captured stage UUID. The human approves with 2FA:
+#        bun run release:approve
+#      In Pi: ! bun run release:approve. If UUID capture failed, list stages and pass one:
 #        npm stage list om-pi-subagents
-#        npm stage approve <stage-id>
-#      or use the Staged tab at https://www.npmjs.com/package/om-pi-subagents
+#        bun run release:approve <stage-uuid>
+#      Direct approval uses the note's exact npm stage approve command, or the Staged tab.
 #
 # No npm token exists. npm trusts this workflow file through OIDC (trusted publishing).
 # Publishing happens in this run, not in a tag-push workflow, because a tag made by
@@ -75,7 +77,7 @@ jobs:
       id-token: write # npm trusted publishing (OIDC)
     env:
       # Host setup installs the pinned Pi CLI alongside its packages, as in CI.
-      OMPSS_PI_BIN: ${{ github.workspace }}/.pi-host/node_modules/.bin/pi
+      OMPS_PI_BIN: ${{ github.workspace }}/.pi-host/node_modules/.bin/pi
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -123,22 +125,39 @@ jobs:
       # No token: npm authenticates this workflow through OIDC. The version waits in the
       # Staged tab on npm until the maintainer approves it with 2FA.
       - name: Stage on npm
-        run: npm stage publish --access public
+        id: stage
+        shell: bash
+        run: |
+          set -euo pipefail
+          output="$(mktemp "${RUNNER_TEMP}/npm-stage.XXXXXX")"
+          npm stage publish --access public 2>&1 | tee "$output"
+          uuid='[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}'
+          stage_id="$(grep -Eo "staged with id[[:space:]]+$uuid" "$output" | grep -Eo "$uuid" | tail -1 || true)"
+          printf 'stage_id=%s\n' "$stage_id" >> "$GITHUB_OUTPUT"
 
       - name: Add the approval steps to the GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
           TAG_NAME: ${{ needs.release-please.outputs.tag_name }}
           RELEASE_VERSION: ${{ needs.release-please.outputs.version }}
+          STAGE_ID: ${{ steps.stage.outputs.stage_id }}
+        shell: bash
         run: |
+          set -euo pipefail
           gh release view "${TAG_NAME}" --repo "${GITHUB_REPOSITORY}" --json body --jq .body > notes.md
           {
             echo
             echo "---"
             echo
             echo "**npm:** \`om-pi-subagents@${RELEASE_VERSION}\` is staged and not yet installable."
-            echo "Approve it with 2FA in the Staged tab at https://www.npmjs.com/package/om-pi-subagents,"
-            echo "or run \`npm stage list om-pi-subagents\`, then \`npm stage approve <stage-id>\`."
-            echo "To try it first: \`npm stage download <stage-id>\` and install the tarball."
+            echo "Human approval requires 2FA. Use the Staged tab at https://www.npmjs.com/package/om-pi-subagents."
+            if [ -n "$STAGE_ID" ]; then
+              echo "From the repository, run \`bun run release:approve\` (in Pi: \`! bun run release:approve\`)."
+              echo "Direct approval: \`npm stage approve ${STAGE_ID}\`."
+              echo "To try it first: \`npm stage download ${STAGE_ID}\` and install the tarball."
+            else
+              echo "The stage UUID was not captured. Run \`npm stage list om-pi-subagents\` and select this version."
+              echo "Then run \`bun run release:approve <stage-uuid>\` with that explicit UUID."
+            fi
           } >> notes.md
           gh release edit "${TAG_NAME}" --repo "${GITHUB_REPOSITORY}" --notes-file notes.md

@@ -1,19 +1,19 @@
-# OMPSS command interface
+# OMPS command interface
 
 ## Purpose
 
-Provide useful bare-command status and require explicit per-agent thinking before launching an OMPSS child.
+Provide useful bare-command status and require explicit per-agent thinking before launching an OMPS child.
 
 ## Requirements
 
-### Requirement: Bare OMPSS shows status
+### Requirement: Bare OMPS shows status
 
-The `/ompss` command SHALL treat absent or whitespace-only arguments as a status request for the current session.
+The `/omps` command SHALL treat absent or whitespace-only arguments as a status request for the current session.
 It MUST NOT launch a child, read the registry or show a usage warning for that valid request.
 
 #### Scenario: The user enters the bare command
 
-- **WHEN** the user enters `/ompss` without arguments
+- **WHEN** the user enters `/omps` without arguments
 - **THEN** the command reports current-session status at information level
 - **AND** it does not start a run or show a usage warning
 
@@ -69,7 +69,7 @@ This change MUST NOT add automatic model fallback.
 
 ### Requirement: Preserve explicit commands and useful validation
 
-Existing `list`, `run`, `status`, `cancel` and `inspect [run-id]` forms SHALL keep their meaning and ownership checks. The additive `fleet` form SHALL provide current-session fleet access without execution. Unknown or malformed subcommands SHALL show actionable usage guidance. Service failures SHALL remain error notifications. Bare `/ompss` SHALL remain status rather than opening a view.
+Existing `list`, `run`, `status`, `cancel` and `inspect [run-id]` forms SHALL keep their meaning and ownership checks. The additive `fleet` form SHALL provide current-session fleet access without execution. Unknown or malformed subcommands SHALL show actionable usage guidance. Service failures SHALL remain error notifications. Bare `/omps` SHALL remain status rather than opening a view.
 
 #### Scenario: An explicit command is valid
 
@@ -93,13 +93,13 @@ Existing `list`, `run`, `status`, `cancel` and `inspect [run-id]` forms SHALL ke
 
 #### Scenario: Fleet is used in interactive Pi
 
-- **WHEN** the operator enters `/ompss fleet`
+- **WHEN** the operator enters `/omps fleet`
 - **THEN** the current fleet toggles without starting a model request or process
 - **AND** an empty session receives a clear empty-state message
 
 #### Scenario: Fleet is used through RPC
 
-- **WHEN** `/ompss fleet` is requested by an RPC client
+- **WHEN** `/omps fleet` is requested by an RPC client
 - **THEN** it receives bounded plain current-session summary text
 - **AND** no custom terminal widget or modal is attempted
 
@@ -110,11 +110,11 @@ Existing `list`, `run`, `status`, `cancel` and `inspect [run-id]` forms SHALL ke
 
 ### Requirement: Inspect only current-session work
 
-`/ompss inspect` SHALL open the current-session tree without requiring a run id. With an id, it SHALL inspect an owned direct run or validated observed descendant. It MUST reject foreign or unknown ids, report an empty session clearly, and start no process or model request. Inspection SHALL NOT become another model-callable tool action.
+`/omps inspect` SHALL open the current-session tree without requiring a run id. With an id, it SHALL inspect an owned direct run or validated observed descendant. It MUST reject foreign or unknown ids, report an empty session clearly, and start no process or model request. Inspection SHALL NOT become another model-callable tool action.
 
 #### Scenario: The session has no observed work
 
-- **WHEN** `/ompss inspect` is used in a fresh session
+- **WHEN** `/omps inspect` is used in a fresh session
 - **THEN** it reports that the session has no runs to inspect
 - **AND** it neither reads the registry nor starts work
 
@@ -132,17 +132,17 @@ Existing `list`, `run`, `status`, `cancel` and `inspect [run-id]` forms SHALL ke
 
 #### Scenario: Bare status remains useful
 
-- **WHEN** the operator enters `/ompss` without arguments
+- **WHEN** the operator enters `/omps` without arguments
 - **THEN** it retains its existing status behaviour
 - **AND** it does not open the viewer
 
 ### Requirement: Provide native operator settings dialogs
 
-`/ompss-settings` SHALL be the canonical operator settings command, with `/subagents-settings` as an alias. Native dialogs SHALL expose depth, per-parent concurrency, visible roots, fleet/inspection shortcuts and per-agent Memory/Todo switches. The menu SHALL show effective values, sources, selected YAML destination and reload needs. Opening settings SHALL start no process or model request and change no mapping. Registration MUST perform no file access.
+`/omps-settings` SHALL be the canonical operator settings command, with `/subagents-settings` as an alias. Native dialogs SHALL expose depth, per-parent concurrency, visible roots, fleet/inspection shortcuts and per-agent Memory/Todo switches. The menu SHALL show effective values, sources, selected YAML destination and reload needs. Opening settings SHALL start no process or model request and change no mapping. Registration MUST perform no file access.
 
 #### Scenario: The operator opens settings
 
-- **WHEN** `/ompss-settings` is entered with supported UI dialogs
+- **WHEN** `/omps-settings` is entered with supported UI dialogs
 - **THEN** the menu shows current execution and UI values with their source and save destination
 - **AND** an existing agent can be selected to inspect its Memory/Todo mapping states
 - **AND** an edit requires confirmation
@@ -150,7 +150,7 @@ Existing `list`, `run`, `status`, `cancel` and `inspect [run-id]` forms SHALL ke
 #### Scenario: The legacy command is used
 
 - **WHEN** `/subagents-settings` is entered
-- **THEN** it uses the same menu, validation and save destination as `/ompss-settings`
+- **THEN** it uses the same menu, validation and save destination as `/omps-settings`
 
 #### Scenario: A dialog is cancelled
 
@@ -185,7 +185,7 @@ Settings SHALL keep `limits.maxDepth` and `limits.maxConcurrentRuns` in the sele
 
 #### Scenario: The registry path is overridden
 
-- **WHEN** `OMPSS_REGISTRY` selects another file
+- **WHEN** `OMPS_REGISTRY` selects another file
 - **THEN** settings displays and saves that destination while leaving the default registry untouched
 
 #### Scenario: A registry does not yet exist
@@ -241,7 +241,7 @@ Each confirmed setting SHALL be validated and saved using private temporary file
 
 #### Scenario: Todo is also loaded
 
-- **WHEN** an OMPSS setting is saved with real `om-pi-todo` present
+- **WHEN** an OMPS setting is saved with real `om-pi-todo` present
 - **THEN** todo preferences, widget keys, tasks and OpenSpec bindings remain unchanged
 
 ### Requirement: Configure display and shortcuts in YAML
@@ -276,7 +276,7 @@ Version-one YAML SHALL accept optional `ui.maxVisibleAgents`, `ui.toggleKey` and
 
 ### Requirement: Import legacy display preferences explicitly
 
-The old OMPSS display JSON SHALL be read-only compatibility input for `maxVisibleAgents` when YAML omits its replacement. YAML SHALL take precedence. Settings SHALL label a legacy source and offer confirmed import into YAML. Invalid legacy data SHALL produce a diagnostic and use the default. Import MUST NOT delete or rewrite the old file, copy unrelated keys or touch sibling preferences.
+The old OMPS display JSON SHALL be read-only compatibility input for `maxVisibleAgents` when YAML omits its replacement. YAML SHALL take precedence. Settings SHALL label a legacy source and offer confirmed import into YAML. Invalid legacy data SHALL produce a diagnostic and use the default. Import MUST NOT delete or rewrite the old file, copy unrelated keys or touch sibling preferences.
 
 #### Scenario: A valid legacy preference exists
 
@@ -301,20 +301,20 @@ The old OMPSS display JSON SHALL be read-only compatibility input for `maxVisibl
 - **THEN** no file is overwritten
 - **AND** invalid data is diagnosed without changing execution limits
 
-### Requirement: Keep OMPSS settings separate from sibling configuration
+### Requirement: Keep OMPS settings separate from sibling configuration
 
-OMPSS settings SHALL edit only selected OMPSS YAML. They MUST NOT write Pi keybindings, todo preferences/tasks/OpenSpec bindings, or OMMS configuration/stores. View toggles SHALL be session-local. Existing approved-tool and resource mappings SHALL not change merely because a view or settings command opens.
+OMPS settings SHALL edit only selected OMPS YAML. They MUST NOT write Pi keybindings, todo preferences/tasks/OpenSpec bindings, or OMMS configuration/stores. View toggles SHALL be session-local. Existing approved-tool and resource mappings SHALL not change merely because a view or settings command opens.
 
 #### Scenario: Both siblings are loaded
 
-- **WHEN** OMPSS settings is used with real todo and memory extensions present
-- **THEN** only the confirmed OMPSS setting or selected agent's capability lists change
+- **WHEN** OMPS settings is used with real todo and memory extensions present
+- **THEN** only the confirmed OMPS setting or selected agent's capability lists change
 - **AND** sibling data, configuration and shortcuts stay independent
 
 #### Scenario: View state changes
 
 - **WHEN** an operator expands, collapses or inspects a fleet
-- **THEN** no settings file, todo task or memory record is written by OMPSS
+- **THEN** no settings file, todo task or memory record is written by OMPS
 
 ### Requirement: Expose per-agent capability switches
 
@@ -387,7 +387,7 @@ Enabling SHALL validate operator-selected installed resources and propose the se
 
 ### Requirement: Apply capability edits to future launches
 
-Confirmed capability edits SHALL take effect on the selected agent's next fresh launch without requiring an OMPSS reload. Admitted runs SHALL keep their captured tools and resources. Edits MUST NOT mutate parent extension settings or other agent mappings. Descendant targets SHALL use their own fresh mappings rather than inherit a parent's switch state.
+Confirmed capability edits SHALL take effect on the selected agent's next fresh launch without requiring an OMPS reload. Admitted runs SHALL keep their captured tools and resources. Edits MUST NOT mutate parent extension settings or other agent mappings. Descendant targets SHALL use their own fresh mappings rather than inherit a parent's switch state.
 
 #### Scenario: A capability changes while a child runs
 
@@ -398,7 +398,7 @@ Confirmed capability edits SHALL take effect on the selected agent's next fresh 
 #### Scenario: The parent already uses memory and todo
 
 - **WHEN** both child capability controls are Off
-- **THEN** OMPSS does not load those sibling resources into an unmapped child
+- **THEN** OMPS does not load those sibling resources into an unmapped child
 - **AND** parent memory/todo tools and preferences stay unchanged
 
 #### Scenario: Another target is delegated

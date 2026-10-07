@@ -12,7 +12,7 @@ async function startHost(injected = false, failedSubscription = false): Promise<
 	return startPi({
 		mcp: false,
 		args: ["-e", host],
-		env: { OMPSS_PI_BIN: PI_BIN },
+		env: { OMPS_PI_BIN: PI_BIN },
 		seed: async ({ agentDir }) => {
 			for (const name of ["delegator", "middle", "leaf"]) {
 				// nosemgrep: AIK_ts_generic_path_traversal -- Synthetic createWorkspace directory and three literal persona names. Evidence: docs/local-docs/agent-tree-viewer-review-evidence.md.
@@ -25,7 +25,7 @@ async function startHost(injected = false, failedSubscription = false): Promise<
 					["delegator", "middle", "leaf"]
 						.map(
 							(name) =>
-								`  ${name}:\n    persona: ./${name}.md\n    tools: [${name === "leaf" ? "write" : "ompss"}]\n    thinking: off\n` +
+								`  ${name}:\n    persona: ./${name}.md\n    tools: [${name === "leaf" ? "write" : "omps"}]\n    thinking: off\n` +
 								(injected && name === "delegator" ? `    extensions: [${JSON.stringify(emitter)}]\n` : "") +
 								(failedSubscription && name === "middle"
 									? `    extensions: [${JSON.stringify(brokenSubscription)}]\n`
@@ -55,7 +55,7 @@ async function waitTrees(fixture: PiFixture, predicate: (trees: ObservedTree[]) 
 }
 
 const resultMessages = (fixture: PiFixture) =>
-	fixture.records.filter((r) => r.type === "message_end" && r.message?.customType === "ompss-result");
+	fixture.records.filter((r) => r.type === "message_end" && r.message?.customType === "omps-result");
 
 describe.skipIf(!PI_AVAILABLE)("real child observation transport", () => {
 	it("observes two isolated roots through great-grandchildren without model-visible progress or duplicate results", async () => {
@@ -71,16 +71,16 @@ describe.skipIf(!PI_AVAILABLE)("real child observation transport", () => {
 				if (messages.includes("OBSERVATION_MIDDLE_PERSONA"))
 					return hasTool
 						? { text: "Middle answered" }
-						: { tool: "ompss", args: { action: "run", agent: "leaf", task: "SECRET_LEAF_TASK" } };
+						: { tool: "omps", args: { action: "run", agent: "leaf", task: "SECRET_LEAF_TASK" } };
 				if (messages.includes("OBSERVATION_DELEGATOR_PERSONA"))
 					return hasTool
 						? { text: "Delegator answered" }
-						: { tool: "ompss", args: { action: "run", agent: "middle", task: "SECRET_MIDDLE_TASK" } };
+						: { tool: "omps", args: { action: "run", agent: "middle", task: "SECRET_MIDDLE_TASK" } };
 				return { text: "Root consumed results" };
 			};
 			for (let i = 0; i < 2; i++)
 				expect(
-					(await fixture.send({ type: "prompt", message: `/ompss run delegator SECRET_ROOT_TASK_${i}` })).data
+					(await fixture.send({ type: "prompt", message: `/omps run delegator SECRET_ROOT_TASK_${i}` })).data
 						.disposition,
 				).toBe("handled");
 			const live = await waitTrees(
@@ -97,7 +97,7 @@ describe.skipIf(!PI_AVAILABLE)("real child observation transport", () => {
 				for (let i = 1; i < tree.nodes.length; i++) expect(tree.nodes[i].owner).toBe(tree.nodes[i - 1].childSessionId);
 				expect(tree.nodes.every((node) => node.model === "fake/counter")).toBe(true);
 				// Knowing a descendant id adds no control authority.
-				await fixture.send({ type: "prompt", message: `/ompss cancel ${tree.nodes[2].runId}` });
+				await fixture.send({ type: "prompt", message: `/omps cancel ${tree.nodes[2].runId}` });
 			}
 			expect(fixture.records.filter((r) => r.method === "notify").some((r) => r.message?.includes("unknown run"))).toBe(
 				true,
@@ -128,7 +128,7 @@ describe.skipIf(!PI_AVAILABLE)("real child observation transport", () => {
 			await fixture.waitFor(() => resultMessages(fixture).length === 2);
 			expect(resultMessages(fixture)).toHaveLength(2);
 			for (const body of fixture.model.requests as { messages: unknown[] }[])
-				expect(JSON.stringify(body.messages)).not.toMatch(/ompss-observation|activeTools|rootSessionId|nodes-omitted/);
+				expect(JSON.stringify(body.messages)).not.toMatch(/omps-observation|activeTools|rootSessionId|nodes-omitted/);
 			const childRequests = (marker: string) =>
 				fixture.model.requests.filter((body) => JSON.stringify(body).includes(marker));
 			expect(childRequests("OBSERVATION_LEAF_PERSONA")).toHaveLength(4);
@@ -145,7 +145,7 @@ describe.skipIf(!PI_AVAILABLE)("real child observation transport", () => {
 		const fixture = await startHost(true);
 		try {
 			fixture.model.script = [{ text: "Answer", delayMs: 500 }];
-			await fixture.send({ type: "prompt", message: "/ompss run delegator A task" });
+			await fixture.send({ type: "prompt", message: "/omps run delegator A task" });
 			const trees = await waitTrees(
 				fixture,
 				(values) => values[0].nodes.length === 3 && values[0].nodes[0].state === "completed",
@@ -177,14 +177,14 @@ describe.skipIf(!PI_AVAILABLE)("real child observation transport", () => {
 				if (messages.includes("OBSERVATION_MIDDLE_PERSONA"))
 					return hasTool
 						? { text: "Middle answer" }
-						: { tool: "ompss", args: { action: "run", agent: "leaf", task: "Leaf task" } };
+						: { tool: "omps", args: { action: "run", agent: "leaf", task: "Leaf task" } };
 				if (messages.includes("OBSERVATION_DELEGATOR_PERSONA"))
 					return hasTool
 						? { text: "Delegator answer" }
-						: { tool: "ompss", args: { action: "run", agent: "middle", task: "Middle task" } };
+						: { tool: "omps", args: { action: "run", agent: "middle", task: "Middle task" } };
 				return { text: "Root answer" };
 			};
-			await fixture.send({ type: "prompt", message: "/ompss run delegator Task" });
+			await fixture.send({ type: "prompt", message: "/omps run delegator Task" });
 			const trees = await waitTrees(fixture, (values) => values[0].nodes[0].state === "completed");
 			expect(trees[0].nodes, JSON.stringify(trees[0])).toHaveLength(4);
 			expect(trees[0].nodes.every((node) => node.state === "completed")).toBe(true);
@@ -202,7 +202,7 @@ describe.skipIf(!PI_AVAILABLE)("real child observation transport", () => {
 		const fixture = await startHost();
 		try {
 			fixture.model.script = [{ text: "Answer", delayMs: 500 }];
-			await fixture.send({ type: "prompt", message: "/ompss run leaf A task" });
+			await fixture.send({ type: "prompt", message: "/omps run leaf A task" });
 			await fixture.send({ type: "prompt", message: "/fixture-broken-display" });
 			const trees = await waitTrees(fixture, (values) => values[0].nodes[0].state === "completed");
 			expect(trees[0].reasons).toContain("connection-lost");

@@ -1,4 +1,4 @@
-# OMPSS documentation
+# OMPS documentation
 
 - [Install](INSTALL.md): load the package and its native viewer modules.
 - [Set up agents](SETUP.md): map personas and approve tools.

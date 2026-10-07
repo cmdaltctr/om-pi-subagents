@@ -6,10 +6,10 @@ import { describe, expect, it } from "vitest";
 
 const hosts = [
 	{ version: "0.99.1", modules: process.env.PI_HOST_MODULES ?? resolve(".pi-host/node_modules") },
-	{ version: "1.0.4", modules: process.env.OMPSS_CURRENT_HOST_MODULES },
+	{ version: "1.0.4", modules: process.env.OMPS_CURRENT_HOST_MODULES },
 ];
 for (const host of hosts)
-	describe.skipIf(!host.modules)(`OMPSS native viewer ${host.version}`, () => {
+	describe.skipIf(!host.modules)(`OMPS native viewer ${host.version}`, () => {
 		for (const mode of ["regular", "fullscreen"])
 			it.each([
 				["dark", false],
@@ -17,7 +17,7 @@ for (const host of hosts)
 				["light", false],
 				["light", true],
 			] as const)(`${mode}: %s theme (delayed file reads: %s)`, (theme, delayedReads) => {
-				const directory = mkdtempSync(join(tmpdir(), "ompss-viewer-aliases-"));
+				const directory = mkdtempSync(join(tmpdir(), "omps-viewer-aliases-"));
 				try {
 					const modules = resolve(host.modules!);
 					expect(existsSync(join(modules, "@earendil-works/pi-tui/dist/index.js"))).toBe(true);

@@ -210,7 +210,7 @@ describe("delivery separation", () => {
 		h.notifier.onChange(view({ id: "run-2", state: "starting" }));
 		release("OLD OUTPUT");
 		await pending;
-		expect(h.setStatus).toHaveBeenLastCalledWith("ompss: reader starting");
+		expect(h.setStatus).toHaveBeenLastCalledWith("omps: reader starting");
 	});
 
 	it.each([undefined, "replacement"])("rechecks ownership after an output read when owner becomes %s", async (next) => {
@@ -252,7 +252,7 @@ describe("status line", () => {
 		notifier.onChange(view({ state: "running" }));
 		notifier.onChange(view({ state: "stopping" }));
 		notifier.onChange(view({ state: "completed" }));
-		expect(statuses).toEqual(["ompss: reader starting", "ompss: reader running", "ompss: reader stopping", undefined]);
+		expect(statuses).toEqual(["omps: reader starting", "omps: reader running", "omps: reader stopping", undefined]);
 	});
 
 	it("does nothing when there is no UI", () => {

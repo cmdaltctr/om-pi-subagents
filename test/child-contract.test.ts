@@ -29,7 +29,7 @@ describe("preflight command", () => {
 	});
 
 	it("returns disposition `handled`, appends a private readiness entry and sends no model request", async () => {
-		pi = await startPi({ args: guardArgs, env: { OMPSS_RUN_TOKEN: "token-123" } });
+		pi = await startPi({ args: guardArgs, env: { OMPS_RUN_TOKEN: "token-123" } });
 		const response = await pi.send({ type: "prompt", message: `/${PREFLIGHT_COMMAND}` });
 
 		expect(response).toMatchObject({ success: true, data: { disposition: "handled" } });

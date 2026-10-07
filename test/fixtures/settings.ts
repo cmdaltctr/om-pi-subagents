@@ -6,7 +6,7 @@ export async function editRpcSettings(
 	field: 0 | 1 | 2 | 3 | 4,
 	value: string,
 	confirmed = true,
-	command = "/ompss-settings",
+	command = "/omps-settings",
 ): Promise<PiRecord> {
 	const seen = new Set<string>(fixture.records.map((record) => record.id).filter(Boolean));
 	const request0 = fixture.send({ type: "prompt", message: command });

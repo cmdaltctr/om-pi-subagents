@@ -6,7 +6,7 @@ const identity: AcknowledgementData = { owner: "session", runId: "owned-12345678
 const launchText = [
 	"Started run owned-12345678 (worker) in the background.",
 	"Files: /saved/session/owned-12345678",
-	'Check it with "ompss status owned-12345678". The result arrives as a follow-up message.',
+	'Check it with "omps status owned-12345678". The result arrives as a follow-up message.',
 ].join("\n");
 
 describe("compact launch acknowledgements", () => {
@@ -27,7 +27,7 @@ describe("compact launch acknowledgements", () => {
 		expect(expanded.join("\n")).toContain("Started run owned-12345678");
 		expect(expanded.join("\n")).toContain("Files:");
 		// Host expansion reveals acknowledgement text only: one acknowledgement row, no per-run rows or navigation.
-		expect(expanded.filter((line) => line.startsWith("OMPSS:"))).toHaveLength(1);
+		expect(expanded.filter((line) => line.startsWith("OMPS:"))).toHaveLength(1);
 		expect(expanded.join("\n")).not.toContain("descendants");
 		expect(expanded.join("\n")).not.toMatch(/running|Arrows|inspect/);
 	});

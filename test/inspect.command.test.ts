@@ -13,10 +13,10 @@ const processes = vi.hoisted(() => ({ spawn: vi.fn(), spawnSync: vi.fn(), execFi
 vi.mock("node:child_process", () => processes);
 let directory: string;
 beforeEach(async () => {
-	directory = await fs.mkdtemp(join(tmpdir(), "ompss-inspect-command-"));
+	directory = await fs.mkdtemp(join(tmpdir(), "omps-inspect-command-"));
 	vi.stubEnv("PI_CODING_AGENT_DIR", directory);
 	vi.stubEnv("XDG_CONFIG_HOME", join(directory, "config"));
-	vi.stubEnv("OMPSS_REGISTRY", join(directory, "malformed.yaml"));
+	vi.stubEnv("OMPS_REGISTRY", join(directory, "malformed.yaml"));
 	await fs.writeFile(join(directory, "malformed.yaml"), "version: [");
 	vi.clearAllMocks();
 });
@@ -46,7 +46,7 @@ function setup(mode: "rpc" | "tui" = "rpc") {
 		sessionManager: { getSessionId: () => "session" },
 	} as unknown as ExtensionCommandContext;
 	const run = async (args: string) => {
-		await commands.get("ompss")!.handler(args, ctx);
+		await commands.get("omps")!.handler(args, ctx);
 	};
 	return { runtime, ui, ctx, pi, run, tools };
 }

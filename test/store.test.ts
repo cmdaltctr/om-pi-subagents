@@ -8,7 +8,7 @@ import { redact, RunStore } from "../src/store.ts";
 
 let root: string;
 beforeEach(async () => {
-	root = await mkdtemp(join(tmpdir(), "ompss-store-"));
+	root = await mkdtemp(join(tmpdir(), "omps-store-"));
 });
 afterEach(async () => {
 	await chmod(root, 0o700).catch(() => undefined);

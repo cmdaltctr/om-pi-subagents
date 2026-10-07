@@ -1,4 +1,4 @@
-# OMPSS skill evaluation cases
+# OMPS skill evaluation cases
 
 These development fixtures stay outside the published package.
 `evals.json` defines operational prompts and expected safeguards, including fleet navigation,
@@ -13,7 +13,7 @@ Run the deterministic checks from the repository root:
 bun run test test/skill-evals.test.ts test/runs.parallel.test.ts test/nesting.launch.test.ts test/service.test.ts test/nesting.cleanup.test.ts test/todo.parent.test.ts test/fleet.test.ts test/interactive-fleet.test.ts test/capability-settings.e2e.test.ts test/memory.coexistence.test.ts
 ```
 
-Set `OMPSS_CURRENT_HOST_MODULES` to the installed Pi 1.0.4 `node_modules` folder to exercise both interactive hosts.
+Set `OMPS_CURRENT_HOST_MODULES` to the installed Pi 1.0.4 `node_modules` folder to exercise both interactive hosts.
 Without that variable, the current-host interactive case skips and must be reported as unverified.
 These tests use disposable settings, synthetic credentials, a local fake model and the real pinned todo package.
 They verify supported runtime behaviour and fixture structure. They do not measure an unscripted model's skill selection,

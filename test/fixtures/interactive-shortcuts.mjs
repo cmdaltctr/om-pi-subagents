@@ -3,7 +3,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-import ompss from "../../src/index.ts";
+import omps from "../../src/index.ts";
 
 const [modules, scenario] = process.argv.slice(2);
 const load = (name, file) => import(pathToFileURL(join(resolve(modules), name, file)).href);
@@ -48,10 +48,10 @@ class MemoryTerminal {
 	resize() {}
 }
 
-const directory = await mkdtemp(join(tmpdir(), "ompss-native-shortcuts-"));
+const directory = await mkdtemp(join(tmpdir(), "omps-native-shortcuts-"));
 const registry = join(directory, "om-pi-subagents.yaml");
 process.env.PI_CODING_AGENT_DIR = directory;
-process.env.OMPSS_REGISTRY = registry;
+process.env.OMPS_REGISTRY = registry;
 
 const registryText = {
 	defaults: "version: 1\nagents: {}\n",
@@ -95,7 +95,7 @@ const pi = {
 	sendMessage() {},
 	sendUserMessage() {},
 };
-ompss(pi);
+omps(pi);
 
 const ctx = {
 	mode: "tui",
@@ -140,7 +140,7 @@ const flush = async () => {
 };
 /** A real run-manager touch so the runtime exists; listing an empty registry starts no process. */
 const createRuntime = async () => {
-	const tool = tools.find((definition) => definition.name === "ompss");
+	const tool = tools.find((definition) => definition.name === "omps");
 	await tool.execute("shortcut-probe", { action: "list" }, undefined, undefined, ctx);
 };
 // A tab-misconfigured registry is invalid, so no launch-facing action can create the runtime here.
@@ -186,7 +186,7 @@ try {
 		);
 		terminal.input("\x0f");
 		await flush();
-		assert.equal(widgetCount(), initial, "native ctrl+o must not run an OMPSS action");
+		assert.equal(widgetCount(), initial, "native ctrl+o must not run an OMPS action");
 	} else if (scenario === "custom" || scenario === "reload") {
 		if (scenario === "reload") {
 			assert.deepEqual([...shortcuts.keys()].toSorted(), ["alt+i", "alt+o"], "initial bind uses defaults");

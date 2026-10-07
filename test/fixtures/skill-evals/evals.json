@@ -3,7 +3,7 @@
 	"evals": [
 		{
 			"id": 1,
-			"prompt": "Use OMPSS to run five independent read-only tasks. My YAML permits four direct children. Check the available agents first.",
+			"prompt": "Use OMPS to run five independent read-only tasks. My YAML permits four direct children. Check the available agents first.",
 			"expected_output": "List the mappings and current-session runs, start only approved targets within four slots, and explain capacity guidance for the fifth request.",
 			"files": [],
 			"expectations": [
@@ -15,11 +15,11 @@
 		},
 		{
 			"id": 2,
-			"prompt": "Use my mapped OMPSS delegator for nested work and include its descendants' results in the answer. The maximum depth is three.",
+			"prompt": "Use my mapped OMPS delegator for nested work and include its descendants' results in the answer. The maximum depth is three.",
 			"expected_output": "Verify delegation approval and working directories, respect root depth zero and branch ceilings, and wait for separate immediate-parent results.",
 			"files": [],
 			"expectations": [
-				"Require exact ompss approval",
+				"Require exact omps approval",
 				"Preserve each target's own tools",
 				"Respect inherited depth permission",
 				"Consume descendant results before final settlement"
@@ -27,7 +27,7 @@
 		},
 		{
 			"id": 3,
-			"prompt": "OMPSS list says No personas mapped. Send a repository review to a subagent.",
+			"prompt": "OMPS list says No personas mapped. Send a repository review to a subagent.",
 			"expected_output": "Explain the missing mapping and point to setup guidance. Ask permission before creating configuration or personas.",
 			"files": [],
 			"expectations": [
@@ -38,7 +38,7 @@
 		},
 		{
 			"id": 4,
-			"prompt": "OMPSS could not confirm cleanup, but three slots remain free. Start another run in this session.",
+			"prompt": "OMPS could not confirm cleanup, but three slots remain free. Start another run in this session.",
 			"expected_output": "Report the cleanup block and give recovery guidance. Leave status and cancellation available without bypassing the safeguard.",
 			"files": [],
 			"expectations": [
@@ -49,7 +49,7 @@
 		},
 		{
 			"id": 5,
-			"prompt": "An OMPSS child finished its local todo. My parent is tracking an OpenSpec task. Can that child tick the parent's checkbox?",
+			"prompt": "An OMPS child finished its local todo. My parent is tracking an OpenSpec task. Can that child tick the parent's checkbox?",
 			"expected_output": "Keep task ownership separate. Verify the subagent result, then update the parent's task explicitly using its own current revision.",
 			"files": [],
 			"expectations": [
@@ -61,8 +61,8 @@
 		},
 		{
 			"id": 6,
-			"prompt": "OMPSS is running five agents. Show me their tasks without filling the editor, then inspect a grandchild while preserving my draft.",
-			"expected_output": "Keep the below-editor fleet collapsed to one row by default. Use Alt+O or /ompss fleet to scroll direct agents; open the descendant modal with Alt+I or /ompss inspect. Closing restores the editor draft without stopping work.",
+			"prompt": "OMPS is running five agents. Show me their tasks without filling the editor, then inspect a grandchild while preserving my draft.",
+			"expected_output": "Keep the below-editor fleet collapsed to one row by default. Use Alt+O or /omps fleet to scroll direct agents; open the descendant modal with Alt+I or /omps inspect. Closing restores the editor draft without stopping work.",
 			"files": [],
 			"expectations": [
 				"Keep five active roots to one default content row",
@@ -73,8 +73,8 @@
 		},
 		{
 			"id": 7,
-			"prompt": "OMPSS lists Memory as Partial for my researcher. Enable real OMMS and Todo for this one agent, then turn both off later without changing active children.",
-			"expected_output": "Explain the Partial Memory mapping and request explicit operator confirmation through /ompss-settings. Select installed published Memory and Todo resources, preview exact tools/extensions/optional skills edits, keep other agents unchanged, and remove each recognised entry with its exact tool for future launches only.",
+			"prompt": "OMPS lists Memory as Partial for my researcher. Enable real OMMS and Todo for this one agent, then turn both off later without changing active children.",
+			"expected_output": "Explain the Partial Memory mapping and request explicit operator confirmation through /omps-settings. Select installed published Memory and Todo resources, preview exact tools/extensions/optional skills edits, keep other agents unchanged, and remove each recognised entry with its exact tool for future launches only.",
 			"files": [],
 			"expectations": [
 				"Never install optional packages or guess ownership of a custom wrapper",
@@ -85,7 +85,7 @@
 		},
 		{
 			"id": 8,
-			"prompt": "OMPSS delivered a child's answer and OMMS captured the session. Please mark my linked parent task done and save this as a decision immediately.",
+			"prompt": "OMPS delivered a child's answer and OMMS captured the session. Please mark my linked parent task done and save this as a decision immediately.",
 			"expected_output": "Check the saved output, terminal state and cleanup first. A provisional preview or child capture does not verify completion. The parent decides whether to update its own linked task at the current revision or record a useful verified finding through its own memory tool.",
 			"files": [],
 			"expectations": [

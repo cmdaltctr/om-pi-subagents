@@ -18,8 +18,8 @@ const extension = await resolveTodoExtension();
 const todoRoot = dirname(extension);
 const loadTodo = (file) => import(pathToFileURL(join(todoRoot, file)).href);
 const workspace = await createWorkspace({ mcp: false });
-Object.assign(process.env, workspace.isolationEnv, { OMPSS_CHILD: "", OMPSS_REGISTRY: "" });
-delete process.env.OMPSS_REGISTRY;
+Object.assign(process.env, workspace.isolationEnv, { OMPS_CHILD: "", OMPS_REGISTRY: "" });
+delete process.env.OMPS_REGISTRY;
 const preferencesPath = await seedTodoPreferences(workspace.agentDir, todoMode);
 await writeFile(
 	preferencesPath,
@@ -99,15 +99,15 @@ const api = (source) => ({
 	setActiveTools: forbidden,
 	setModel: forbidden,
 	setThinkingLevel: forbidden,
-	getActiveTools: () => ["todo", "ompss"],
+	getActiveTools: () => ["todo", "omps"],
 });
 const emit = async (name, context, source) => {
 	for (const hook of hooks)
 		if (hook.name === name && (!source || source === hook.source)) await hook.handler({ type: name }, context);
 };
 let runtimeOf;
-const loadOmpss = () => {
-	runtimeOf = registerRuntime(api("ompss"));
+const loadOmps = () => {
+	runtimeOf = registerRuntime(api("omps"));
 };
 const loadRealTodo = async () => {
 	await (await import(pathToFileURL(extension).href)).default(api("todo"));
@@ -118,12 +118,12 @@ const todo = async (params, context = ctx) => {
 	return { ...result.details, text: result.content.map((block) => block.text).join("\n") };
 };
 try {
-	if (order === "ompss-first") {
-		loadOmpss();
+	if (order === "omps-first") {
+		loadOmps();
 		await loadRealTodo();
 	} else {
 		await loadRealTodo();
-		loadOmpss();
+		loadOmps();
 	}
 	await emit("session_start", ctx);
 	await emit("session_start", childCtx, "todo");
@@ -149,16 +149,16 @@ try {
 	assert.deepEqual(getSessionMode(childSessionId), { mode: "normal" });
 	const cacheBefore = getPreferences();
 	assert.deepEqual([...shortcuts].map(([key, value]) => [key, value.source]).toSorted(), [
-		// Todo's default shortcut and OMPSS's view keys coexist in either load order.
-		["alt+i", "ompss"],
-		["alt+o", "ompss"],
+		// Todo's default shortcut and OMPS's view keys coexist in either load order.
+		["alt+i", "omps"],
+		["alt+o", "omps"],
 		["ctrl+shift+t", "todo"],
 	]);
 	const definitionsBefore = [...tools].map(([name, tool]) => [name, JSON.stringify(tool.parameters)]);
-	assert.deepEqual(tools.get("ompss").parameters.properties.action.enum, ["list", "run", "status", "cancel"]);
+	assert.deepEqual(tools.get("omps").parameters.properties.action.enum, ["list", "run", "status", "cancel"]);
 
 	// Initialise the real lazy runtime without launching work, then seed display evidence only.
-	await tools.get("ompss").execute("list", { action: "list" }, undefined, undefined, ctx);
+	await tools.get("omps").execute("list", { action: "list" }, undefined, undefined, ctx);
 	const runtime = runtimeOf();
 	const root = {
 		id: "root",
@@ -190,7 +190,7 @@ try {
 		"accepted",
 	);
 	for (const node of runtime.observations.tree(owner, "root").nodes) {
-		const directory = join(workspace.agentDir, "ompss", "runs", node.owner, node.runId);
+		const directory = join(workspace.agentDir, "omps", "runs", node.owner, node.runId);
 		await mkdir(directory, { recursive: true });
 		await writeFile(
 			join(directory, "config.json"),
@@ -207,17 +207,17 @@ try {
 	}
 	runtime.viewer.activate(ctx);
 	const identity = { owner, runId: "root", agent: "leaf" };
-	const card = native.card(tools.get("ompss"), {
+	const card = native.card(tools.get("omps"), {
 		content: [{ type: "text", text: "Started run root (leaf)." }],
 		details: identity,
 	});
-	const entry = native.entry(identity, renderers.get("ompss-tree"));
+	const entry = native.entry(identity, renderers.get("omps-tree"));
 	// Exercise the real compact panel and session-bound messenger without launching a process.
 	const binding = new SessionBinding();
 	binding.bind(ctx);
 	// The real below-editor fleet strip over a session-bound messenger, without launching a process.
 	const fleet = new FleetWidget({
-		messenger: (sessionOwner) => binding.messenger(api("ompss"), sessionOwner),
+		messenger: (sessionOwner) => binding.messenger(api("omps"), sessionOwner),
 		runs: (sessionOwner) => (sessionOwner === owner ? [{ ...root, id: root.id }] : []),
 		trees: (sessionOwner) => runtime.observations.trees(sessionOwner),
 		visibleAgents: () => 4,
@@ -230,8 +230,8 @@ try {
 	fleet.onChange(root);
 	await flush();
 	assert.deepEqual([...host.extensionWidgetsAbove.keys()].toSorted(), ["rpiv-todos"]);
-	assert.deepEqual([...host.extensionWidgetsBelow.keys()].toSorted(), ["ompss"]);
-	const fleetText = () => host.extensionWidgetsBelow.get("ompss").render(100).join("\n");
+	assert.deepEqual([...host.extensionWidgetsBelow.keys()].toSorted(), ["omps"]);
+	const fleetText = () => host.extensionWidgetsBelow.get("omps").render(100).join("\n");
 	assert(
 		fleetText().includes("Agents: 1 active | 1 observed descendants"),
 		"the strip reports the run and its observed descendant",
@@ -247,16 +247,16 @@ try {
 	terminal.input("\x0f");
 	assert.equal(card.expanded, true);
 	// Host expansion reveals the acknowledgement only; the live tree stays out of the transcript.
-	assert(card.render(100).join("\n").includes("OMPSS: leaf started (root)"));
-	assert(entry.render(100).join("\n").includes("OMPSS: leaf started (root)"));
+	assert(card.render(100).join("\n").includes("OMPS: leaf started (root)"));
+	assert(entry.render(100).join("\n").includes("OMPS: leaf started (root)"));
 	assert(!card.render(100).join("\n").includes("reader running"));
 	await shortcuts.get("ctrl+shift+t").handler(ctx);
 	assert(todoText().includes("to expand"));
-	assert(card.render(100).join("\n").includes("OMPSS: leaf started (root)"));
+	assert(card.render(100).join("\n").includes("OMPS: leaf started (root)"));
 	await shortcuts.get("ctrl+shift+t").handler(ctx);
 	assert.equal(todoText(), widgetBefore);
 
-	const inspect = commands.get("ompss").handler("inspect descendant", ctx);
+	const inspect = commands.get("omps").handler("inspect descendant", ctx);
 	await wait(() => ui.getFocusedComponent() !== editor, "native inspector focus");
 	await wait(
 		() => ui.getFocusedComponent().render(100).join("\n").includes("Saved task descendant"),
@@ -288,7 +288,7 @@ try {
 	assert.deepEqual(JSON.parse(await readFile(join(workspace.root, "config", "pi-subagents", "config.json"), "utf8")), {
 		maxVisibleAgents: 1,
 	});
-	assert(card.render(100).join("\n").includes("OMPSS: leaf started (root)"));
+	assert(card.render(100).join("\n").includes("OMPS: leaf started (root)"));
 	assert(!card.render(100).join("\n").includes("hidden agents"));
 	assert.equal(runtime.observations.tree(owner, "root").nodes.length, 2);
 	assert.equal(runtime.observations.node(owner, "root", "root").state, "running");
@@ -308,8 +308,8 @@ try {
 		definitionsBefore,
 	);
 	assert.deepEqual([...shortcuts].map(([key, value]) => [key, value.source]).toSorted(), [
-		["alt+i", "ompss"],
-		["alt+o", "ompss"],
+		["alt+i", "omps"],
+		["alt+o", "omps"],
 		["ctrl+shift+t", "todo"],
 	]);
 	assert.equal(workspace.model.requests.length, 0);

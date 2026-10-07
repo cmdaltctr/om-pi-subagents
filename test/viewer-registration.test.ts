@@ -1,7 +1,7 @@
 import type { ExtensionAPI, ExtensionCommandContext, ExtensionToolContext } from "@earendil-works/pi-coding-agent";
 import { describe, expect, it, vi } from "vitest";
-import { registerOmpss } from "../src/index.ts";
-import type { OmpssService } from "../src/service.ts";
+import { registerOmps } from "../src/index.ts";
+import type { OmpsService } from "../src/service.ts";
 import type { RunViewer } from "../src/viewer.ts";
 import type { FleetWidget } from "../src/fleet-widget.ts";
 import { TREE_ENTRY } from "../src/viewer.ts";
@@ -26,7 +26,7 @@ function setup(mode: "tui" | "rpc" | "print") {
 		list: vi.fn(async () => "worker"),
 		status: vi.fn(() => "running"),
 		cancel: vi.fn(() => "cancelled"),
-	} as unknown as OmpssService;
+	} as unknown as OmpsService;
 	const viewer = { activate, render } as unknown as RunViewer;
 	const fleet = {
 		toggle: vi.fn(),
@@ -34,7 +34,7 @@ function setup(mode: "tui" | "rpc" | "print") {
 		repaint: vi.fn(),
 		renderLines: vi.fn((): string[] => []),
 	};
-	registerOmpss(
+	registerOmps(
 		pi as unknown as ExtensionAPI,
 		() => service,
 		undefined,
@@ -53,7 +53,7 @@ function setup(mode: "tui" | "rpc" | "print") {
 describe("native tree registration", () => {
 	it.each(["tui", "rpc", "print"] as const)("%s: creates slash-launch entries only for TUI", async (mode) => {
 		const fixture = setup(mode);
-		await fixture.commands.get("ompss")!.handler("run worker selected task", fixture.ctx);
+		await fixture.commands.get("omps")!.handler("run worker selected task", fixture.ctx);
 		if (mode === "tui")
 			expect(fixture.appendEntry).toHaveBeenCalledExactlyOnceWith(TREE_ENTRY, {
 				owner: "session",
@@ -98,19 +98,19 @@ describe("native tree registration", () => {
 		// Historical entries carry no launch text at all.
 		expect(fixture.render).toHaveBeenCalledWith(identity, true, undefined);
 	});
-	it.each(["tui", "rpc"] as const)("%s: /ompss fleet toggles the strip and reports an empty session", async (mode) => {
+	it.each(["tui", "rpc"] as const)("%s: /omps fleet toggles the strip and reports an empty session", async (mode) => {
 		const fixture = setup(mode);
-		await fixture.commands.get("ompss")!.handler("fleet", fixture.ctx);
+		await fixture.commands.get("omps")!.handler("fleet", fixture.ctx);
 		expect(fixture.fleet.toggle).toHaveBeenCalledTimes(1);
 		expect(fixture.fleet.renderLines).toHaveBeenCalledExactlyOnceWith("session", 200, 40);
 		expect(fixture.ctx.ui.notify).toHaveBeenCalledExactlyOnceWith("No runs in this session.", "info");
 		expect(fixture.run).not.toHaveBeenCalled();
 	});
 
-	it("rpc: /ompss fleet returns bounded plain text without terminal components", async () => {
+	it("rpc: /omps fleet returns bounded plain text without terminal components", async () => {
 		const fixture = setup("rpc");
 		fixture.fleet.renderLines.mockReturnValue(["Agents: 1 active | 0 observed descendants | alt+o list"]);
-		await fixture.commands.get("ompss")!.handler("fleet", fixture.ctx);
+		await fixture.commands.get("omps")!.handler("fleet", fixture.ctx);
 		expect(fixture.fleet.toggle).toHaveBeenCalledTimes(1);
 		expect(fixture.ctx.ui.notify).toHaveBeenCalledExactlyOnceWith(
 			"Agents: 1 active | 0 observed descendants | alt+o list",
@@ -121,7 +121,7 @@ describe("native tree registration", () => {
 
 	it("shows usage before any read when fleet receives extra arguments", async () => {
 		const fixture = setup("tui");
-		await fixture.commands.get("ompss")!.handler("fleet extra", fixture.ctx);
+		await fixture.commands.get("omps")!.handler("fleet extra", fixture.ctx);
 		expect(fixture.ctx.ui.notify).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("fleet"), "warning");
 		expect(fixture.fleet.toggle).not.toHaveBeenCalled();
 		expect(fixture.fleet.renderLines).not.toHaveBeenCalled();

@@ -185,7 +185,7 @@ export class RpcChannel {
 
 	/** Send one command and wait for its response. */
 	async request(command: RpcRecord, timeoutMs: number): Promise<RpcRecord> {
-		const id = `ompss-${++this.counter}`;
+		const id = `omps-${++this.counter}`;
 		const response = this.waitFor((record) => record.type === "response" && record.id === id, timeoutMs);
 		response.catch(() => {}); // a failed send must not leave this rejection unhandled
 		await this.send({ id, ...command });

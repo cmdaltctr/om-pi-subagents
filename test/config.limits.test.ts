@@ -7,7 +7,7 @@ import { createRegistryStore, loadRegistry } from "../src/config.ts";
 let dir: string;
 let path: string;
 beforeEach(async () => {
-	dir = await mkdtemp(join(tmpdir(), "ompss-limits-"));
+	dir = await mkdtemp(join(tmpdir(), "omps-limits-"));
 	path = join(dir, "om-pi-subagents.yaml");
 });
 afterEach(async () => {

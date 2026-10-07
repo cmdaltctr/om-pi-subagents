@@ -39,7 +39,7 @@ export async function startTodoChild(
 	const extension = await resolveTodoExtension();
 	return startPi({
 		mcp: false,
-		env: { OMPSS_PI_BIN: PI_BIN },
+		env: { OMPS_PI_BIN: PI_BIN },
 		seed: async (paths) => {
 			await seedTodoPreferences(paths.agentDir, options.mode ?? "normal");
 			await writeFile(join(paths.agentDir, "todo-child.md"), "TODO-CHILD-PERSONA-MARKER");

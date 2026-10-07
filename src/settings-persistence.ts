@@ -21,7 +21,7 @@ export interface LimitSettings extends Revision {
 /** One editable `ui` field in the registry. */
 export type UiField = "maxVisibleAgents" | "toggleKey" | "inspectKey";
 
-/** Resolve only OMPSS display preferences; relative XDG paths use the home fallback. */
+/** Resolve only OMPS display preferences; relative XDG paths use the home fallback. */
 export function displayPreferencesPath(env: NodeJS.ProcessEnv = process.env, home = homedir()): string {
 	const xdg = env.XDG_CONFIG_HOME?.trim();
 	// nosemgrep: AIK_ts_generic_path_traversal -- Trusted operator environment selects the config directory; filenames are constants. Evidence: docs/local-docs/agent-tree-viewer-settings-evidence.md.

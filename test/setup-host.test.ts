@@ -8,7 +8,7 @@ import { expect, it } from "vitest";
 const run = promisify(execFile);
 
 it("caches the exact pinned host versions after one install", async () => {
-	const scratch = await mkdtemp(join(tmpdir(), "ompss-host-cache-"));
+	const scratch = await mkdtemp(join(tmpdir(), "omps-host-cache-"));
 	try {
 		await mkdir(join(scratch, "scripts"));
 		await mkdir(join(scratch, "bin"));

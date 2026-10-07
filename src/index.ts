@@ -1,4 +1,4 @@
-// Pi extension: OMPSS (Opinionated Modular Pi Subagents System).
+// Pi extension: OMPS (Opinionated Modular Pi Subagents).
 //
 // The factory only registers extension handlers. It starts no process and reads no file; the run table,
 // the store and the supervisor are built on first use. A child is spawned only from a validated `run`.
@@ -23,8 +23,8 @@ import { ObservationRelay } from "./observation-relay.ts";
 import { TransportObservationStore } from "./observation-transport.ts";
 import { CLEANUP_ENTRY, OBSERVATION_ENTRY, type ChildLineage } from "./protocol.ts";
 import { isTerminal, RunManager } from "./runs.ts";
-import { createService, type OmpssService, type RunContext } from "./service.ts";
-import { registerOmpssSettings } from "./settings.ts";
+import { createService, type OmpsService, type RunContext } from "./service.ts";
+import { registerOmpsSettings } from "./settings.ts";
 import { registerViewShortcuts } from "./shortcuts.ts";
 import { RunStore } from "./store.ts";
 import { createSupervisor } from "./supervisor.ts";
@@ -34,7 +34,7 @@ import { RunViewer, TREE_ENTRY, type RunCardIdentity, type VisibleAgentsInput } 
 
 const GUARD_PATH = fileURLToPath(new URL("./child-guard.ts", import.meta.url));
 
-const USAGE = "Usage: /ompss list | run <agent> <task> | status [run-id] | cancel <run-id> | inspect [run-id] | fleet";
+const USAGE = "Usage: /omps list | run <agent> <task> | status [run-id] | cancel <run-id> | inspect [run-id] | fleet";
 
 const acknowledgedRun = (text: string, owner: string): RunCardIdentity | undefined => {
 	const match = /^Started run ([A-Za-z0-9._-]+) \((.+)\) in the background\./.exec(text);
@@ -102,12 +102,12 @@ export class SessionBinding {
 		const ctx = this.ctx;
 		if (ctx?.hasUI) {
 			try {
-				ctx.ui.setStatus("ompss", undefined);
+				ctx.ui.setStatus("omps", undefined);
 			} catch {
 				/* Clearing one display must not block the other. */
 			}
 			try {
-				ctx.ui.setWidget("ompss", undefined);
+				ctx.ui.setWidget("omps", undefined);
 			} catch {
 				/* Detach even when the UI has gone. */
 			}
@@ -127,7 +127,7 @@ export class SessionBinding {
 			},
 			setStatus: ctx.hasUI
 				? (text) => {
-						if (live()) ctx.ui.setStatus("ompss", text);
+						if (live()) ctx.ui.setStatus("omps", text);
 					}
 				: undefined,
 			setWidget: ctx.hasUI
@@ -137,7 +137,7 @@ export class SessionBinding {
 						const options = { placement: placement ?? ("belowEditor" as const) };
 						if (typeof content === "function")
 							ctx.ui.setWidget(
-								"ompss",
+								"omps",
 								(tui: TUI): WidgetComponent => {
 									// The public focused-component accessor lives on the viewport TUI;
 									// a host without it never reports editor focus, so navigation stays off.
@@ -153,7 +153,7 @@ export class SessionBinding {
 								},
 								options,
 							);
-						else ctx.ui.setWidget("ompss", content, options);
+						else ctx.ui.setWidget("omps", content, options);
 					}
 				: undefined,
 		};
@@ -166,7 +166,7 @@ export function resolvePiBin(
 	env: NodeJS.ProcessEnv = process.env,
 	exists: (path: string) => boolean = existsSync,
 ): string {
-	if (env.OMPSS_PI_BIN) return env.OMPSS_PI_BIN;
+	if (env.OMPS_PI_BIN) return env.OMPS_PI_BIN;
 	// nosemgrep: AIK_ts_generic_path_traversal -- The trusted agent directory is followed only by constant components.
 	const managed = join(agentDir, "bin", "pi");
 	return exists(managed) ? managed : "pi";
@@ -175,11 +175,11 @@ export function resolvePiBin(
 /** The operator's agent mapping: an explicit override, or a file in the agent directory that package updates never touch. */
 export function resolveRegistryPath(agentDir: string, env: NodeJS.ProcessEnv = process.env): string {
 	// nosemgrep: AIK_ts_generic_path_traversal -- The trusted agent directory is followed only by a constant file name.
-	return env.OMPSS_REGISTRY ?? join(agentDir, "om-pi-subagents.yaml");
+	return env.OMPS_REGISTRY ?? join(agentDir, "om-pi-subagents.yaml");
 }
 
-export interface OmpssRuntime {
-	service: OmpssService;
+export interface OmpsRuntime {
+	service: OmpsService;
 	manager: RunManager;
 	observations: ObservationStore;
 	viewer: RunViewer;
@@ -197,9 +197,9 @@ function createRuntime(
 	strip: FleetStrip,
 	keys: () => FleetKeys,
 	branch?: ChildLineage,
-): OmpssRuntime {
+): OmpsRuntime {
 	const agentDir = process.env.PI_CODING_AGENT_DIR ?? join(homedir(), ".pi", "agent");
-	const runRoot = join(agentDir, "ompss", "runs");
+	const runRoot = join(agentDir, "omps", "runs");
 	const store = new RunStore(runRoot);
 	const persistence = createPersistence(store);
 	const notifier = createNotifier({
@@ -212,7 +212,7 @@ function createRuntime(
 	const relay = new ObservationRelay({
 		observations,
 		current: (run) => manager.status(run.owner, run.id),
-		token: process.env.OMPSS_RUN_TOKEN,
+		token: process.env.OMPS_RUN_TOKEN,
 		publish: branch ? (envelope) => pi.appendEntry(OBSERVATION_ENTRY, envelope) : undefined,
 	});
 	const supervisor = createSupervisor({
@@ -242,7 +242,7 @@ function createRuntime(
 			fleet.onChange(view);
 			if (branch && view.cleanupFailed)
 				pi.appendEntry(CLEANUP_ENTRY, {
-					token: process.env.OMPSS_RUN_TOKEN ?? "",
+					token: process.env.OMPS_RUN_TOKEN ?? "",
 					runId: view.id,
 					error: view.error ?? "descendant cleanup could not be confirmed",
 				});
@@ -284,19 +284,19 @@ function createRuntime(
 }
 
 /** Register the tool and the command over a service that may be built lazily. */
-export function registerOmpss(
+export function registerOmps(
 	pi: ExtensionAPI,
-	getService: () => OmpssService,
+	getService: () => OmpsService,
 	binding?: SessionBinding,
 	getViewer?: () => RunViewer | undefined,
 	getFleet?: () => FleetWidget | undefined,
 ): void {
 	pi.registerTool({
-		name: "ompss",
-		label: "ompss",
+		name: "omps",
+		label: "omps",
 		description:
 			"Run mapped subagents in the background within configured per-session limits, check progress, or cancel an owned subtree. Results arrive separately as follow-up messages.",
-		promptSnippet: "ompss: run a mapped subagent in the background (actions: list, run, status, cancel)",
+		promptSnippet: "omps: run a mapped subagent in the background (actions: list, run, status, cancel)",
 		parameters: PARAMETERS as never,
 		renderResult: (result, { expanded }, _theme, _context) => {
 			const identity = result.details as RunCardIdentity | undefined;
@@ -340,13 +340,13 @@ export function registerOmpss(
 			(identity.agent === undefined || typeof identity.agent === "string");
 		// Historical entries carry no launch text: expansion keeps the bounded labelled row.
 		return valid
-			? (getViewer?.()?.render(identity, expanded, undefined) ?? new Text("OMPSS: observation unavailable", 0, 0))
-			: new Text("OMPSS: invalid tree identity", 0, 0);
+			? (getViewer?.()?.render(identity, expanded, undefined) ?? new Text("OMPS: observation unavailable", 0, 0))
+			: new Text("OMPS: invalid tree identity", 0, 0);
 	});
 
-	pi.registerCommand("ompss", {
+	pi.registerCommand("omps", {
 		description:
-			"OMPSS subagents: /ompss list | run <agent> <task> | status [run-id] | cancel <run-id> | inspect [run-id]",
+			"OMPS subagents: /omps list | run <agent> <task> | status [run-id] | cancel <run-id> | inspect [run-id]",
 		handler: async (args, ctx) => {
 			binding?.bind(ctx);
 			const { owner, context } = sessionOf(ctx);
@@ -357,7 +357,7 @@ export function registerOmpss(
 					if (runId && !observationId(runId)) return void ctx.ui.notify(USAGE, "warning");
 					const viewer = getViewer?.();
 					if (viewer) await viewer.inspect(runId, ctx);
-					else if (runId) throw new Error("Unknown or unowned run. Use /ompss inspect without an id.");
+					else if (runId) throw new Error("Unknown or unowned run. Use /omps inspect without an id.");
 					else ctx.ui.notify("No runs to inspect in this session.", "info");
 					return;
 				}
@@ -391,16 +391,16 @@ export function registerOmpss(
 				else return void ctx.ui.notify(USAGE, "warning");
 				ctx.ui.notify(text, "info");
 			} catch (error) {
-				ctx.ui.notify(`OMPSS: ${error instanceof Error ? error.message : String(error)}`, "error");
+				ctx.ui.notify(`OMPS: ${error instanceof Error ? error.message : String(error)}`, "error");
 			}
 		},
 	});
 }
 
 /** Register the same lazy runtime in a root or explicitly approved managed child. */
-export function registerRuntime(pi: ExtensionAPI, branch?: ChildLineage): () => OmpssRuntime | undefined {
+export function registerRuntime(pi: ExtensionAPI, branch?: ChildLineage): () => OmpsRuntime | undefined {
 	const binding = new SessionBinding();
-	let runtime: OmpssRuntime | undefined;
+	let runtime: OmpsRuntime | undefined;
 	const agentDir = () => process.env.PI_CODING_AGENT_DIR ?? join(homedir(), ".pi", "agent");
 	let ui: UiSettingsCache | undefined;
 	// One cache per session: settings edits refresh the same values the fleet renders.
@@ -418,14 +418,14 @@ export function registerRuntime(pi: ExtensionAPI, branch?: ChildLineage): () => 
 		const label = (key: string) => (key === "off" ? "" : key);
 		return { toggle: label(value.toggleKey), inspect: label(value.inspectKey) };
 	};
-	registerOmpss(
+	registerOmps(
 		pi,
 		() => (runtime ??= createRuntime(pi, binding, visibleAgents, strip, fleetKeys, branch)).service,
 		binding,
 		() => runtime?.viewer,
 		() => runtime?.fleet,
 	);
-	registerOmpssSettings(pi, () => ({
+	registerOmpsSettings(pi, () => ({
 		registryPath: branch?.registryPath ?? resolveRegistryPath(agentDir()),
 		ui: getUi(),
 		activeKeys: () => activeKeys,
@@ -456,7 +456,7 @@ export function registerRuntime(pi: ExtensionAPI, branch?: ChildLineage): () => 
 			},
 		});
 		activeKeys = registration.keys;
-		for (const diagnostic of registration.diagnostics) ctx.ui.notify(`OMPSS shortcuts: ${diagnostic}`, "warning");
+		for (const diagnostic of registration.diagnostics) ctx.ui.notify(`OMPS shortcuts: ${diagnostic}`, "warning");
 		// Fleet arrows work only while the strip is expanded, the draft is empty and the editor owns focus.
 		stopInput?.();
 		stopInput = ctx.ui.onTerminalInput((data) => {
@@ -506,8 +506,10 @@ export function registerRuntime(pi: ExtensionAPI, branch?: ChildLineage): () => 
 	return () => runtime;
 }
 
-export default function ompss(pi: ExtensionAPI): void {
+export default function omps(pi: ExtensionAPI): void {
 	// A marked child may use only the parent's explicitly loaded managed entry.
-	if (process.env.OMPSS_CHILD === "1") return;
+	if (process.env.OMPS_CHILD === "1") return;
+	// A mixed-version child must never become an unguarded root launcher.
+	if (process.env.OMPSS_CHILD === "1") throw new Error("Old child namespace detected. Stop children and restart Pi.");
 	registerRuntime(pi);
 }

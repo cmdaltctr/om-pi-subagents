@@ -6,7 +6,7 @@ import { afterEach, describe as suite, expect, it, vi } from "vitest";
 import { PI_AVAILABLE } from "./fixtures/pi-rpc.ts";
 const describe = suite.skipIf(!PI_AVAILABLE);
 import { createRegistryStore } from "../src/config.ts";
-import { registerOmpss } from "../src/index.ts";
+import { registerOmps } from "../src/index.ts";
 import { createPersistence } from "../src/persistence.ts";
 import { groupAlive } from "../src/runner.ts";
 import { RunManager } from "../src/runs.ts";
@@ -34,7 +34,7 @@ afterEach(async () => {
 async function setup(script: Turn[]) {
 	workspace = await createWorkspace();
 	workspace.model.script = script;
-	scratch = await mkdtemp(join(tmpdir(), "ompss-e2e-"));
+	scratch = await mkdtemp(join(tmpdir(), "omps-e2e-"));
 	await mkdir(join(scratch, "personas"));
 	await writeFile(join(scratch, "personas/reader.md"), "You read.");
 	await writeFile(
@@ -63,7 +63,7 @@ async function setup(script: Turn[]) {
 
 	const tools = new Map<string, any>();
 	const commands = new Map<string, any>();
-	registerOmpss(
+	registerOmps(
 		{
 			registerTool: (t: any) => tools.set(t.name, t),
 			registerCommand: (n: string, c: any) => commands.set(n, c),
@@ -81,10 +81,10 @@ async function setup(script: Turn[]) {
 	};
 	const tool = (params: object) =>
 		tools
-			.get("ompss")
+			.get("omps")
 			.execute("1", params, undefined, undefined, ctx)
 			.then((r: any) => r.content[0].text as string);
-	return { workspace, store, tool, command: (text: string) => commands.get("ompss").handler(text, ctx), notify };
+	return { workspace, store, tool, command: (text: string) => commands.get("omps").handler(text, ctx), notify };
 }
 
 const runId = (text: string) => /run ([0-9a-f-]{36})/.exec(text)![1];

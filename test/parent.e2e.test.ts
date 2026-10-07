@@ -1,4 +1,4 @@
-// A real parent Pi with the OMPSS extension loaded. One fake model plays the parent and the child;
+// A real parent Pi with the OMPS extension loaded. One fake model plays the parent and the child;
 // the persona marker tells the two apart.
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -25,9 +25,9 @@ interface Timing {
 	slowTool?: boolean;
 }
 
-/** Start a parent whose model launches a child with the ompss tool, then acknowledges the result. */
+/** Start a parent whose model launches a child with the omps tool, then acknowledges the result. */
 async function startParent(timing: Timing = {}): Promise<PiFixture> {
-	extensionDir = await mkdtemp(join(tmpdir(), "ompss-parent-ext-"));
+	extensionDir = await mkdtemp(join(tmpdir(), "omps-parent-ext-"));
 	await mkdir(join(extensionDir, "personas"));
 	await writeFile(join(extensionDir, "personas/reader.md"), "CHILD-PERSONA: you read.");
 	await writeFile(
@@ -37,7 +37,7 @@ async function startParent(timing: Timing = {}): Promise<PiFixture> {
 
 	pi = await startPi({
 		args: ["-e", INDEX],
-		env: { OMPSS_REGISTRY: join(extensionDir, "om-pi-subagents.yaml"), OMPSS_PI_BIN: PI_BIN },
+		env: { OMPS_REGISTRY: join(extensionDir, "om-pi-subagents.yaml"), OMPS_PI_BIN: PI_BIN },
 	});
 	pi.model.script = (body): Turn => {
 		const text = JSON.stringify(body);
@@ -46,9 +46,9 @@ async function startParent(timing: Timing = {}): Promise<PiFixture> {
 				return { tool: "bash", args: { command: "sleep 2; printf 'PRIVATE TOOL RESULT'" } };
 			return { text: "CHILD ANSWER", delayMs: timing.childDelayMs };
 		}
-		if (text.includes("OMPSS run")) return { text: "acknowledged" };
+		if (text.includes("OMPS run")) return { text: "acknowledged" };
 		if (text.includes('"role":"tool"')) return { text: "launched", delayMs: timing.parentAckDelayMs };
-		return { tool: "ompss", args: { action: "run", agent: "reader", task: "look around" } };
+		return { tool: "omps", args: { action: "run", agent: "reader", task: "look around" } };
 	};
 	return pi;
 }
@@ -73,7 +73,7 @@ describe("idle parent", () => {
 		expect(parentRequests).toHaveLength(3);
 		const wake = JSON.stringify(parentRequests[2]);
 		expect(wake).toContain("CHILD ANSWER");
-		expect(wake.match(/OMPSS run [0-9a-f-]{36}/g)).toHaveLength(1);
+		expect(wake.match(/OMPS run [0-9a-f-]{36}/g)).toHaveLength(1);
 		expect(wake).toMatch(/completed/);
 	});
 
@@ -83,10 +83,10 @@ describe("idle parent", () => {
 		await waitFor(() => settles(fixture) === 2);
 		const statuses = fixture.records.filter(
 			(record) =>
-				record.type === "extension_ui_request" && record.method === "setStatus" && record.statusKey === "ompss",
+				record.type === "extension_ui_request" && record.method === "setStatus" && record.statusKey === "omps",
 		);
 		expect(statuses.map((record) => record.statusText)).toEqual(
-			expect.arrayContaining(["ompss: reader starting", "ompss: reader running"]),
+			expect.arrayContaining(["omps: reader starting", "omps: reader running"]),
 		);
 		expect(statuses.at(-1)!.statusText).toBeUndefined();
 	});
@@ -100,14 +100,14 @@ describe("live fleet strip on real Pi", () => {
 			(record) =>
 				record.type === "extension_ui_request" &&
 				record.method === "setWidget" &&
-				record.widgetKey === "ompss" &&
+				record.widgetKey === "omps" &&
 				/Agents: 1 active \| 0 observed descendants/.test(record.widgetLines?.join("\n") ?? ""),
 		);
 		expect(active.widgetPlacement).toBe("belowEditor");
 		await waitFor(() => settles(fixture) === 2);
 		const widgets = fixture.records.filter(
 			(record) =>
-				record.type === "extension_ui_request" && record.method === "setWidget" && record.widgetKey === "ompss",
+				record.type === "extension_ui_request" && record.method === "setWidget" && record.widgetKey === "omps",
 		);
 		// The strip keeps one compact idle summary; previews belong to inspection, not the strip.
 		expect(widgets.at(-1)!.widgetLines).toEqual(["Agents: idle | last reader completed | alt+o list | alt+i inspect"]);

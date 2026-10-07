@@ -50,7 +50,7 @@ class MemoryTerminal {
 	resize() {}
 }
 
-const directory = await mkdtemp(join(tmpdir(), "ompss-native-fleet-"));
+const directory = await mkdtemp(join(tmpdir(), "omps-native-fleet-"));
 const terminal = new MemoryTerminal();
 const ui = createInteractiveTui({ terminal, tuiMode: mode, logDirectory: directory });
 const keys = new KeybindingsManager();

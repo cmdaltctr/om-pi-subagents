@@ -6,10 +6,10 @@ const host = join(import.meta.dirname, "../.pi-host/node_modules/.bin/pi");
 
 describe("portable test CLI", () => {
 	it("honours an explicit executable", () => {
-		expect(resolveTestPi({ OMPSS_PI_BIN: "/test/bin/pi" }, (path) => path === "/test/bin/pi")).toBe("/test/bin/pi");
+		expect(resolveTestPi({ OMPS_PI_BIN: "/test/bin/pi" }, (path) => path === "/test/bin/pi")).toBe("/test/bin/pi");
 	});
 	it("refuses a missing explicit override", () => {
-		expect(resolveTestPi({ OMPSS_PI_BIN: "/missing/pi" }, () => false)).toBeUndefined();
+		expect(resolveTestPi({ OMPS_PI_BIN: "/missing/pi" }, () => false)).toBeUndefined();
 	});
 	it("uses the pinned host CLI before PATH", () => {
 		expect(resolveTestPi({ PATH: "/test/bin" }, (path) => path === host || path === "/test/bin/pi")).toBe(host);

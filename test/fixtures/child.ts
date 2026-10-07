@@ -40,7 +40,7 @@ export interface Outcome {
 	toolResults: string[];
 }
 
-/** Starts OMPSS children through the real gate and cleans them up. */
+/** Starts OMPS children through the real gate and cleans them up. */
 export function childHarness() {
 	let workspace: Workspace | undefined;
 	let child: ReadyChild | undefined;

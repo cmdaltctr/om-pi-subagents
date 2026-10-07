@@ -1,4 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1254" height="1254" viewBox="0 0 1254 1254">
+<svg xmlns="http://www.w3.org/2000/svg" width="1254" height="1254" viewBox="0 0 1254 1254" role="img" aria-labelledby="omps-title">
+  <title id="omps-title">OMPS: Opinionated Modular Pi Subagents</title>
   <rect width="1254" height="1254" fill="#0D1116"/>
   <rect x="64" y="64" width="1126" height="1126" fill="none" stroke="#9EC89A" stroke-width="32"/>
 

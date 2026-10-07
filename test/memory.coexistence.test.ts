@@ -106,7 +106,7 @@ describeMemory("memory coexistence", () => {
 		}
 	});
 
-	it.each(["ompss-first", "memory-first"] as const)(
+	it.each(["omps-first", "memory-first"] as const)(
 		"launches a memory child with %s parent load order",
 		async (order) => {
 			const extension = resolveMemoryExtension()!;
@@ -122,8 +122,8 @@ describeMemory("memory coexistence", () => {
 			const parent = await startPi({
 				mcp: false,
 				workspace,
-				args: order === "ompss-first" ? ["-e", index, "-e", extension] : ["-e", extension, "-e", index],
-				env: { OMPSS_REGISTRY: registry, OMPSS_PI_BIN: PI_BIN },
+				args: order === "omps-first" ? ["-e", index, "-e", extension] : ["-e", extension, "-e", index],
+				env: { OMPS_REGISTRY: registry, OMPS_PI_BIN: PI_BIN },
 			});
 			try {
 				parent.model.script = (body: { messages?: Array<{ role?: string; content?: unknown }> }) => {
@@ -138,18 +138,18 @@ describeMemory("memory coexistence", () => {
 					);
 					return launched
 						? { text: "Load-order delegation recorded" }
-						: { tool: "ompss", args: { action: "run", agent: "leaf", task: "Record a load-order fact" } };
+						: { tool: "omps", args: { action: "run", agent: "leaf", task: "Record a load-order fact" } };
 				};
 				await parent.send({ type: "prompt", message: "Delegate to the memory child" });
 				// The result returns to the parent; the child's own work is in its run directory.
 				const delivered = await parent.waitFor((record) =>
 					(record.messages ?? []).find(
 						(message: { customType?: string; content?: string }) =>
-							message.customType === "ompss-result" && /completed/.test(String(message.content ?? "")),
+							message.customType === "omps-result" && /completed/.test(String(message.content ?? "")),
 					),
 				);
 				const result = (delivered.messages ?? []).find(
-					(message: { customType?: string }) => message.customType === "ompss-result",
+					(message: { customType?: string }) => message.customType === "omps-result",
 				) as { content?: string; details?: { directory?: string } };
 				expect(result.content).toContain("Load-order child finished");
 				const events = await readFile(join(result.details!.directory!, "events.jsonl"), "utf8");

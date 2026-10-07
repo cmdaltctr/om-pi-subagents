@@ -1,4 +1,4 @@
-// A real Pi 0.99.1 child started by OMPSS's own launcher, in an agent directory full of ambient resources.
+// A real Pi 0.99.1 child started by OMPS's own launcher, in an agent directory full of ambient resources.
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { afterEach, describe as suite, expect, it } from "vitest";
@@ -15,13 +15,13 @@ const GUARD = new URL("../src/child-guard.ts", import.meta.url).pathname;
 
 const AMBIENT_EXTENSION = `
 export default function (pi) {
-  for (const name of ["ambient_tool", "subagent", "ompss"]) {
+  for (const name of ["ambient_tool", "subagent", "omps"]) {
     pi.registerTool({
       name, label: name, description: name, parameters: { type: "object", properties: {} },
       execute: async () => ({ content: [{ type: "text", text: name }], details: undefined }),
     });
   }
-  for (const name of ["ambient-cmd", "ompss", "subagents"]) {
+  for (const name of ["ambient-cmd", "omps", "subagents"]) {
     pi.registerCommand(name, { description: name, handler: async () => {} });
   }
 }
@@ -85,7 +85,7 @@ async function startChild(overrides: Partial<AgentSnapshot> = {}): Promise<PiFix
 	});
 }
 
-describe("child launched by OMPSS", () => {
+describe("child launched by OMPS", () => {
 	it("loads no ambient extension, legacy launcher, parent entry point or unselected skill", async () => {
 		pi = await startChild();
 		const { data } = await pi.send({ type: "get_commands" });
@@ -93,7 +93,7 @@ describe("child launched by OMPSS", () => {
 
 		expect(names).toContain(PREFLIGHT_COMMAND);
 		expect(names).toContain("skill:selected");
-		for (const forbidden of ["ambient-cmd", "ompss", "subagents", "skill:ambient"]) {
+		for (const forbidden of ["ambient-cmd", "omps", "subagents", "skill:ambient"]) {
 			expect(names, forbidden).not.toContain(forbidden);
 		}
 

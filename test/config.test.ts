@@ -7,7 +7,7 @@ import { loadRegistry } from "../src/config.ts";
 let dir: string;
 
 beforeEach(async () => {
-	dir = await mkdtemp(join(tmpdir(), "ompss-config-"));
+	dir = await mkdtemp(join(tmpdir(), "omps-config-"));
 });
 
 afterEach(async () => {
