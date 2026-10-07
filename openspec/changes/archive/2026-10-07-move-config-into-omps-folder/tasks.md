@@ -48,5 +48,5 @@
 ## 6. Close the change
 
 - [x] 6.1 Run `openspec validate move-config-into-omps-folder --strict`.
-- [ ] 6.2 Run the `openspec-verify-change` skill and resolve its findings.
-- [ ] 6.3 Archive the change with the `openspec-archive-change` skill before opening the pull request.
+- [x] 6.2 Run the `openspec-verify-change` skill and resolve its findings.
+- [x] 6.3 Archive the change with the `openspec-archive-change` skill before opening the pull request.

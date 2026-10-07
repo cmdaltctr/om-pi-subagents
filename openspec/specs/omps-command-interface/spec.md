@@ -236,6 +236,18 @@ Settings SHALL keep `limits.maxDepth` and `limits.maxConcurrentRuns` in the sele
 - **WHEN** an operator confirms depth zero
 - **THEN** new launches are disabled while admitted work keeps normal supervision and delivery
 
+#### Scenario: Settings open while only the old registry exists
+
+- **WHEN** `OMPS_REGISTRY` is unset, `<agent-dir>/omps/config.yaml` is missing and `<agent-dir>/om-pi-subagents.yaml` exists
+- **THEN** settings shows the migration error with the move commands
+- **AND** offers no save, so no new empty registry is created beside the old one
+
+#### Scenario: Settings create the new default registry
+
+- **WHEN** neither registry exists and the operator confirms creation
+- **THEN** `<agent-dir>/omps/` is created with mode `0700` if missing and `config.yaml` is written with mode `0600`
+- **AND** no `personas/` folder or persona is created
+
 ### Requirement: Save settings without losing concurrent edits
 
 Each confirmed setting SHALL be validated and saved using private temporary files and atomic replacement. A save MUST preserve unrelated valid content and reject conflicting changes since the displayed value was read. Concurrent Pi sessions MUST remain supported. Failed writes MUST leave the destination and live preference cache unchanged, report an actionable error and claim no success. Settings MUST NOT write todo preferences, task files or OpenSpec bindings.
