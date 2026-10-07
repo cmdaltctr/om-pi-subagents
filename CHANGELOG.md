@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.5.0](https://github.com/cmdaltctr/om-pi-subagents/compare/v0.4.0...v0.5.0) (2026-10-07)
+
+
+### ⚠ BREAKING CHANGES
+
+* replace ompss commands and delegation approval with omps, replace OMPSS_* variables with OMPS_*, and save fresh runs under omps/runs. Operator migration is manual.
+
+### Features
+
+* rename runtime to OMPS and add release approval ([#13](https://github.com/cmdaltctr/om-pi-subagents/issues/13)) ([e5ad38d](https://github.com/cmdaltctr/om-pi-subagents/commit/e5ad38d6ed50a29cb8c283575a2f1693e80903d2))
+
 ## [0.4.0](https://github.com/cmdaltctr/om-pi-subagents/compare/v0.3.0...v0.4.0) (2026-10-07)
 
 
