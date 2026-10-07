@@ -1,6 +1,6 @@
 {
 	"name": "om-pi-subagents",
-	"version": "0.5.0",
+	"version": "0.6.0",
 	"description": "Opinionated Modular Pi Subagents (OMPS): YAML-mapped personas run as native Pi child processes.",
 	"keywords": [
 		"omps",
