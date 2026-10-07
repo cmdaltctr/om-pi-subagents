@@ -49,7 +49,7 @@ Use this for development only.
 5. Run `/omps list`.
 
 OMPS ships no agents. A new installation answers `No personas mapped.`
-Your mapping lives in `~/.pi/agent/om-pi-subagents.yaml`, outside the package.
+Your mapping lives in `~/.pi/agent/omps/config.yaml`, outside the package.
 Set `OMPS_REGISTRY` to use another file.
 
 You do not need `.pi-host/` to use the extension. Pi supplies those packages at runtime.
@@ -145,6 +145,14 @@ Use `npm:om-pi-subagents@latest` to leave the rollback.
 
 Read [CHANGELOG.md](../CHANGELOG.md) before each upgrade.
 
+**Moving settings into `omps/` is a breaking change.** The default is now
+`<agent-dir>/omps/config.yaml`, with personas conventionally in `omps/personas/`.
+When only the old default file exists, OMPS blocks listing, launches and settings saves.
+Follow [Move settings into the OMPS folder](#move-settings-into-the-omps-folder).
+An explicit `OMPS_REGISTRY` override remains supported, including the old filename.
+
+The versioned examples below describe historical paths used before this move.
+
 **0.1.0 to 0.2.0 is a breaking change.** Every agent in the mapping must now set `thinking`.
 Without it, OMPS rejects the whole registry, and no run starts.
 Allowed values are `off`, `minimal`, `low`, `medium`, `high`, `xhigh` and `max`.
@@ -174,6 +182,103 @@ agents:
 2. Run `pi update npm:om-pi-subagents`.
 3. Start Pi, or run `/reload`.
 4. Run `/omps list` and check that each agent appears.
+
+## Move settings into the OMPS folder
+
+This manual procedure moves the default registry and its conventional persona folder.
+OMPS never moves, copies or rewrites these files. If you use a custom registry or persona folder,
+check its paths and adapt the procedure first. Record the installed version with `pi list` before upgrading.
+
+### Stop and back up settings
+
+1. Run `/omps` in every parent session to find active runs.
+2. Cancel each owned subtree with `/omps cancel <run-id>`.
+3. Confirm cleanup with `/omps status <run-id>` before closing all affected Pi sessions.
+4. Resolve any cleanup failure before moving files.
+5. Create a private backup outside the agent directory:
+
+   ```sh
+   set -eu
+   umask 077
+   agent_dir="${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}"
+   backup_dir="$HOME/omps-backup-$(date +%Y%m%d-%H%M%S)"
+   mkdir -m 700 "$backup_dir"
+   cp -p "$agent_dir/om-pi-subagents.yaml" "$backup_dir/registry.yaml"
+   cp -Rp "$agent_dir/om-pi-subagents/personas" "$backup_dir/personas"
+   ```
+
+6. Compare the backup with the originals before continuing.
+
+Keep the backup private. It contains your persona instructions and operator settings.
+Saved runs stay in `omps/runs/`; this procedure leaves their content and ownership unchanged.
+
+### Move and edit the mapping
+
+Stop if the new registry exists, including a symbolic link, or if a persona filename collides.
+Compare both copies before proceeding. The script checks every name before moving any file.
+
+<!-- migration-test: settings -->
+
+```sh
+set -eu
+umask 077
+agent_dir="${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}"
+source="$agent_dir/om-pi-subagents.yaml"
+old_personas="$agent_dir/om-pi-subagents/personas"
+destination="$agent_dir/omps/config.yaml"
+personas="$agent_dir/omps/personas"
+if [ ! -f "$source" ] || [ -L "$source" ] || [ ! -d "$old_personas" ] || [ -L "$old_personas" ]; then
+  printf '%s\n' 'Check the old registry and persona folder before moving settings.' >&2
+  exit 1
+fi
+if [ -L "$agent_dir/omps" ] || [ -L "$personas" ] || [ -e "$destination" ] || [ -L "$destination" ]; then
+  printf '%s\n' 'Destination exists or is a symbolic link. Stop and compare settings.' >&2
+  exit 1
+fi
+for file in "$old_personas"/*.md; do
+  [ -e "$file" ] || [ -L "$file" ] || continue
+  name="${file##*/}"
+  if [ -e "$personas/$name" ] || [ -L "$personas/$name" ]; then
+    printf '%s\n' "Persona already exists: $personas/$name. Stop and compare both files." >&2
+    exit 1
+  fi
+done
+mkdir -p "$personas"
+for file in "$old_personas"/*.md; do
+  [ -e "$file" ] || [ -L "$file" ] || continue
+  mv "$file" "$personas/"
+done
+mv "$source" "$destination"
+```
+
+1. Edit `omps/config.yaml` in your selected agent directory.
+2. Change each `persona: ./om-pi-subagents/personas/<name>.md` to `persona: ./personas/<name>.md`.
+3. Check relative `skills` and `extensions` paths, which also resolve from the YAML folder.
+4. Update those paths or use their existing absolute paths.
+5. Remove an old `OMPS_REGISTRY` override if you want the new default.
+6. Install the updated package, then start a fresh Pi session.
+7. Run `/omps list` and check that every agent appears.
+8. Run one small task and check its saved result.
+
+Persona paths into `omps/runs/` are refused, including symbolic links.
+Keep trusted persona instructions in `omps/personas/`.
+Retain the backup until you confirm the new installation works. Ask before deleting it or any empty old folder.
+
+### Roll back the settings move
+
+1. Stop new sessions and confirm cleanup of every descendant.
+2. Install the version recorded before upgrading.
+3. Check that the old registry destination is absent, including symbolic links.
+4. If it exists, stop and compare it with the backup.
+5. Restore the backed-up registry to `<agent-dir>/om-pi-subagents.yaml`, preserving its file mode.
+6. Check that the old persona folder is empty before restoring its backed-up files.
+7. Stop and compare any colliding persona filenames before copying.
+8. Restore the previous environment overrides, then restart Pi and check its agent list.
+
+Keep the new registry, personas and run evidence until you decide what to preserve.
+An explicit `OMPS_REGISTRY=<agent-dir>/om-pi-subagents.yaml` can also select the restored old mapping
+with the current version. Its persona paths still resolve from the old YAML folder.
+Restoring the backup restores the previous bytes. It cannot resume tasks or restore former session ownership.
 
 ## Migrate from OMPSS to OMPS
 
@@ -209,7 +314,7 @@ personas, tasks, saved output and Pi settings can contain sensitive text.
 2. Update command references in your persona instructions and agent prompts.
 3. Rename configured environment variables in shells, launchers and CI settings.
 4. Keep `npm:om-pi-subagents` package entries unchanged.
-5. Keep `om-pi-subagents.yaml`, `om-pi-subagents/personas/` and the shipped `om-pi-subagents` skill paths unchanged.
+5. Keep the shipped `om-pi-subagents` skill name unchanged. For current registry paths, also follow [Move settings into the OMPS folder](#move-settings-into-the-omps-folder).
 6. Keep `/subagents-settings` if you use that generic alias.
 
 The independent `<config-dir>/pi-subagents/config.json` display fallback also stays in place.
@@ -335,7 +440,7 @@ See [AGENTS.md](../AGENTS.md) for commands and module boundaries.
 ### The registry is empty or invalid
 
 1. Check the exact field named in the error.
-2. Edit `~/.pi/agent/om-pi-subagents.yaml` using the supported fields in [Set up agents](SETUP.md).
+2. Edit `~/.pi/agent/omps/config.yaml` using the supported fields in [Set up agents](SETUP.md).
    For a missing `thinking` field, add `off`, `minimal`, `low`, `medium`, `high`, `xhigh` or `max`.
 3. Run `/omps list` again.
 

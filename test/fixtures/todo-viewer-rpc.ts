@@ -1,3 +1,4 @@
+import { writeFixturePersona, fixtureRegistryPath } from "./registry.ts";
 import assert from "node:assert/strict";
 import { mkdir, readFile, realpath, writeFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -24,14 +25,14 @@ export async function verifyTodoViewerChild(mode: "normal" | "openspec", order: 
 			tasks = join(change, "tasks.md");
 			await writeFile(tasks, "# Tasks\n\n- [ ] 1.1 Preserve parent task\n");
 			await writeFile(join(change, "proposal.md"), "# Preserve parent tasks\n");
-			await writeFile(join(agentDir, "leaf.md"), "TODO-VIEWER-LEAF-MARKER");
+			await writeFixturePersona(agentDir, "leaf.md", "TODO-VIEWER-LEAF-MARKER");
 			await writeFile(
-				join(agentDir, "om-pi-subagents.yaml"),
+				fixtureRegistryPath(agentDir),
 				`version: 1
 limits: { maxDepth: 3, maxConcurrentRuns: 4 }
 agents:
   leaf:
-    persona: ./leaf.md
+    persona: ./personas/leaf.md
     tools: [todo]
     thinking: off
     extensions: [${JSON.stringify(extension)}]

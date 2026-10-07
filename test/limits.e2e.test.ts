@@ -1,3 +1,4 @@
+import { writeFixturePersona } from "./fixtures/registry.ts";
 import { readFile, readdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -33,10 +34,10 @@ describe.skipIf(!PI_AVAILABLE)("real configured limit scenarios", () => {
 			args: ["-e", index],
 			env: { OMPS_PI_BIN: PI_BIN },
 			seed: async ({ agentDir }) => {
-				await writeFile(join(agentDir, "worker.md"), "CAPACITY-WORKER-MARKER");
+				await writeFixturePersona(agentDir, "worker.md", "CAPACITY-WORKER-MARKER");
 				await writeFile(
-					join(agentDir, "om-pi-subagents.yaml"),
-					`version: 1\n${capacity === 1 ? "" : `limits:\n  maxConcurrentRuns: ${capacity}\n  maxDepth: 3\n`}agents:\n  worker:\n    persona: ./worker.md\n    tools: [read]\n    thinking: off\n`,
+					join(agentDir, "omps/config.yaml"),
+					`version: 1\n${capacity === 1 ? "" : `limits:\n  maxConcurrentRuns: ${capacity}\n  maxDepth: 3\n`}agents:\n  worker:\n    persona: ./personas/worker.md\n    tools: [read]\n    thinking: off\n`,
 				);
 			},
 		});
@@ -79,10 +80,10 @@ describe.skipIf(!PI_AVAILABLE)("real configured limit scenarios", () => {
 			args: ["-e", index],
 			env: { OMPS_PI_BIN: PI_BIN },
 			seed: async ({ agentDir }) => {
-				await writeFile(join(agentDir, "worker.md"), "DEEP-WORKER-MARKER");
+				await writeFixturePersona(agentDir, "worker.md", "DEEP-WORKER-MARKER");
 				await writeFile(
-					join(agentDir, "om-pi-subagents.yaml"),
-					"version: 1\nlimits:\n  maxConcurrentRuns: 4\n  maxDepth: 5\nagents:\n  worker:\n    persona: ./worker.md\n    tools: [omps]\n    thinking: off\n",
+					join(agentDir, "omps/config.yaml"),
+					"version: 1\nlimits:\n  maxConcurrentRuns: 4\n  maxDepth: 5\nagents:\n  worker:\n    persona: ./personas/worker.md\n    tools: [omps]\n    thinking: off\n",
 				);
 			},
 		});

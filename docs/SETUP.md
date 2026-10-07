@@ -15,78 +15,61 @@ Contents:
 
 ## Where the files live
 
-Two kinds of file define your agents:
-
-- The mapping file, `om-pi-subagents.yaml`. It lists every agent and its settings.
-- Persona files. Each is a Markdown file with the instructions for one agent.
-
-Both live in your Pi agent directory. Run files go in a sub-folder of the same directory.
+Keep the mapping and personas in one OMPS folder:
 
 ```text
 ~/.pi/agent/
-├── om-pi-subagents.yaml          # the mapping file. YOU create it
-├── om-pi-subagents/              # your files for this extension. YOU create it
-│   └── personas/                 # your persona files. YOU create it
-│       ├── reader.md
-│       └── reviewer.md
-├── mcp.json                      # Pi's own MCP server list, if you use MCP tools
+├── mcp.json                         # Pi's own MCP server list, if used
 └── omps/
-    └── runs/<session-id>/<run-id>/   # one private folder per run, written by OMPS
+    ├── config.yaml                  # your mapping file
+    ├── personas/                    # your persona files
+    │   ├── reader.md
+    │   └── reviewer.md
+    └── runs/<session-id>/<run-id>/   # private evidence written by OMPS
 ```
 
-Rules for these locations:
-
-- OMPS reads the mapping file from `~/.pi/agent/om-pi-subagents.yaml`.
-- If you do not have this file, OMPS has no agents. `/omps list` answers `No personas mapped.`
-- Persona paths are relative to the folder that holds the mapping file.
-- A persona must stay inside that folder after symbolic links are resolved. A path or link that leads outside it is rejected.
-- The package contains no mapping file and no personas. Package updates do not write to your agent directory.
+- OMPS reads `~/.pi/agent/omps/config.yaml` by default.
+- A new installation has no mapping. `/omps list` answers `No personas mapped.`
+- If only `~/.pi/agent/om-pi-subagents.yaml` exists, listing and launches stop with migration commands.
+- Follow [Move settings into the OMPS folder](INSTALL.md#move-settings-into-the-omps-folder) before creating another registry.
+- Persona paths resolve from the mapping file's folder after symbolic links are resolved.
+- A persona must stay inside that folder and outside the canonical OMPS run folder.
+- The package ships no mapping or personas. Package updates leave your files untouched.
 
 ### Persona, persona folder and `omps/`: the difference
 
-Several names look alike. Each one is a different thing.
+| Name | What it holds | Who creates it | How OMPS uses it |
+| --- | --- | --- | --- |
+| `~/.pi/agent/omps/config.yaml` | Agent names and settings | You, or a confirmed settings save | Reads it before listing or launching agents. |
+| `~/.pi/agent/omps/personas/` | Your Markdown instructions | You | Reads only files named by a `persona:` line. |
+| Persona | Instructions for one agent | You | Reads it afresh and saves a copy for each child. |
+| `persona:` field | A path relative to the YAML folder | You | Selects that one file. |
+| `~/.pi/agent/omps/runs/` | Saved tasks, output and events | OMPS | Writes private evidence for each run. |
 
-| Name                                    | What it is                                                           | Who creates it         | How OMPS uses it                                                                                                              |
-| --------------------------------------- | -------------------------------------------------------------------- | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| `~/.pi/agent/om-pi-subagents.yaml`      | The mapping file. A file. It lists every agent.                      | You                    | Reads it to learn the agent names and their settings.                                                                         |
-| `~/.pi/agent/om-pi-subagents/`          | A folder for your files for this extension. It holds `personas/`.    | You, with `mkdir`      | Never reads the folder itself.                                                                                                |
-| `~/.pi/agent/om-pi-subagents/personas/` | The persona folder. It holds your persona files.                     | You, with `mkdir`      | Never reads the folder itself. It reads only the files that `persona:` lines name.                                            |
-| Persona                                 | One Markdown file with the instructions for one agent.               | You                    | Reads it on `/omps list` and `/omps run`. Saves a copy as `persona.md`. Gives the copy to the child Pi as system prompt text. |
-| `persona:` field                        | One line under an agent in the YAML. It holds the path to a persona. | You                    | Joins the path to the YAML's folder. Reads that one file.                                                                     |
-| `~/.pi/agent/omps/`                     | The run folder.                                                      | OMPS, on the first run | Writes each run's files here. See [USAGE.md](USAGE.md).                                                                       |
-
-The mapping file and the `om-pi-subagents/` folder sit side by side and have almost the same name.
-The file is the list of agents. The folder holds the files that the list points to.
-
-Rules that follow from this:
-
-- Keep every persona in `~/.pi/agent/om-pi-subagents/personas/`. Every example in these docs uses this folder.
-- The package creates neither folder. You create both with `mkdir -p ~/.pi/agent/om-pi-subagents/personas`.
-- OMPS does not scan the persona folder. A file in it that no `persona:` line names is ignored.
-- OMPS itself accepts any path inside `~/.pi/agent/`. Use the path above so that your set-up matches the docs.
-- If you move the persona folder, edit every `persona:` line that uses it.
+Use `mkdir -p ~/.pi/agent/omps/personas` to create the conventional persona folder.
+OMPS does not scan it. Unmapped files stay unavailable.
+Other persona paths inside the YAML folder are accepted, except paths into the run folder.
+Model output and saved run personas must never become mapped instructions.
 
 ### Where each `persona:` path points
 
-OMPS takes the `persona:` text from the YAML exactly as you wrote it.
-It then joins that text to the folder that holds the mapping file. By default this folder is `~/.pi/agent/`.
+The default YAML folder is `~/.pi/agent/omps/`.
 The folder where you start Pi has no effect.
 
-| `persona:` value in the YAML           | File OMPS reads                                  |
-| -------------------------------------- | ------------------------------------------------ |
-| `./om-pi-subagents/personas/reader.md` | `~/.pi/agent/om-pi-subagents/personas/reader.md` |
+| `persona:` value in the YAML | File OMPS reads |
+| --- | --- |
+| `./personas/reader.md` | `~/.pi/agent/omps/personas/reader.md` |
 
-- If the folder or the file is missing, `/omps list` fails with `agents.<name>.persona: cannot read <path>`. The `<path>` is the text from your YAML, not the full path.
-- To check which folder your YAML uses, run `grep persona: ~/.pi/agent/om-pi-subagents.yaml`.
+- A missing file gives `agents.<name>.persona: cannot read <path>`. The path is your YAML text.
+- Check the paths with `grep persona: ~/.pi/agent/omps/config.yaml`.
+- After moving a persona folder, edit each affected `persona:` line.
 
-Two environment variables change these locations:
+| Variable | Effect |
+| --- | --- |
+| `OMPS_REGISTRY` | Selects another registry. Persona paths resolve from its folder. An explicit old-file path still works. |
+| `PI_CODING_AGENT_DIR` | Replaces `~/.pi/agent`. The default becomes `<agent-dir>/omps/config.yaml`, with runs in `<agent-dir>/omps/runs/`. |
 
-| Variable              | Effect                                                                                                            |
-| --------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `OMPS_REGISTRY`       | Full path of the mapping file to use instead. Persona paths then resolve from that file's folder.                 |
-| `PI_CODING_AGENT_DIR` | Replaces `~/.pi/agent` as the agent directory. The default mapping file and the `omps/runs/` folder move with it. |
-
-Set either variable before you start Pi.
+Set either variable before starting Pi.
 
 ## Set up your first agent
 
@@ -98,13 +81,13 @@ This procedure makes an agent called `reader`. It reads files and answers questi
 4. Make the persona folder:
 
    ```sh
-   mkdir -p ~/.pi/agent/om-pi-subagents/personas
+   mkdir -p ~/.pi/agent/omps/personas
    ```
 
 5. Write the persona file:
 
    ```sh
-   cat > ~/.pi/agent/om-pi-subagents/personas/reader.md <<'EOF'
+   cat > ~/.pi/agent/omps/personas/reader.md <<'EOF'
    You read files and answer questions about them.
    Give short answers. Name the file for every claim.
    EOF
@@ -113,11 +96,11 @@ This procedure makes an agent called `reader`. It reads files and answers questi
 6. Write the mapping file. This command replaces an existing mapping file, so check first that you have none:
 
    ```sh
-   cat > ~/.pi/agent/om-pi-subagents.yaml <<'EOF'
+   cat > ~/.pi/agent/omps/config.yaml <<'EOF'
    version: 1
    agents:
      reader:
-       persona: ./om-pi-subagents/personas/reader.md
+       persona: ./personas/reader.md
        tools: [read, grep, find, ls]
        thinking: off
    EOF
@@ -164,7 +147,7 @@ Frontmatter is a settings block between two `---` lines at the top of a Markdown
 | Where                              | What goes there                                                                |
 | ---------------------------------- | ------------------------------------------------------------------------------ |
 | Persona `.md` file                 | The instructions for the model, in plain Markdown only.                        |
-| `~/.pi/agent/om-pi-subagents.yaml` | `tools`, `model`, `thinking`, `skills`, `extensions`, and the `persona:` path. |
+| `~/.pi/agent/omps/config.yaml` | `tools`, `model`, `thinking`, `skills`, `extensions`, and the `persona:` path. |
 
 Wrong. OMPS rejects this persona file:
 
@@ -188,12 +171,12 @@ Right. The settings are in the mapping file:
 ```yaml
 agents:
   reviewer:
-    persona: ./om-pi-subagents/personas/reviewer.md
+    persona: ./personas/reviewer.md
     tools: [read, grep]
     thinking: high
 ```
 
-If a persona starts with `---`, `/omps list` and `/omps run` fail with `has frontmatter; put settings in om-pi-subagents.yaml`.
+If a persona starts with `---`, `/omps list` and `/omps run` fail with `has frontmatter; put settings in config.yaml`.
 
 ### What happens to the file
 
@@ -226,7 +209,7 @@ Write to the model in the second person. Cover these points:
 
 ### Example
 
-A read-only code reviewer, saved as `~/.pi/agent/om-pi-subagents/personas/reviewer.md`.
+A read-only code reviewer, saved as `~/.pi/agent/omps/personas/reviewer.md`.
 The file has no `---` block. Its settings (`tools`, `thinking`) are in the mapping file. See [Complete example](#complete-example).
 
 ```markdown
@@ -479,18 +462,18 @@ This file maps three agents: a read-only reviewer, a writer and a documentation 
 version: 1
 agents:
   reviewer:
-    persona: ./om-pi-subagents/personas/reviewer.md
+    persona: ./personas/reviewer.md
     tools: [read, grep, find, ls]
     thinking: medium
 
   writer:
-    persona: ./om-pi-subagents/personas/writer.md
+    persona: ./personas/writer.md
     tools: [read, grep, find, ls, edit, write]
     model: my-provider/my-model # replace with a name from `pi --list-models`
     thinking: low
 
   docs-researcher:
-    persona: ./om-pi-subagents/personas/docs-researcher.md
+    persona: ./personas/docs-researcher.md
     tools:
       - read
       - tool_search
@@ -536,6 +519,8 @@ OMPS reports the first problem it finds. Fix it, then run `/omps list` again.
 | Message (or part of it)                                                  | Cause                                                            | Fix                                                                                                      |
 | ------------------------------------------------------------------------ | ---------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
 | `No personas mapped.`                                                    | No mapping file, or `agents: {}`                                 | Create the mapping file. See [Set up your first agent](#set-up-your-first-agent).                        |
+| `config.yaml: OMPS now reads ... Move your settings:` | Only the old default registry exists | Follow [Move settings into the OMPS folder](INSTALL.md#move-settings-into-the-omps-folder), then run `/omps list`. |
+| `resolves inside the OMPS run folder` | The persona points to saved run evidence | Move trusted instructions into `omps/personas/` and update the mapping. |
 | `version: required`                                                      | No `version` key. An empty mapping file also gives this.         | Add `version: 1` as the first line.                                                                      |
 | `version: unsupported ...; expected 1`                                   | `version` is not the number 1                                    | Write `version: 1` without quotes.                                                                       |
 | `agents: required mapping (use {} for no agents)`                        | `agents` is missing or is not a mapping                          | Add `agents:` with agents under it, or `agents: {}`.                                                     |
@@ -549,12 +534,12 @@ OMPS reports the first problem it finds. Fix it, then run `/omps list` again.
 | `agents.<name>.<field>: unknown field`                                   | A misspelt or unsupported agent field, such as `toolz`           | Use only the fields in [Agent fields](#agent-fields).                                                    |
 | `invalid name; use [a-z][a-z0-9-]{0,63}`                                 | Capital letter, underscore, leading digit or too long            | Rename the agent. See [Agent names](#agent-names).                                                       |
 | `agents.<name>: must be a mapping`                                       | The agent has no fields under it                                 | Indent its fields under the name.                                                                        |
-| `persona: required path`                                                 | No `persona` field, or it is empty                               | Add `persona: ./om-pi-subagents/personas/<name>.md`.                                                     |
+| `persona: required path`                                                 | No `persona` field, or it is empty                               | Add `persona: ./personas/<name>.md`.                                                     |
 | `persona: cannot read <path>`                                            | The persona file does not exist                                  | Create the file, or correct the path relative to the mapping folder.                                     |
 | `resolves outside the extension directory`                               | The path or a symbolic link leads outside the mapping folder     | Move the persona into the mapping file's folder.                                                         |
 | `cannot read <path> as a file`                                           | The path is a folder, or you have no read permission             | Point to a file. Check its permissions.                                                                  |
 | `<path> is empty`                                                        | The persona has only spaces or blank lines                       | Write the persona text.                                                                                  |
-| `has frontmatter; put settings in om-pi-subagents.yaml`                  | The persona starts with `---`                                    | Remove the block at the top. Move its settings to the mapping file.                                      |
+| `has frontmatter; put settings in config.yaml`                  | The persona starts with `---`                                    | Remove the block at the top. Move its settings to the mapping file.                                      |
 | `larger than 262144 bytes`                                               | The persona or mapping file is over 256 KiB                      | Make the file shorter.                                                                                   |
 | `tools: required (use [] for no tools)`                                  | No `tools` field                                                 | Add `tools: [...]`, or `tools: []`.                                                                      |
 | `tools: must be a list of tool names`                                    | `tools` is not a list                                            | Write it as `[read, grep]` or as a `-` list.                                                             |

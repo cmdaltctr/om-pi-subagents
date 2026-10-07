@@ -4,17 +4,20 @@ import { dirname, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { loadRegistry } from "../src/config.ts";
 
+let root: string;
 let dir: string;
 
 beforeEach(async () => {
-	dir = await mkdtemp(join(tmpdir(), "omps-config-"));
+	root = await mkdtemp(join(tmpdir(), "omps-config-"));
+	dir = join(root, "omps");
+	await mkdir(dir, { recursive: true });
 });
 
 afterEach(async () => {
-	await rm(dir, { recursive: true, force: true });
+	await rm(root, { recursive: true, force: true });
 });
 
-const yamlPath = () => join(dir, "om-pi-subagents.yaml");
+const yamlPath = () => join(dir, "config.yaml");
 
 async function write(relativePath: string, text: string): Promise<void> {
 	// nosemgrep: AIK_ts_generic_path_traversal -- This helper is called only with literal test paths below the generated temporary root.
@@ -33,7 +36,7 @@ agents:
 
 describe("catalogue", () => {
 	it("accepts an empty catalogue and adds no fallback personas", async () => {
-		await write("om-pi-subagents.yaml", "version: 1\nagents: {}\n");
+		await write("config.yaml", "version: 1\nagents: {}\n");
 		const registry = await loadRegistry(yamlPath());
 		expect(registry.agents.size).toBe(0);
 		expect(registry.agents.get("a-explore")).toBeUndefined();
@@ -48,7 +51,7 @@ describe("catalogue", () => {
 		await write("personas/one.md", "First.");
 		await write("personas/two.md", "Second.");
 		await write(
-			"om-pi-subagents.yaml",
+			"config.yaml",
 			`version: 1
 agents:
   x9-review:
@@ -69,7 +72,7 @@ agents:
 	it("keeps unmapped persona files unavailable", async () => {
 		await write("personas/reader.md", "Read things.");
 		await write("personas/unlisted.md", "Not mapped.");
-		await write("om-pi-subagents.yaml", reader);
+		await write("config.yaml", reader);
 		const registry = await loadRegistry(yamlPath());
 		expect([...registry.agents.keys()]).toEqual(["reader"]);
 	});
@@ -77,11 +80,11 @@ agents:
 	it("follows added and removed mappings on the next load", async () => {
 		await write("personas/reader.md", "Read things.");
 		await write("personas/writer.md", "Write things.");
-		await write("om-pi-subagents.yaml", reader);
+		await write("config.yaml", reader);
 		expect([...(await loadRegistry(yamlPath())).agents.keys()]).toEqual(["reader"]);
 
 		await write(
-			"om-pi-subagents.yaml",
+			"config.yaml",
 			`version: 1
 agents:
   writer:
@@ -101,7 +104,7 @@ describe("explicit thinking", () => {
 		"accepts %s without requiring a model",
 		async (thinking) => {
 			await write("personas/reader.md", "Read things.");
-			await write("om-pi-subagents.yaml", reader.replace("thinking: off", `thinking: ${thinking}`));
+			await write("config.yaml", reader.replace("thinking: off", `thinking: ${thinking}`));
 			const agent = (await loadRegistry(yamlPath())).agents.get("reader")!;
 			expect(agent.thinking).toBe(thinking);
 			expect(agent.model).toBeUndefined();
@@ -115,20 +118,20 @@ ${ui}agents: {}
 `;
 
 	it("applies five visible agents, the expanded fleet and no shortcuts when ui is omitted", async () => {
-		await write("om-pi-subagents.yaml", uiYaml(""));
+		await write("config.yaml", uiYaml(""));
 		const registry = await loadRegistry(yamlPath());
 		expect(registry.ui).toEqual({ maxVisibleAgents: 5, fleetView: "expanded", toggleKey: "off", inspectKey: "off" });
 	});
 
 	it("accepts an empty ui mapping", async () => {
-		await write("om-pi-subagents.yaml", uiYaml("ui: {}\n"));
+		await write("config.yaml", uiYaml("ui: {}\n"));
 		const registry = await loadRegistry(yamlPath());
 		expect(registry.ui).toEqual({ maxVisibleAgents: 5, fleetView: "expanded", toggleKey: "off", inspectKey: "off" });
 	});
 
 	it("carries declared ui values", async () => {
 		await write(
-			"om-pi-subagents.yaml",
+			"config.yaml",
 			uiYaml('ui:\n  maxVisibleAgents: 9\n  toggleKey: "ctrl+alt+p"\n  inspectKey: "off"\n'),
 		);
 		const registry = await loadRegistry(yamlPath());
@@ -141,21 +144,21 @@ ${ui}agents: {}
 	});
 
 	it.each(["expanded", "collapsed", "off"])("carries fleetView %s", async (view) => {
-		await write("om-pi-subagents.yaml", uiYaml(`ui:\n  fleetView: "${view}"\n`));
+		await write("config.yaml", uiYaml(`ui:\n  fleetView: "${view}"\n`));
 		expect((await loadRegistry(yamlPath())).ui.fleetView).toBe(view);
 	});
 
 	it("keeps explicit Alt keys after the defaults change", async () => {
-		await write("om-pi-subagents.yaml", uiYaml('ui:\n  toggleKey: "alt+o"\n  inspectKey: "alt+i"\n'));
+		await write("config.yaml", uiYaml('ui:\n  toggleKey: "alt+o"\n  inspectKey: "alt+i"\n'));
 		const registry = await loadRegistry(yamlPath());
 		expect(registry.ui).toMatchObject({ toggleKey: "alt+o", inspectKey: "alt+i" });
 	});
 
 	it("applies only the matching default for each omitted ui field", async () => {
-		await write("om-pi-subagents.yaml", uiYaml("ui:\n  maxVisibleAgents: 8\n"));
+		await write("config.yaml", uiYaml("ui:\n  maxVisibleAgents: 8\n"));
 		const registry = await loadRegistry(yamlPath());
 		expect(registry.ui).toEqual({ maxVisibleAgents: 8, fleetView: "expanded", toggleKey: "off", inspectKey: "off" });
-		await write("om-pi-subagents.yaml", uiYaml('ui:\n  inspectKey: "alt+i"\n'));
+		await write("config.yaml", uiYaml('ui:\n  inspectKey: "alt+i"\n'));
 		expect((await loadRegistry(yamlPath())).ui).toEqual({
 			maxVisibleAgents: 5,
 			fleetView: "expanded",
@@ -167,7 +170,7 @@ ${ui}agents: {}
 	it("keeps ui settings beside limits and mapped agents", async () => {
 		await write("personas/reader.md", "Read things.");
 		await write(
-			"om-pi-subagents.yaml",
+			"config.yaml",
 			`version: 1
 limits:
   maxConcurrentRuns: 4
@@ -188,7 +191,7 @@ agents:
 	});
 
 	it("freezes the resolved ui settings", async () => {
-		await write("om-pi-subagents.yaml", uiYaml("ui: {}\n"));
+		await write("config.yaml", uiYaml("ui: {}\n"));
 		const registry = await loadRegistry(yamlPath());
 		expect(Object.isFrozen(registry.ui)).toBe(true);
 	});
@@ -197,7 +200,7 @@ agents:
 describe("persona snapshot", () => {
 	it("resolves persona paths relative to the YAML file", async () => {
 		await write("personas/reader.md", "Read things.");
-		await write("om-pi-subagents.yaml", reader);
+		await write("config.yaml", reader);
 		const agent = (await loadRegistry(yamlPath())).agents.get("reader")!;
 		expect(agent.personaPath.endsWith(join("personas", "reader.md"))).toBe(true);
 		expect(agent.persona).toBe("Read things.");
@@ -205,7 +208,7 @@ describe("persona snapshot", () => {
 
 	it("applies empty defaults for optional settings", async () => {
 		await write("personas/reader.md", "Read things.");
-		await write("om-pi-subagents.yaml", reader);
+		await write("config.yaml", reader);
 		const agent = (await loadRegistry(yamlPath())).agents.get("reader")!;
 		expect(agent).toMatchObject({ name: "reader", tools: ["read", "grep"], skills: [], extensions: [] });
 		expect(agent.model).toBeUndefined();
@@ -214,7 +217,7 @@ describe("persona snapshot", () => {
 
 	it("gives the next load edited text and leaves the earlier snapshot unchanged", async () => {
 		await write("personas/reader.md", "Version one.");
-		await write("om-pi-subagents.yaml", reader);
+		await write("config.yaml", reader);
 		const first = (await loadRegistry(yamlPath())).agents.get("reader")!;
 
 		await write("personas/reader.md", "Version two.");

@@ -2,6 +2,7 @@
 
 - **Date:** 2026-10-07
 - **Status:** Accepted
+- **Partly superseded by:** [ADR-010](./010-keep-operator-files-in-the-omps-folder.md), for the registry filename and persona folder only.
 - **Deciders:** Project maintainer
 
 ## Context

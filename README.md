@@ -101,14 +101,27 @@ local checkout instead, see [installation](docs/INSTALL.md).
 
 Each agent needs a Markdown persona and a YAML mapping. Both live in your Pi
 agent directory, `~/.pi/agent/`, so package updates never touch them. Persona
-paths are relative to the mapping file.
+paths are relative to the mapping file, inside `omps/`:
+
+```text
+~/.pi/agent/omps/
+├── config.yaml
+├── personas/
+│   └── reader.md
+└── runs/<session-id>/<run-id>/
+```
+
+**Breaking upgrade:** move existing settings and personas with the
+[migration guide](docs/INSTALL.md#move-settings-into-the-omps-folder).
+When only the old registry exists, OMPS blocks listing, launches and settings saves
+with migration commands. `OMPS_REGISTRY` can explicitly select another file.
 
 You create both. The install makes neither the mapping file nor the persona
-folder. Keep persona files in `~/.pi/agent/om-pi-subagents/personas/`. OMPS
+folder. Keep persona files in `~/.pi/agent/omps/personas/`. OMPS
 reads only the files that your `persona:` lines name. For the full explanation,
 see [Set up agents](docs/SETUP.md#persona-persona-folder-and-omps-the-difference).
 
-Persona file `~/.pi/agent/om-pi-subagents/personas/reader.md`:
+Persona file `~/.pi/agent/omps/personas/reader.md`:
 
 <!-- docs-test: persona -->
 
@@ -117,7 +130,7 @@ You read files and answer questions about them.
 Give short answers. Name the file for every claim.
 ```
 
-Mapping file `~/.pi/agent/om-pi-subagents.yaml`:
+Mapping file `~/.pi/agent/omps/config.yaml`:
 
 <!-- docs-test: yaml -->
 
@@ -125,7 +138,7 @@ Mapping file `~/.pi/agent/om-pi-subagents.yaml`:
 version: 1
 agents:
   reader:
-    persona: ./om-pi-subagents/personas/reader.md
+    persona: ./personas/reader.md
     tools: [read, grep, find, ls]
     thinking: off
 ```
@@ -194,7 +207,8 @@ YAML. YAML wins once it declares the field. OMPS no longer writes the legacy fil
 
 Cancelling an input or declining confirmation leaves that setting unchanged.
 Earlier confirmed saves remain in effect. Creating a missing registry requires confirmation;
-it starts with `agents: {}`. Malformed files must be corrected before saving.
+it starts with `agents: {}`. OMPS creates `omps/` with mode `0700` and `config.yaml`
+with mode `0600`, without creating a persona folder. Malformed files must be corrected before saving.
 Conflicting edits are rejected: reopen settings to load the newer values.
 
 Saved limits apply to fresh launches. Existing runs continue, and an existing branch keeps its inherited depth ceiling.
@@ -272,6 +286,7 @@ truncated output shows its saved location. See [inspection](docs/USAGE.md#agent-
 | `skills`     | no       | Paths to `SKILL.md` files. Paths may start with `~/`.              |
 | `extensions` | no       | Paths to trusted extensions. See "Provider extensions".            |
 
+Personas cannot resolve into `omps/runs/`, including through symbolic links. Run evidence can contain model output.
 OMPS rejects unknown fields, duplicate keys, aliases, and custom YAML tags.
 A bad file stops every launch until you fix it. OMPS never runs on old
 settings after a failed load.
@@ -413,7 +428,7 @@ Skills that promise these features need edits before you use them with OMPS.
 3. Run `/reload`.
 
 Run files stay in `~/.pi/agent/omps/runs/` until you delete them. Your mapping
-in `~/.pi/agent/om-pi-subagents.yaml` and your persona folder also stay. You
+in `~/.pi/agent/omps/config.yaml` and your persona folder also stay. You
 created them, so you remove them. For the steps, see
 [How to uninstall](docs/UNINSTALL.md#remove-your-own-files-optional).
 

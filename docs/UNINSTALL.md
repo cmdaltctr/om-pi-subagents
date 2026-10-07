@@ -29,29 +29,27 @@ Stop all old sessions and confirm their descendant cleanup first. Never overwrit
 
 | Item                                    | What happens                                                                                                                                                                                    |
 | --------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `~/.pi/agent/omps/runs/`                | Saved tasks, personas, events and answers remain.                                                                                                                                               |
+| `~/.pi/agent/omps/` | Your `config.yaml`, `personas/` and saved `runs/` remain for a later installation. |
 | Parent Pi session history               | Existing tool calls and result messages remain.                                                                                                                                                 |
-| `~/.pi/agent/om-pi-subagents.yaml`      | Your mapping remains for a later installation.                                                                                                                                                  |
-| `~/.pi/agent/om-pi-subagents/`          | Your persona files remain. See the next section to remove them.                                                                                                                                 |
 | Development checkout                    | Remains unchanged, including its local tools and ignored host packages.                                                                                                                         |
 | `<config-dir>/pi-subagents/config.json` | Legacy visible-agent preferences remain. Absolute `XDG_CONFIG_HOME` selects the config directory, otherwise `~/.config`. Current versions read this file only as a fallback and never write it. |
 
-OMPS never deletes saved run directories automatically.
+Saved evidence remains in `~/.pi/agent/omps/runs/`. OMPS never deletes those directories automatically.
 Review their contents before any optional cleanup; they can contain sensitive text.
 Remove a directory only after confirming its processes have stopped and its output is no longer needed.
 
 ## Remove your own files (optional)
 
-`pi remove` does not delete the mapping file or the persona folder. You created them, so you remove them.
+`pi remove` leaves the whole `omps/` folder. Review the settings, personas and saved runs before removing it.
 
-1. Check which folder your `persona:` lines use: `grep persona: ~/.pi/agent/om-pi-subagents.yaml`.
-2. If the paths start with `./om-pi-subagents/personas/`, the folder to remove is `~/.pi/agent/om-pi-subagents/`.
-   If you used another path, remove that folder instead.
-3. Check that no other tool uses the folder.
-4. Remove the folder: `rm -r ~/.pi/agent/om-pi-subagents/`.
-5. Remove the mapping file: `rm ~/.pi/agent/om-pi-subagents.yaml`.
+1. Check the selected registry, including any `OMPS_REGISTRY` override.
+2. Check which persona paths it uses: `grep persona: ~/.pi/agent/omps/config.yaml`.
+3. Confirm that all run processes have stopped and their saved output is no longer needed.
+4. Check that no other tool needs the files in `~/.pi/agent/omps/`.
+5. Remove that folder only after approval: `rm -r ~/.pi/agent/omps/`.
 
-Skip steps 4 and 5 if you plan to reinstall.
+Keep it if you plan to reinstall or need saved evidence. An overridden registry elsewhere remains separate.
+If you have not migrated, the old registry and persona folder also remain; inspect them before any cleanup.
 The legacy display preference is separate. Remove only `<config-dir>/pi-subagents/config.json` if you no longer need it; a registry `ui.maxVisibleAgents` value supersedes it.
 Leave todo preferences and Pi's `settings.json` unchanged.
 

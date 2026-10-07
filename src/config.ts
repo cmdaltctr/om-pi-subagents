@@ -1,8 +1,9 @@
 import { existsSync } from "node:fs";
 import { readFile, realpath, stat } from "node:fs/promises";
 import { homedir } from "node:os";
-import { dirname, isAbsolute, relative, resolve } from "node:path";
+import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
 import { isAlias, parseDocument, visit } from "yaml";
+import { registryMigrationMessage, resolveAgentDir } from "./registry-path.ts";
 
 /** Immutable launch inputs for one agent: persona text plus validated settings. */
 export interface AgentSnapshot {
@@ -119,10 +120,13 @@ const isPlain = (value: unknown): value is Plain =>
 /** Read the YAML and every mapped persona afresh. Each call returns new snapshots. */
 export async function loadRegistry(yamlPath: string): Promise<ConfigurationSnapshot> {
 	// No file yet means the operator has mapped no agents. The package ships none.
-	// nosemgrep: AIK_ts_generic_path_traversal -- The trusted operator selects this registry path; resolve only normalises a missing filename, with no file read.
-	if (!existsSync(yamlPath))
+	if (!existsSync(yamlPath)) {
+		const migration = await registryMigrationMessage(yamlPath);
+		if (migration) throw new RegistryError("config.yaml", migration);
+		// nosemgrep: AIK_ts_generic_path_traversal -- Normalise the missing operator-selected filename; no file read. Evidence: docs/local-docs/move-config-into-omps-folder-security-triage.md.
 		return configurationSnapshot(new Map(), validateLimits(undefined), validateUi(undefined), resolve(yamlPath));
-	const data = parseYaml(await readBounded("om-pi-subagents.yaml", yamlPath));
+	}
+	const data = parseYaml(await readBounded("config.yaml", yamlPath));
 	const unknownTop = Object.keys(data).find((key) => !["version", "agents", "limits", "ui"].includes(key));
 	if (unknownTop) throw new RegistryError(unknownTop, "unknown field");
 	if (data.version === undefined) throw new RegistryError("version", "required");
@@ -265,7 +269,7 @@ export interface RegistryStore {
 export function createRegistryStore(yamlPath: string): RegistryStore {
 	let state: { snapshot: ConfigurationSnapshot } | { error: RegistryError } | undefined;
 	const current = (): Registry => {
-		if (!state) throw new RegistryError("om-pi-subagents.yaml", "not loaded; refresh first");
+		if (!state) throw new RegistryError("config.yaml", "not loaded; refresh first");
 		if ("error" in state) throw state.error;
 		return state.snapshot.agents;
 	};
@@ -279,7 +283,7 @@ export function createRegistryStore(yamlPath: string): RegistryStore {
 				const failure =
 					error instanceof RegistryError
 						? error
-						: new RegistryError("om-pi-subagents.yaml", "cannot read configuration; check its files and retry", {
+						: new RegistryError("config.yaml", "cannot read configuration; check its files and retry", {
 								cause: error,
 							});
 				state = { error: failure };
@@ -307,16 +311,16 @@ function parseYaml(text: string): Plain {
 	if (first) {
 		const problem =
 			first.code === "DUPLICATE_KEY" ? "duplicate key" : `malformed YAML (${first.message.split("\n")[0]})`;
-		throw new RegistryError("om-pi-subagents.yaml", problem);
+		throw new RegistryError("config.yaml", problem);
 	}
 	visit(document, {
 		Node(_key, node) {
-			if (isAlias(node)) throw new RegistryError("om-pi-subagents.yaml", "aliases are not allowed");
-			if (node.tag) throw new RegistryError("om-pi-subagents.yaml", `custom tag ${node.tag} is not allowed`);
+			if (isAlias(node)) throw new RegistryError("config.yaml", "aliases are not allowed");
+			if (node.tag) throw new RegistryError("config.yaml", `custom tag ${node.tag} is not allowed`);
 		},
 	});
 	const data: unknown = document.toJS() ?? {};
-	if (!isPlain(data)) throw new RegistryError("om-pi-subagents.yaml", "top level must be a mapping");
+	if (!isPlain(data)) throw new RegistryError("config.yaml", "top level must be a mapping");
 	return data;
 }
 
@@ -362,6 +366,11 @@ function validateTools(field: string, tools: unknown): string[] {
 	return [...tools];
 }
 
+function isInside(root: string, path: string): boolean {
+	const fromRoot = relative(root, path);
+	return fromRoot !== ".." && !fromRoot.startsWith(`..${sep}`) && !isAbsolute(fromRoot);
+}
+
 async function readPersona(field: string, persona: string, yamlDir: string): Promise<{ path: string; text: string }> {
 	let canonical: string;
 	try {
@@ -370,9 +379,16 @@ async function readPersona(field: string, persona: string, yamlDir: string): Pro
 	} catch {
 		throw new RegistryError(field, `cannot read ${persona}`);
 	}
-	const fromRoot = relative(await realpath(yamlDir), canonical);
-	if (fromRoot.startsWith("..") || isAbsolute(fromRoot)) {
+	const root = await realpath(yamlDir);
+	if (!isInside(root, canonical)) {
 		throw new RegistryError(field, `${persona} resolves outside the extension directory`);
+	}
+	const runRoot = await realpath(resolve(resolveAgentDir(), "omps", "runs")).catch((error: NodeJS.ErrnoException) => {
+		if (error.code === "ENOENT") return undefined;
+		throw error;
+	});
+	if (runRoot && isInside(root, runRoot) && isInside(runRoot, canonical)) {
+		throw new RegistryError(field, `${persona} resolves inside the OMPS run folder`);
 	}
 	let text: string;
 	try {
@@ -384,7 +400,7 @@ async function readPersona(field: string, persona: string, yamlDir: string): Pro
 	}
 	if (text.trim() === "") throw new RegistryError(field, `${persona} is empty`);
 	if (FRONTMATTER.test(text))
-		throw new RegistryError(field, `${persona} has frontmatter; put settings in om-pi-subagents.yaml`);
+		throw new RegistryError(field, `${persona} has frontmatter; put settings in config.yaml`);
 	return { path: canonical, text };
 }
 

@@ -1,3 +1,4 @@
+import { writeFixturePersona } from "./fixtures/registry.ts";
 import { execFileSync, spawn } from "node:child_process";
 import { chmod, mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -42,21 +43,21 @@ async function nested(faultyPs = false, holdLeaf = false): Promise<Supervised> {
 		tools: ["omps"],
 		limits: { maxConcurrentRuns: 4, maxDepth: 3 },
 		seed: async ({ agentDir }) => {
-			await writeFile(join(agentDir, "middle.md"), "MIDDLE-PERSONA-MARKER");
-			await writeFile(join(agentDir, "leaf.md"), "LEAF-PERSONA-MARKER");
+			await writeFixturePersona(agentDir, "middle.md", "MIDDLE-PERSONA-MARKER");
+			await writeFixturePersona(agentDir, "leaf.md", "LEAF-PERSONA-MARKER");
 			await writeFile(
-				join(agentDir, "om-pi-subagents.yaml"),
+				join(agentDir, "omps/config.yaml"),
 				`version: 1
 limits:
   maxConcurrentRuns: 4
   maxDepth: 3
 agents:
   middle:
-    persona: ./middle.md
+    persona: ./personas/middle.md
     tools: [omps]
     thinking: off
   leaf:
-    persona: ./leaf.md
+    persona: ./personas/leaf.md
     tools: [mcp__fixture__lookup]
     thinking: off
 `,
@@ -64,7 +65,7 @@ agents:
 		},
 	});
 	Object.assign(env, run.workspace.isolationEnv, {
-		OMPS_REGISTRY: join(run.workspace.agentDir, "om-pi-subagents.yaml"),
+		OMPS_REGISTRY: join(run.workspace.agentDir, "omps/config.yaml"),
 	});
 	if (faultyPs) {
 		const bin = join(run.workspace.root, "bin");

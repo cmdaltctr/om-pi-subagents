@@ -2,6 +2,7 @@
 
 - **Date:** 2026-10-01
 - **Status:** Accepted
+- **Partly superseded by:** [ADR-010](./010-keep-operator-files-in-the-omps-folder.md), for the default registry location only.
 - **Deciders:** Maintainer
 
 ## Context

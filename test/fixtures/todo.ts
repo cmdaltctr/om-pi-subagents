@@ -1,3 +1,4 @@
+import { fixtureRegistryPath } from "./registry.ts";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { dirname, join, resolve } from "node:path";
@@ -63,7 +64,7 @@ export async function startTodoChild(
 				piBin: PI_BIN,
 				parentModel: "fake/counter",
 				startupDeadlineMs: 2000,
-				lineage: { ...fixtureLineage(join(agentDir, "om-pi-subagents.yaml")), maxDepth: options.maxDepth ?? 1 },
+				lineage: { ...fixtureLineage(fixtureRegistryPath(agentDir)), maxDepth: options.maxDepth ?? 1 },
 			}),
 	});
 }

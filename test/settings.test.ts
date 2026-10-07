@@ -167,6 +167,40 @@ describe("settings commands", () => {
 	);
 });
 
+describe("default registry layout", () => {
+	it("shows the migration error and offers no save when only the old file exists", async () => {
+		const agentDir = join(root, "agent");
+		vi.stubEnv("OMPS_REGISTRY", undefined);
+		await fs.mkdir(agentDir);
+		const oldPath = join(agentDir, "om-pi-subagents.yaml");
+		await fs.writeFile(oldPath, yaml);
+		const ctx = context();
+		pick(ctx, "Maximum nesting depth", "2");
+		await run(ctx);
+		expect(ctx.ui.notify).toHaveBeenCalledWith(expect.stringContaining(`mv ${oldPath} ${join(agentDir, "omps/config.yaml")}`), "error");
+		expect(ctx.ui.select).not.toHaveBeenCalled();
+		expect(ctx.ui.confirm).not.toHaveBeenCalled();
+		expect(fs.rename).not.toHaveBeenCalled();
+		expect(await fs.readFile(oldPath, "utf8")).toBe(yaml);
+		await expect(fs.stat(join(agentDir, "omps/config.yaml"))).rejects.toMatchObject({ code: "ENOENT" });
+	});
+
+	it("creates the private default registry after confirmation without a persona folder", async () => {
+		vi.stubEnv("OMPS_REGISTRY", undefined);
+		const agentDir = join(root, "agent");
+		const ctx = context();
+		pick(ctx, "Maximum nesting depth", "2");
+		await run(ctx);
+		const path = join(agentDir, "omps/config.yaml");
+		expect(ctx.ui.confirm.mock.calls[0][1]).toContain(path);
+		expect((await loadRegistry(path)).limits.maxDepth).toBe(2);
+		expect((await fs.stat(join(agentDir, "omps"))).mode & 0o777).toBe(0o700);
+		expect((await fs.stat(path)).mode & 0o777).toBe(0o600);
+		await expect(fs.stat(join(agentDir, "omps/personas"))).rejects.toMatchObject({ code: "ENOENT" });
+		await expect(fs.stat(join(agentDir, "om-pi-subagents.yaml"))).rejects.toMatchObject({ code: "ENOENT" });
+	});
+});
+
 describe("execution limits", () => {
 	it("accepts depth zero after confirmation and preserves concurrency", async () => {
 		const ctx = context();
@@ -183,7 +217,7 @@ describe("execution limits", () => {
 		pick(ctx, "Parallel direct children", " 2 ");
 		await run(ctx);
 		expect((await loadRegistry(registry)).limits).toEqual({ maxDepth: 3, maxConcurrentRuns: 2 });
-		await expect(fs.stat(join(root, "agent", "om-pi-subagents.yaml"))).rejects.toMatchObject({ code: "ENOENT" });
+		await expect(fs.stat(join(root, "agent", "omps/config.yaml"))).rejects.toMatchObject({ code: "ENOENT" });
 	});
 
 	it.each([undefined, "decline"])("leaves files unchanged after cancellation: %s", async (choice) => {

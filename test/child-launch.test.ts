@@ -78,7 +78,7 @@ async function startChild(overrides: Partial<AgentSnapshot> = {}): Promise<PiFix
 				personaFile: join(dirname(agentDir), "persona.md"),
 				guardPath: GUARD,
 				runToken: "token-9",
-				lineage: fixtureLineage(join(agentDir, "om-pi-subagents.yaml")),
+				lineage: fixtureLineage(join(agentDir, "omps/config.yaml")),
 				piBin: PI_BIN,
 				parentModel: "fake/counter",
 			}),

@@ -1,3 +1,4 @@
+import { writeFixturePersona } from "./fixtures/registry.ts";
 import { readFile, readdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -13,22 +14,22 @@ describe.skipIf(!PI_AVAILABLE)("real todo lists during parallel nested settlemen
 			mode: "openspec",
 			maxDepth: 3,
 			seed: async ({ agentDir }) => {
-				await writeFile(join(agentDir, "delegate.md"), "TODO-DELEGATE-PERSONA-MARKER");
-				await writeFile(join(agentDir, "leaf.md"), "TODO-LEAF-PERSONA-MARKER");
+				await writeFixturePersona(agentDir, "delegate.md", "TODO-DELEGATE-PERSONA-MARKER");
+				await writeFixturePersona(agentDir, "leaf.md", "TODO-LEAF-PERSONA-MARKER");
 				await writeFile(
-					join(agentDir, "om-pi-subagents.yaml"),
+					join(agentDir, "omps/config.yaml"),
 					`version: 1
 limits:
   maxConcurrentRuns: 4
   maxDepth: 3
 agents:
   delegate:
-    persona: ./delegate.md
+    persona: ./personas/delegate.md
     tools: [omps, todo]
     thinking: off
     extensions: [${JSON.stringify(extension)}]
   leaf:
-    persona: ./leaf.md
+    persona: ./personas/leaf.md
     tools: [todo]
     thinking: off
     extensions: [${JSON.stringify(extension)}]

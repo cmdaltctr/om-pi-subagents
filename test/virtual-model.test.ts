@@ -41,7 +41,7 @@ async function attempt(extensions: string[]): Promise<ReadyChild | StartupError>
 		personaFile: join(workspace.root, "persona.md"),
 		guardPath: GUARD,
 		runToken: "run-token",
-		lineage: fixtureLineage(join(workspace.agentDir, "om-pi-subagents.yaml")),
+		lineage: fixtureLineage(join(workspace.agentDir, "omps/config.yaml")),
 		piBin: PI_BIN,
 		startupDeadlineMs: 15_000,
 		env: { ...process.env, ...workspace.isolationEnv, FAKE_MODEL_URL: workspace.model.baseUrl },

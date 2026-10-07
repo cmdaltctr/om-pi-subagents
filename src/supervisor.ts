@@ -11,6 +11,7 @@ import type { RunOutcome, RunRequest, RunView, Supervisor, SupervisorHooks } fro
 import { DEFAULT_STARTUP_DEADLINE_MS, stopGroup } from "./runner.ts";
 import { launchChild, StartupError, type ReadyChild } from "./startup.ts";
 import type { RunLogs } from "./store.ts";
+import { resolveAgentDir, resolveRegistryPath } from "./registry-path.ts";
 
 export const DEFAULT_TOTAL_DEADLINE_MS = 30 * 60 * 1000;
 export const DEFAULT_KILL_GRACE_MS = 2000;
@@ -90,7 +91,7 @@ export function createSupervisor(deps: SupervisorDeps): Supervisor {
 					runToken,
 					lineage: {
 						...(request.nesting ?? {
-							registryPath: resolvePath(deps.env?.OMPS_REGISTRY ?? "om-pi-subagents.yaml"),
+							registryPath: resolvePath(resolveRegistryPath(resolveAgentDir(deps.env), deps.env)),
 							depth: 1,
 							maxDepth: request.limits?.maxDepth ?? 1,
 							rootSessionId: run.owner,

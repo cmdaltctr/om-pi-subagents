@@ -3,7 +3,7 @@
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, describe as suite, expect, it } from "vitest";
+import { afterEach, describe as suite, expect, it, vi } from "vitest";
 import { PI_AVAILABLE } from "./fixtures/pi-rpc.ts";
 const describe = suite.skipIf(!PI_AVAILABLE);
 import type { Turn } from "./fixtures/fake-model.ts";
@@ -14,6 +14,7 @@ const INDEX = new URL("../src/index.ts", import.meta.url).pathname;
 let pi: PiFixture | undefined;
 let extensionDir: string | undefined;
 afterEach(async () => {
+	vi.unstubAllEnvs();
 	await pi?.dispose();
 	if (extensionDir) await rm(extensionDir, { recursive: true, force: true });
 	pi = extensionDir = undefined;
@@ -28,16 +29,16 @@ interface Timing {
 /** Start a parent whose model launches a child with the omps tool, then acknowledges the result. */
 async function startParent(timing: Timing = {}): Promise<PiFixture> {
 	extensionDir = await mkdtemp(join(tmpdir(), "omps-parent-ext-"));
-	await mkdir(join(extensionDir, "personas"));
-	await writeFile(join(extensionDir, "personas/reader.md"), "CHILD-PERSONA: you read.");
+	await mkdir(join(extensionDir, "omps/personas"), { recursive: true });
+	await writeFile(join(extensionDir, "omps/personas/reader.md"), "CHILD-PERSONA: you read.");
 	await writeFile(
-		join(extensionDir, "om-pi-subagents.yaml"),
+		join(extensionDir, "omps/config.yaml"),
 		`version: 1\nagents:\n  reader:\n    persona: ./personas/reader.md\n    tools: [${timing.slowTool ? "bash" : "read"}]\n    thinking: off\n`,
 	);
 
 	pi = await startPi({
 		args: ["-e", INDEX],
-		env: { OMPS_REGISTRY: join(extensionDir, "om-pi-subagents.yaml"), OMPS_PI_BIN: PI_BIN },
+		env: { OMPS_REGISTRY: join(extensionDir, "omps/config.yaml"), OMPS_PI_BIN: PI_BIN },
 	});
 	pi.model.script = (body): Turn => {
 		const text = JSON.stringify(body);
@@ -61,6 +62,37 @@ const waitFor = async (condition: () => boolean | Promise<boolean>, ms = 30_000)
 		await new Promise((done) => setTimeout(done, 50));
 	}
 };
+
+describe("default OMPS folder", () => {
+	it("loads the relocated registry and relative persona and completes one real child", async () => {
+		vi.stubEnv("OMPS_REGISTRY", undefined);
+		pi = await startPi({
+			args: ["-e", INDEX],
+			env: { OMPS_PI_BIN: PI_BIN },
+			seed: async ({ agentDir }) => {
+				await mkdir(join(agentDir, "omps/personas"), { recursive: true });
+				await writeFile(join(agentDir, "omps/personas/reader.md"), "CHILD-PERSONA: you read.");
+				await writeFile(join(agentDir, "omps/config.yaml"), "version: 1\nagents:\n  reader:\n    persona: ./personas/reader.md\n    tools: [read]\n    thinking: off\n");
+			},
+		});
+		const fixture = pi;
+		fixture.model.script = (body): Turn => {
+			const text = JSON.stringify(body);
+			if (text.includes("CHILD-PERSONA")) return { text: "RELOCATED CHILD ANSWER" };
+			if (text.includes("OMPS run")) return { text: "acknowledged" };
+			if (text.includes('"role":"tool"')) return { text: "launched" };
+			return { tool: "omps", args: { action: "run", agent: "reader", task: "read" } };
+		};
+		await fixture.send({ type: "prompt", message: "start" });
+		const launched = await fixture.waitFor((record) => record.type === "tool_execution_end" && record.toolName === "omps");
+		expect(launched.isError, JSON.stringify(launched.result)).toBe(false);
+		await waitFor(() => settles(fixture) === 2);
+		expect(fixture.model.requests.filter((body) => !isParent(body))).toHaveLength(1);
+		const wake = JSON.stringify(fixture.model.requests.findLast(isParent));
+		expect(wake).toContain("RELOCATED CHILD ANSWER");
+		expect(wake).toMatch(/completed/);
+	});
+});
 
 describe("idle parent", () => {
 	it("is woken by the child's result, which arrives once as a follow-up message", async () => {

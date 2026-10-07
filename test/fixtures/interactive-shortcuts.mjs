@@ -1,3 +1,4 @@
+import { writeFixtureRegistry } from "./registry.ts";
 import assert from "node:assert/strict";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -49,7 +50,7 @@ class MemoryTerminal {
 }
 
 const directory = await mkdtemp(join(tmpdir(), "omps-native-shortcuts-"));
-const registry = join(directory, "om-pi-subagents.yaml");
+const registry = join(directory, "omps/config.yaml");
 process.env.PI_CODING_AGENT_DIR = directory;
 process.env.OMPS_REGISTRY = registry;
 
@@ -62,7 +63,7 @@ const registryText = {
 	tab: "version: 1\nui: { toggleKey: tab }\nagents: {}\n",
 	custom: "version: 1\nui: { toggleKey: alt+p, inspectKey: alt+q }\nagents: {}\n",
 };
-await writeFile(registry, registryText[scenario] ?? registryText.defaults);
+await writeFixtureRegistry(directory, registryText[scenario] ?? registryText.defaults);
 
 const terminal = new MemoryTerminal();
 const ui = createInteractiveTui({ terminal, tuiMode: "regular", logDirectory: directory });

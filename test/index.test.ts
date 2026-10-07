@@ -404,7 +404,7 @@ describe("old namespace rejection", () => {
 	});
 
 	it("ignores the old registry environment override", () => {
-		expect(resolveRegistryPath("/agent", { OMPSS_REGISTRY: "/old/agents.yaml" })).toBe("/agent/om-pi-subagents.yaml");
+		expect(resolveRegistryPath("/agent", { OMPSS_REGISTRY: "/old/agents.yaml" })).toBe("/agent/omps/config.yaml");
 	});
 
 	it("refuses a process marked only as an old child before registering an unguarded launcher", () => {
@@ -438,7 +438,7 @@ describe("resolveRegistryPath", () => {
 		expect(resolveRegistryPath("/agent", { OMPS_REGISTRY: "/custom/agents.yaml" })).toBe("/custom/agents.yaml");
 	});
 
-	it("reads the operator's file in the agent directory, outside the installed package", () => {
-		expect(resolveRegistryPath("/agent", {})).toBe("/agent/om-pi-subagents.yaml");
+	it("reads the operator's file in the OMPS folder, outside the installed package", () => {
+		expect(resolveRegistryPath("/agent", {})).toBe("/agent/omps/config.yaml");
 	});
 });

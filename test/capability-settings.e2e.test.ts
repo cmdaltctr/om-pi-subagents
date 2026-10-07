@@ -1,3 +1,4 @@
+import { writeFixturePersona } from "./fixtures/registry.ts";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -51,7 +52,7 @@ async function startMappedChild(workspace: Workspace, snapshot: AgentSnapshot, r
 			buildLaunch({
 				snapshot,
 				cwd,
-				personaFile: join(agentDir, "reader.md"),
+				personaFile: join(agentDir, "omps/personas", "reader.md"),
 				guardPath: new URL("../src/child-guard.ts", import.meta.url).pathname,
 				runToken: "capability-fixture-token",
 				piBin: PI_BIN,
@@ -68,16 +69,16 @@ async function ready(child: PiFixture) {
 }
 
 async function scenario(capability: "Memory" | "Todo", entry: string, workspace: Workspace) {
-	const registry = join(workspace.agentDir, "om-pi-subagents.yaml");
+	const registry = join(workspace.agentDir, "omps/config.yaml");
 	const parentTasks = join(workspace.cwd, "openspec", "changes", "parent", "tasks.md");
 	await mkdir(dirname(parentTasks), { recursive: true });
 	await writeFile(parentTasks, "# Parent tasks\n\n- [ ] 1.1 Preserve parent ownership\n");
 	await writeFile(join(workspace.cwd, "openspec", "config.yaml"), "schema: spec-driven\n");
 	await writeFile(join(dirname(parentTasks), "proposal.md"), "# Parent fixture\n");
-	await writeFile(join(workspace.agentDir, "reader.md"), "READER-CAPABILITY-FIXTURE");
+	await writeFixturePersona(workspace.agentDir, "reader.md", "READER-CAPABILITY-FIXTURE");
 	await writeFile(
 		registry,
-		"# Keep this operator comment\nversion: 1\nagents:\n  reader:\n    persona: reader.md\n    tools: []\n    thinking: off\n  other:\n    persona: reader.md\n    tools: []\n    thinking: off\n",
+		"# Keep this operator comment\nversion: 1\nagents:\n  reader:\n    persona: ./personas/reader.md\n    tools: []\n    thinking: off\n  other:\n    persona: ./personas/reader.md\n    tools: []\n    thinking: off\n",
 	);
 	const initial = (await loadRegistry(registry)).agents.get("reader")!;
 	const parent = await startPi({

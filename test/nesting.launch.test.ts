@@ -1,3 +1,4 @@
+import { writeFixturePersona } from "./fixtures/registry.ts";
 import { readFile, realpath, readdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -13,13 +14,13 @@ async function startManaged(maxDepth: number, tools = ["omps"]) {
 		mcp: false,
 		env: { OMPS_PI_BIN: PI_BIN },
 		seed: async ({ agentDir }) => {
-			await writeFile(join(agentDir, "delegator.md"), "DELEGATOR-PERSONA-MARKER");
-			await writeFile(join(agentDir, "writer.md"), "WRITER-PERSONA-MARKER");
+			await writeFixturePersona(agentDir, "delegator.md", "DELEGATOR-PERSONA-MARKER");
+			await writeFixturePersona(agentDir, "writer.md", "WRITER-PERSONA-MARKER");
 			await writeFile(
-				join(agentDir, "om-pi-subagents.yaml"),
-				`version: 1\nlimits:\n  maxConcurrentRuns: 4\n  maxDepth: ${maxDepth}\nagents:\n  writer:\n    persona: ./writer.md\n    tools: [write]\n    thinking: off\n`,
+				join(agentDir, "omps/config.yaml"),
+				`version: 1\nlimits:\n  maxConcurrentRuns: 4\n  maxDepth: ${maxDepth}\nagents:\n  writer:\n    persona: ./personas/writer.md\n    tools: [write]\n    thinking: off\n`,
 			);
-			registryPath = await realpath(join(agentDir, "om-pi-subagents.yaml"));
+			registryPath = await realpath(join(agentDir, "omps/config.yaml"));
 		},
 		launch: ({ cwd, agentDir }) =>
 			buildLaunch({
@@ -33,7 +34,7 @@ async function startManaged(maxDepth: number, tools = ["omps"]) {
 					extensions: [],
 				},
 				cwd,
-				personaFile: join(agentDir, "delegator.md"),
+				personaFile: join(agentDir, "omps/personas", "delegator.md"),
 				guardPath: guard,
 				runToken: "token",
 				piBin: PI_BIN,

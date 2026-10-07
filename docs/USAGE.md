@@ -23,7 +23,7 @@ Saved evidence can retain old path strings. Moving it never resumes tasks or res
 ## Before you start
 
 1. Install OMPS. See [Install](INSTALL.md).
-2. Map at least one agent in `~/.pi/agent/om-pi-subagents.yaml`. See [Set up agents](SETUP.md).
+2. Map at least one agent in `~/.pi/agent/omps/config.yaml`. See [Set up agents](SETUP.md).
 
 The examples below use an agent called `reader` that may only read files.
 
@@ -338,7 +338,7 @@ No separate permission flag or sibling configuration block is needed:
 ```yaml
 agents:
   researcher:
-    persona: ./researcher.md
+    persona: ./personas/researcher.md
     tools: [read, memory]
     thinking: off
     extensions:
@@ -392,7 +392,7 @@ When you quit Pi, reload with `/reload`, or switch to another session, OMPS clos
 
 ### Configured limits and nesting
 
-Put optional `limits` beside `agents` in `om-pi-subagents.yaml`.
+Put optional `limits` beside `agents` in `omps/config.yaml`.
 
 | Field               | Accepted values             | Default | Meaning                                   |
 | ------------------- | --------------------------- | ------- | ----------------------------------------- |
@@ -474,6 +474,8 @@ is never written or deleted.
 
 Cancelling an input or declining confirmation changes nothing for that setting.
 Earlier confirmed saves remain in effect. Confirming creation of a missing registry creates version one with `agents: {}`.
+The default destination is `<agent-dir>/omps/config.yaml`. A new `omps/` folder uses mode `0700`; the file uses `0600`.
+Settings creates no persona folder. When only the old registry exists, settings shows migration commands and offers no save.
 YAML comments, agent mappings, resource paths and the other limit remain intact after an edit.
 
 Malformed or unreadable files must be corrected before saving.
@@ -573,6 +575,8 @@ Only your user can read these files. The folders have mode `0700` and the files 
 | `/omps` is not a known command                                     | OMPS did not load.                                                                                          | See [Install](INSTALL.md).                                                      |
 | `No personas mapped.`                                              | The mapping file has no agents, or does not exist.                                                          | Map an agent. See [Set up agents](SETUP.md).                                    |
 | An `OMPS:` error about the mapping file                            | The mapping file has an error. New launches stay blocked.                                                   | Fix the field the error names. See [Set up agents](SETUP.md).                   |
+| `config.yaml: OMPS now reads ... Move your settings:` | Only the old default registry exists. Listing, launches and settings saves stay blocked. | Follow [Move settings into the OMPS folder](INSTALL.md#move-settings-into-the-omps-folder), then run `/omps list`. |
+| `agents.<name>.persona: ... resolves inside the OMPS run folder` | The persona points to saved run evidence, directly or through a symbolic link. | Move trusted instructions into `omps/personas/` and update the `persona:` line. |
 | `unknown agent "<name>"; mapped agents: ...`                       | The agent name is wrong.                                                                                    | Use a name from `/omps list`.                                                   |
 | `Usage: /omps list \| run <agent> <task> \| ...`                   | OMPS did not recognise the command, for example a run with no task.                                         | Check the command against the [table](#slash-commands).                         |
 | `task is required`                                                 | The tool call had no task.                                                                                  | Add a task.                                                                     |

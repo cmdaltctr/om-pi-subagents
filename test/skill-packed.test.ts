@@ -82,7 +82,7 @@ describe.skipIf(!PI_AVAILABLE)("disposable packed package skill", () => {
 							personaFile: join(agentDir, "child.md"),
 							guardPath: join(root, "src", "child-guard.ts"),
 							runToken: "packed-skill-fixture",
-							lineage: fixtureLineage(join(agentDir, "om-pi-subagents.yaml")),
+							lineage: fixtureLineage(join(agentDir, "omps/config.yaml")),
 							piBin: PI_BIN,
 							parentModel: "fake/counter",
 						}),

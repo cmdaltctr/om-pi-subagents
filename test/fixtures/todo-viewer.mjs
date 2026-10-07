@@ -1,3 +1,4 @@
+import { writeFixturePersona } from "./registry.ts";
 import { stripVTControlCharacters } from "node:util";
 import assert from "node:assert/strict";
 import { mkdir, readFile, realpath, writeFile } from "node:fs/promises";
@@ -36,11 +37,11 @@ await writeFile(join(workspace.cwd, "openspec", "config.yaml"), "schema: spec-dr
 const tasksPath = join(change, "tasks.md");
 await writeFile(tasksPath, "# Tasks\n\n- [ ] 1.1 Preserve parent task\n");
 await writeFile(join(change, "proposal.md"), "# Preserve parent tasks\n");
-await writeFile(join(workspace.agentDir, "leaf.md"), "Child-only persona");
-const registryPath = join(workspace.agentDir, "om-pi-subagents.yaml");
+await writeFixturePersona(workspace.agentDir, "leaf.md", "Child-only persona");
+const registryPath = join(workspace.agentDir, "omps/config.yaml");
 await writeFile(
 	registryPath,
-	`# Preserve mapping\nversion: 1\nlimits: { maxDepth: 3, maxConcurrentRuns: 4 }\n# Opt-in keys, so the coexistence check still covers both extensions' shortcuts.\nui: { toggleKey: alt+o, inspectKey: alt+i }\nagents:\n  leaf:\n    persona: ./leaf.md\n    tools: [todo]\n    model: fake/counter\n    thinking: off\n    extensions: [${JSON.stringify(extension)}]\n`,
+	`# Preserve mapping\nversion: 1\nlimits: { maxDepth: 3, maxConcurrentRuns: 4 }\n# Opt-in keys, so the coexistence check still covers both extensions' shortcuts.\nui: { toggleKey: alt+o, inspectKey: alt+i }\nagents:\n  leaf:\n    persona: ./personas/leaf.md\n    tools: [todo]\n    model: fake/counter\n    thinking: off\n    extensions: [${JSON.stringify(extension)}]\n`,
 );
 const mappingBefore = parse(await readFile(registryPath, "utf8")).agents;
 // The legacy display file is a read-only import source now; seed it as an upgrading operator would have it.

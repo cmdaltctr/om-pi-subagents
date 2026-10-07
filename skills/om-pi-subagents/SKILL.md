@@ -10,6 +10,13 @@ compatibility: Pi with om-pi-subagents installed and operator-managed mappings.
 Read [setup](../../docs/SETUP.md) for configuration.
 Use the [usage guide](../../docs/USAGE.md) for tool parameters, result timing and recovery.
 
+Operator settings default to `<agent-dir>/omps/config.yaml`, with personas in `omps/personas/`
+and saved evidence in `omps/runs/`. Map personas as `./personas/<name>.md`.
+`OMPS_REGISTRY` still selects another file. If only the old default registry exists, OMPS
+blocks listing, launches and settings saves with migration commands. Ask the operator to follow
+[the migration guide](../../docs/INSTALL.md#move-settings-into-the-omps-folder).
+Never move operator files automatically or map persona instructions from run evidence.
+
 ## Discover before delegating
 
 1. Call `omps` with `{ "action": "list" }`.

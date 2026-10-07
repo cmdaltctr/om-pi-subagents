@@ -17,7 +17,7 @@ await mkdir(root);
 const home = join(await realpath(root), "home");
 const agentDir = join(home, ".pi", "agent");
 const cwd = join(home, "demo-project");
-await mkdir(join(agentDir, "om-pi-subagents", "personas"), { recursive: true });
+await mkdir(join(agentDir, "omps", "personas"), { recursive: true });
 await mkdir(join(cwd, "src"), { recursive: true });
 await mkdir(join(home, ".config"), { recursive: true });
 for (const name of ["api.ts", "routes.ts", "README.md"]) await writeFile(join(cwd, "src", name), `// ${name}\n`);
@@ -89,13 +89,13 @@ await writeFile(
 );
 const tools = "[read, grep, find, ls, bash]";
 await writeFile(
-	join(agentDir, "om-pi-subagents.yaml"),
+	join(agentDir, "omps", "config.yaml"),
 	[
 		"version: 1",
 		"agents:",
 		...Object.keys(plans).flatMap((name) => [
 			`  ${name}:`,
-			`    persona: ./om-pi-subagents/personas/${name}.md`,
+			`    persona: ./personas/${name}.md`,
 			`    tools: ${tools}`,
 			"    thinking: off",
 		]),
@@ -106,7 +106,7 @@ await writeFile(
 	].join("\n"),
 );
 for (const name of Object.keys(plans))
-	await writeFile(join(agentDir, "om-pi-subagents", "personas", `${name}.md`), `You are the ${name} demo agent.\n`);
+	await writeFile(join(agentDir, "omps", "personas", `${name}.md`), `You are the ${name} demo agent.\n`);
 
 const child = spawn(
 	pi,

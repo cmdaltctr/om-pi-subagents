@@ -1,4 +1,5 @@
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { writeFixtureRegistry } from "./fixtures/registry.ts";
+import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
@@ -99,8 +100,8 @@ describe("shipped defaults", () => {
 	it("registers no shortcut for YAML without ui", async () => {
 		const dir = await mkdtemp(join(tmpdir(), "omps-shortcuts-"));
 		try {
-			const path = join(dir, "om-pi-subagents.yaml");
-			await writeFile(path, "version: 1\nagents: {}\n");
+			const path = join(dir, "omps/config.yaml");
+			await writeFixtureRegistry(dir, "version: 1\nagents: {}\n");
 			const { pi, registrations, actions } = harness();
 			registerViewShortcuts(pi, (await loadRegistry(path)).ui, actions, {});
 			expect(registrations.size).toBe(0);

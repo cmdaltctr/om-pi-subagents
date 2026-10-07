@@ -9,7 +9,7 @@ import { RunManager, type Supervisor } from "../src/runs.ts";
 import { createService } from "../src/service.ts";
 
 const lineage = {
-	registryPath: "/operator/om-pi-subagents.yaml",
+	registryPath: "/operator/omps/config.yaml",
 	depth: 1,
 	maxDepth: 3,
 	rootSessionId: "root",
@@ -109,16 +109,19 @@ describe("isolated nested launcher", () => {
 	});
 });
 
+let root: string;
 let dir: string;
 beforeEach(async () => {
-	dir = await mkdtemp(join(tmpdir(), "omps-depth-"));
+	root = await mkdtemp(join(tmpdir(), "omps-depth-"));
+	dir = join(root, "omps");
+	await mkdir(dir, { recursive: true });
 	await mkdir(join(dir, "personas"));
 	await writeFile(join(dir, "personas", "reader.md"), "Read.");
 });
-afterEach(() => rm(dir, { recursive: true, force: true }));
+afterEach(() => rm(root, { recursive: true, force: true }));
 async function service(maxDepth: number, branch?: typeof lineage) {
 	await writeFile(
-		join(dir, "om-pi-subagents.yaml"),
+		join(dir, "config.yaml"),
 		`version: 1\nlimits:\n  maxConcurrentRuns: 4\n  maxDepth: ${maxDepth}\nagents:\n  reader:\n    persona: ./personas/reader.md\n    tools: [write]\n    thinking: off\n`,
 	);
 	const requests: Parameters<Supervisor>[1][] = [];
@@ -132,7 +135,7 @@ async function service(maxDepth: number, branch?: typeof lineage) {
 		supervisor,
 		manager,
 		service: createService({
-			registry: createRegistryStore(join(dir, "om-pi-subagents.yaml")),
+			registry: createRegistryStore(join(dir, "config.yaml")),
 			manager,
 			branch,
 			directoryFor: () => dir,
@@ -146,7 +149,7 @@ describe("depth admission", () => {
 		const setup = await service(3);
 		await setup.service.run("root", input, { cwd: dir, model: "fake/root" });
 		expect(setup.requests[0].nesting).toEqual({
-			registryPath: await realpath(join(dir, "om-pi-subagents.yaml")),
+			registryPath: await realpath(join(dir, "config.yaml")),
 			depth: 1,
 			maxDepth: 3,
 			rootSessionId: "root",

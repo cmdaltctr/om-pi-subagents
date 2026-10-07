@@ -6,12 +6,13 @@
 import type { ExtensionAPI, ExtensionContext, Theme } from "@earendil-works/pi-coding-agent";
 import { Text } from "@earendil-works/pi-tui";
 import { existsSync } from "node:fs";
-import { homedir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { TUI } from "@earendil-works/pi-tui";
 import { ACK_MAX_AGENT_CHARS } from "./acknowledgement.ts";
 import { createRegistryStore, type UiSettings } from "./config.ts";
+import { resolveAgentDir, resolveRegistryPath } from "./registry-path.ts";
+export { resolveRegistryPath } from "./registry-path.ts";
 import { FleetStrip } from "./fleet.ts";
 import { editorOwnsFocus, handleFleetInput } from "./fleet-view.ts";
 import { FleetWidget, LIST_KEY, TREE_KEY } from "./fleet-widget.ts";
@@ -173,12 +174,6 @@ export function resolvePiBin(
 	return exists(managed) ? managed : "pi";
 }
 
-/** The operator's agent mapping: an explicit override, or a file in the agent directory that package updates never touch. */
-export function resolveRegistryPath(agentDir: string, env: NodeJS.ProcessEnv = process.env): string {
-	// nosemgrep: AIK_ts_generic_path_traversal -- The trusted agent directory is followed only by a constant file name.
-	return env.OMPS_REGISTRY ?? join(agentDir, "om-pi-subagents.yaml");
-}
-
 export interface OmpsRuntime {
 	service: OmpsService;
 	manager: RunManager;
@@ -198,7 +193,7 @@ function createRuntime(
 	strip: FleetStrip,
 	branch?: ChildLineage,
 ): OmpsRuntime {
-	const agentDir = process.env.PI_CODING_AGENT_DIR ?? join(homedir(), ".pi", "agent");
+	const agentDir = resolveAgentDir();
 	const runRoot = join(agentDir, "omps", "runs");
 	const store = new RunStore(runRoot);
 	const persistence = createPersistence(store);
@@ -411,7 +406,7 @@ export function registerOmps(
 export function registerRuntime(pi: ExtensionAPI, branch?: ChildLineage): () => OmpsRuntime | undefined {
 	const binding = new SessionBinding();
 	let runtime: OmpsRuntime | undefined;
-	const agentDir = () => process.env.PI_CODING_AGENT_DIR ?? join(homedir(), ".pi", "agent");
+	const agentDir = () => resolveAgentDir();
 	let ui: UiSettingsCache | undefined;
 	// One cache per session: settings edits refresh the same values the fleet renders.
 	const getUi = () => (ui ??= createUiSettings(branch?.registryPath ?? resolveRegistryPath(agentDir())));

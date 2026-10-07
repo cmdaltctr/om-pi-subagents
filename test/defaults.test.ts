@@ -10,7 +10,7 @@ const sources = () => readdirSync(SRC).filter((name) => name.endsWith(".ts") && 
 
 describe("nothing is hard-coded", () => {
 	it("ships no mapping and no persona files", () => {
-		for (const name of ["om-pi-subagents.yaml", "personas", "ports", "pilot"])
+		for (const name of ["om-pi-subagents.yaml", "omps/config.yaml", "omps/personas", "personas", "ports", "pilot"])
 			expect(existsSync(join(ROOT, name)), name).toBe(false);
 	});
 

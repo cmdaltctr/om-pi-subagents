@@ -1,3 +1,4 @@
+import { writeFixturePersona } from "./fixtures/registry.ts";
 import { mkdir, readFile, realpath, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -30,16 +31,16 @@ describe.skipIf(!PI_AVAILABLE)("parent todo ownership with the real package", ()
 				tasks = join(change, "tasks.md");
 				await writeFile(tasks, checklist);
 				await writeFile(join(change, "proposal.md"), "# Preserve parent tasks\n");
-				await writeFile(join(agentDir, "leaf.md"), "TODO-LEAF-PERSONA-MARKER");
+				await writeFixturePersona(agentDir, "leaf.md", "TODO-LEAF-PERSONA-MARKER");
 				await writeFile(
-					join(agentDir, "om-pi-subagents.yaml"),
+					join(agentDir, "omps/config.yaml"),
 					`version: 1
 limits:
   maxConcurrentRuns: 4
   maxDepth: 3
 agents:
   leaf:
-    persona: ./leaf.md
+    persona: ./personas/leaf.md
     tools: [todo]
     thinking: off
     extensions: [${JSON.stringify(todoExtension)}]

@@ -1,3 +1,4 @@
+import { fixtureRegistryPath } from "./registry.ts";
 import type { ChildProcess } from "node:child_process";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -69,7 +70,7 @@ export function supervisedHarness() {
 				piBin: PI_BIN,
 				guardPath: GUARD,
 				parentModel: "fake/counter",
-				env: { ...process.env, ...ws.isolationEnv, OMPS_REGISTRY: join(ws.agentDir, "om-pi-subagents.yaml") },
+				env: { ...process.env, ...ws.isolationEnv, OMPS_REGISTRY: fixtureRegistryPath(ws.agentDir) },
 				prepare: async (run) => {
 					const directory = join(ws.root, "runs", run.id);
 					await mkdir(directory, { recursive: true });
