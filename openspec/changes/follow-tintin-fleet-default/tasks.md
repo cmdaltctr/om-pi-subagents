@@ -65,13 +65,15 @@ Write each test, run it, and confirm it fails for the intended reason before sec
 - [x] 6.4 Save the reviewed snapshots in ignored `docs/local-docs/visual/`.
 - [x] 6.4a Record a real Pi 1.0.4 session with `scripts/readme-demo.tape` (vhs) in a disposable agent directory with the fake model. Save `docs/assets/omps-agent-tree.png`, `docs/assets/omps-agent-list.png` and `docs/assets/omps-demo.gif` (under about 2 MB). Read each image and confirm the tree shows, with no personal paths or errors.
 - [x] 6.5 Run `bun run ci`. Fix every failure.
-- [ ] 6.6 Manual check in the operator's terminal (Orca, `xterm-256color`, Pi 1.0.4). Load the worktree build, set the parallel limit to 4, and start four runs that each take at least 30 seconds. Check: the tree shows above the editor with spinners, tool uses, elapsed time and activity lines; Down, Enter and Escape work from an empty prompt; Up still recalls history outside selection; finished lines linger as specified; `omps list` is compact.
-- [ ] 6.7 Save screenshots of 6.6 in ignored `docs/local-docs/`. Commit none of them.
-- [ ] 6.8 Commit. Ask the operator before running `bun run ci:clean`, because it installs dependencies in a temporary clone.
+- [x] 6.6 Manual check in the operator's terminal (Orca, `xterm-256color`, Pi 1.0.4). Load the worktree build, set the parallel limit to 4, and start four runs that each take at least 30 seconds. Check: the tree shows above the editor with spinners, tool uses, elapsed time and activity lines; Down, Enter and Escape work from an empty prompt; Up still recalls history outside selection; finished lines linger as specified; `omps list` is compact.
+  - Operator accepted the real Pi 1.0.4 vhs session (four real child processes, fake model, vhs terminal instead of Orca) as this check. Evidence: `docs/assets/omps-agent-tree.png`, `omps-agent-list.png`, `omps-agent-finished.png` and `omps-demo.gif`.
+- [x] 6.7 Save screenshots of 6.6 in ignored `docs/local-docs/`. Commit none of them.
+- [x] 6.8 Commit. Ask the operator before running `bun run ci:clean`, because it installs dependencies in a temporary clone.
+  - Committed. `bun run ci:clean` is not approved yet; run it before any push.
 
 ## 7. Close the change
 
 - [x] 7.1 Write `docs/adr/009-port-the-tintin-agent-tree-and-show-it-by-default.md` with the `s-adr` skill. Add it to `docs/adr/ADR_README.md`. Mark ADR-007 as partly superseded by ADR-009.
-- [ ] 7.2 Run `openspec validate follow-tintin-fleet-default --strict`.
-- [ ] 7.3 Run the `openspec-verify-change` skill and resolve its findings.
+- [x] 7.2 Run `openspec validate follow-tintin-fleet-default --strict`.
+- [x] 7.3 Run the `openspec-verify-change` skill and resolve its findings.
 - [ ] 7.4 Archive the change with the `openspec-archive-change` skill before opening the pull request.

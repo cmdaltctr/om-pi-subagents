@@ -14,7 +14,7 @@ This directory records significant architectural decisions made during developme
 | [006](./006-add-read-only-native-agent-trees.md)                             | Add read-only native agent trees and operator settings        | 2026-10-05 | Accepted                            |
 | [007](./007-use-a-compact-fleet-with-independent-sibling-capabilities.md)    | Use a compact fleet with independent sibling capabilities     | 2026-10-06 | Accepted (partly superseded by 009) |
 | [008](./008-use-the-omps-runtime-namespace.md)                               | Use the OMPS runtime namespace                                | 2026-10-07 | Accepted                            |
-| [009](./009-port-the-tintin-agent-tree-and-show-it-by-default.md)            | Port the tintin agent tree and show it by default             | 2026-10-07 | Proposed                            |
+| [009](./009-port-the-tintin-agent-tree-and-show-it-by-default.md)            | Port the tintin agent tree and show it by default             | 2026-10-07 | Accepted                            |
 
 ## Convention
 

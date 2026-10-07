@@ -1,7 +1,7 @@
 # ADR-009: Port the tintin agent tree and show it by default
 
 - **Date:** 2026-10-07
-- **Status:** Proposed
+- **Status:** Accepted
 - **Deciders:** Project maintainer
 
 ## Context
