@@ -34,6 +34,16 @@ describe("tooling agrees with the documentation", () => {
 		expect(read("docs/UNINSTALL.md")).toContain("~/.pi/agent/ompss/runs/");
 	});
 
+	it("shows a packaged, self-contained SVG logo without executable content", () => {
+		const path = "docs/assets/om-pi-subagents-logo.svg";
+		expect(read("README.md")).toContain(`src="${path}"`);
+		const image = read(path);
+		expect(image).toMatch(/^<svg xmlns="http:\/\/www\.w3\.org\/2000\/svg"/);
+		expect(image).not.toMatch(/<script\b|<foreignObject\b|\b(?:href|src)\s*=|url\(|onload\s*=/i);
+		expect(Buffer.byteLength(image)).toBeLessThan(32 * 1024);
+		expect(pkg.files).toContain(path);
+	});
+
 	it("uses real tool actions and fields in the usage examples", () => {
 		let properties: Record<string, { enum?: string[] }> = {};
 		registerOmpss(
@@ -56,6 +66,27 @@ describe("tooling agrees with the documentation", () => {
 			expect(properties.action.enum).toContain(example.action);
 			for (const field of Object.keys(example)) expect(properties).toHaveProperty(field);
 		}
+	});
+
+	it("documents default-off per-agent capability edits and ownership using existing YAML lists", () => {
+		for (const path of ["README.md", "docs/SETUP.md", "docs/USAGE.md"]) {
+			const text = read(path);
+			expect(text, path).toContain("Agent capabilities");
+			expect(text, path).toMatch(/Off|off/);
+			expect(text, path).toContain("Partial");
+			expect(text, path).toContain("/ompss-settings");
+		}
+		const usage = read("docs/USAGE.md");
+		const example = usage.match(/```yaml\n(agents:\n  researcher:[\s\S]*?)```/)?.[1];
+		expect(example).toBeDefined();
+		const agent = parse(example!).agents.researcher;
+		expect(agent.tools).toEqual(["read", "memory"]);
+		expect(agent.extensions).toHaveLength(1);
+		expect(agent.skills).toHaveLength(1);
+		expect(Object.keys(agent).sort()).toEqual(["extensions", "persona", "skills", "thinking", "tools"]);
+		expect(usage).toMatch(/whole.*tool|whole.*modes/i);
+		expect(usage).toMatch(/parent.*checks.*saved output/i);
+		expect(read("docs/SETUP.md")).toContain("Disable");
 	});
 
 	it("leaves the Release Please changelog out of format checks", () => {

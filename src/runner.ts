@@ -96,6 +96,10 @@ export function buildLaunch(input: LaunchInput): LaunchPlan {
 			OMPSS_RUN_TOKEN: input.runToken,
 			OMPSS_POLICY: JSON.stringify(validated),
 			OMPSS_REGISTRY: validated.lineage.registryPath,
+			// A mapped memory sibling stays an ordinary agent: no web app, no history import.
+			// Ordinary recall, manual tools and configured capture remain available to it.
+			OMMS_DISABLE_WEB_AUTOSTART: "1",
+			OMMS_DISABLE_AUTO_BACKFILL: "1",
 		},
 	};
 }

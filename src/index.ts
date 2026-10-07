@@ -9,29 +9,39 @@ import { existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { createRegistryStore } from "./config.ts";
-import { createNotifier, type Messenger } from "./notify.ts";
+import type { TUI } from "@earendil-works/pi-tui";
+import { ACK_MAX_AGENT_CHARS } from "./acknowledgement.ts";
+import { createRegistryStore, type UiSettings } from "./config.ts";
+import type { FleetKeys } from "./fleet.ts";
+import { FleetStrip } from "./fleet.ts";
+import { editorOwnsFocus, handleFleetInput } from "./fleet-view.ts";
+import { FleetWidget } from "./fleet-widget.ts";
+import { createNotifier, type Messenger, type WidgetComponent } from "./notify.ts";
 import { createPersistence } from "./persistence.ts";
 import type { ObservationStore } from "./observation.ts";
 import { ObservationRelay } from "./observation-relay.ts";
 import { TransportObservationStore } from "./observation-transport.ts";
 import { CLEANUP_ENTRY, OBSERVATION_ENTRY, type ChildLineage } from "./protocol.ts";
-import { RunManager } from "./runs.ts";
+import { isTerminal, RunManager } from "./runs.ts";
 import { createService, type OmpssService, type RunContext } from "./service.ts";
-import { createDisplayPreferences, type DisplayPreferences } from "./settings-persistence.ts";
-import { registerSubagentsSettings } from "./settings.ts";
+import { registerOmpssSettings } from "./settings.ts";
+import { registerViewShortcuts } from "./shortcuts.ts";
 import { RunStore } from "./store.ts";
 import { createSupervisor } from "./supervisor.ts";
 import { observationId } from "./observation-validation.ts";
-import { RunViewer, TREE_ENTRY, type RunCardIdentity } from "./viewer.ts";
+import { createUiSettings, type UiSettingsCache } from "./ui-settings.ts";
+import { RunViewer, TREE_ENTRY, type RunCardIdentity, type VisibleAgentsInput } from "./viewer.ts";
 
 const GUARD_PATH = fileURLToPath(new URL("./child-guard.ts", import.meta.url));
 
-const USAGE = "Usage: /ompss list | run <agent> <task> | status [run-id] | cancel <run-id> | inspect [run-id]";
+const USAGE = "Usage: /ompss list | run <agent> <task> | status [run-id] | cancel <run-id> | inspect [run-id] | fleet";
 
 const acknowledgedRun = (text: string, owner: string): RunCardIdentity | undefined => {
-	const runId = /^Started run ([A-Za-z0-9._-]+) \(/.exec(text)?.[1];
-	return runId && observationId(runId) ? { owner, runId } : undefined;
+	const match = /^Started run ([A-Za-z0-9._-]+) \((.+)\) in the background\./.exec(text);
+	// The bounded agent label travels with the entry so historical sessions can render it without live evidence.
+	return match && observationId(match[1])
+		? { owner, runId: match[1], agent: match[2].slice(0, ACK_MAX_AGENT_CHARS) }
+		: undefined;
 };
 
 /** Plain JSON Schema, the same shape TypeBox produces, so the extension needs no runtime import for it. */
@@ -81,6 +91,11 @@ export class SessionBinding {
 		return this.ctx?.sessionManager.getSessionId();
 	}
 
+	/** Host mode: interactive hosts keep a live strip component, others receive plain lines. */
+	get mode(): string | undefined {
+		return this.ctx?.mode;
+	}
+
 	end(): void {
 		if (this.ended) return;
 		this.ended = true;
@@ -116,8 +131,29 @@ export class SessionBinding {
 					}
 				: undefined,
 			setWidget: ctx.hasUI
-				? (lines) => {
-						if (live()) ctx.ui.setWidget("ompss", lines, { placement: "aboveEditor" });
+				? (content, placement) => {
+						if (!live()) return;
+						// Interactive hosts keep a live component with terminal facts; line hosts keep arrays.
+						const options = { placement: placement ?? ("belowEditor" as const) };
+						if (typeof content === "function")
+							ctx.ui.setWidget(
+								"ompss",
+								(tui: TUI): WidgetComponent => {
+									// The public focused-component accessor lives on the viewport TUI;
+									// a host without it never reports editor focus, so navigation stays off.
+									const viewport = tui as TUI & { getFocusedComponent?: () => unknown };
+									return content({
+										rows: tui.terminal.rows,
+										requestRender: () => tui.requestRender(),
+										focus: {
+											getFocusedComponent: () => viewport.getFocusedComponent?.() ?? null,
+											hasOverlay: () => tui.hasOverlay(),
+										},
+									});
+								},
+								options,
+							);
+						else ctx.ui.setWidget("ompss", content, options);
 					}
 				: undefined,
 		};
@@ -147,6 +183,8 @@ export interface OmpssRuntime {
 	manager: RunManager;
 	observations: ObservationStore;
 	viewer: RunViewer;
+	/** The session-wide below-editor fleet strip. */
+	fleet: FleetWidget;
 	/** Detach display transport before stopping owned execution. */
 	disposeObservations(): void;
 }
@@ -155,7 +193,9 @@ export interface OmpssRuntime {
 function createRuntime(
 	pi: ExtensionAPI,
 	binding: SessionBinding,
-	preferences: DisplayPreferences,
+	preferences: VisibleAgentsInput,
+	strip: FleetStrip,
+	keys: () => FleetKeys,
 	branch?: ChildLineage,
 ): OmpssRuntime {
 	const agentDir = process.env.PI_CODING_AGENT_DIR ?? join(homedir(), ".pi", "agent");
@@ -167,7 +207,6 @@ function createRuntime(
 		readOutput: persistence.readOutput,
 		directoryFor: (run) => store.directoryFor(run.owner, run.id),
 		recordDelivery: persistence.recordDelivery,
-		visibleAgents: () => preferences.value,
 	});
 	const observations = new TransportObservationStore();
 	const relay = new ObservationRelay({
@@ -187,9 +226,10 @@ function createRuntime(
 			relay.onReady(run, info);
 		},
 		onProgress: (run, record) => {
+			// Tool activity reaches the strip through validated observations, never a second panel.
 			relay.onProgress(run, record);
-			notifier.onProgress(manager.status(run.owner, run.id), record);
 		},
+		onTask: (run, task) => relay.onTask(run, task),
 		onObservation: (run, channel, token) => relay.connect(run, channel, token),
 		onDisplayFailure: (run) => observations.markIncomplete({ owner: run.owner, runId: run.id }),
 	});
@@ -198,6 +238,8 @@ function createRuntime(
 			persistence.onChange(view);
 			relay.onChange(view);
 			notifier.onChange(view);
+			fleet.attach(view.owner);
+			fleet.onChange(view);
 			if (branch && view.cleanupFailed)
 				pi.appendEntry(CLEANUP_ENTRY, {
 					token: process.env.OMPSS_RUN_TOKEN ?? "",
@@ -207,17 +249,28 @@ function createRuntime(
 		},
 		onTerminal: (view) => notifier.onTerminal(view),
 	});
+	const fleet = new FleetWidget({
+		messenger: (owner) => binding.messenger(pi, owner),
+		runs: (owner) => manager.list(owner),
+		trees: (owner) => observations.trees(owner),
+		visibleAgents: () => preferences.value,
+		keys,
+		strip,
+		mode: () => binding.mode ?? "print",
+		now: () => Date.now(),
+	});
 	const viewer = new RunViewer({
 		observations,
 		preferences,
 		storeRoot: runRoot,
 		owner: () => binding.owner,
-		redraw: notifier.redraw,
+		redraw: (owner) => fleet.repaint(owner),
 	});
 	return {
 		manager,
 		observations,
 		viewer,
+		fleet,
 		disposeObservations: () => relay.dispose(),
 		service: createService({
 			registry: createRegistryStore(branch?.registryPath ?? resolveRegistryPath(agentDir)),
@@ -236,6 +289,7 @@ export function registerOmpss(
 	getService: () => OmpssService,
 	binding?: SessionBinding,
 	getViewer?: () => RunViewer | undefined,
+	getFleet?: () => FleetWidget | undefined,
 ): void {
 	pi.registerTool({
 		name: "ompss",
@@ -244,20 +298,18 @@ export function registerOmpss(
 			"Run mapped subagents in the background within configured per-session limits, check progress, or cancel an owned subtree. Results arrive separately as follow-up messages.",
 		promptSnippet: "ompss: run a mapped subagent in the background (actions: list, run, status, cancel)",
 		parameters: PARAMETERS as never,
-		renderResult: (result, { expanded }, _theme, context) => {
+		renderResult: (result, { expanded }, _theme, _context) => {
 			const identity = result.details as RunCardIdentity | undefined;
+			const text = result.content
+				.filter((block) => block.type === "text")
+				.map((block) => block.text)
+				.join("\n");
 			if (identity && observationId(identity.owner) && observationId(identity.runId)) {
-				const component = getViewer?.()?.render(identity, expanded, context);
+				// Expansion reveals the acknowledgement text only; acknowledgements never become live trees.
+				const component = getViewer?.()?.render(identity, expanded, text);
 				if (component) return component;
 			}
-			return new Text(
-				result.content
-					.filter((block) => block.type === "text")
-					.map((block) => block.text)
-					.join("\n"),
-				0,
-				0,
-			);
+			return new Text(text, 0, 0);
 		},
 		execute: async (_id, params: ToolParams, _signal, _update, ctx) => {
 			// The abort signal of this call is deliberately not passed on. The run outlives the call that started it.
@@ -281,8 +333,14 @@ export function registerOmpss(
 
 	pi.registerEntryRenderer(TREE_ENTRY, (entry, { expanded }) => {
 		const identity = entry.data as RunCardIdentity | undefined;
-		return identity && observationId(identity.owner) && observationId(identity.runId)
-			? (getViewer?.()?.render(identity, expanded) ?? new Text("OMPSS: observation unavailable", 0, 0))
+		const valid =
+			identity &&
+			observationId(identity.owner) &&
+			observationId(identity.runId) &&
+			(identity.agent === undefined || typeof identity.agent === "string");
+		// Historical entries carry no launch text: expansion keeps the bounded labelled row.
+		return valid
+			? (getViewer?.()?.render(identity, expanded, undefined) ?? new Text("OMPSS: observation unavailable", 0, 0))
 			: new Text("OMPSS: invalid tree identity", 0, 0);
 	});
 
@@ -304,6 +362,19 @@ export function registerOmpss(
 					return;
 				}
 				if (input.startsWith("inspect")) return void ctx.ui.notify(USAGE, "warning");
+				if (input === "fleet") {
+					// View-only access: no service call, no process, no model request.
+					const fleet = getFleet?.();
+					fleet?.toggle();
+					const lines = fleet?.renderLines(owner, 200, 40) ?? [];
+					if (ctx.mode === "tui") {
+						fleet?.attach(owner);
+						fleet?.repaint(owner);
+					}
+					ctx.ui.notify(lines.length ? lines.join("\n") : "No runs in this session.", "info");
+					return;
+				}
+				if (input.startsWith("fleet")) return void ctx.ui.notify(USAGE, "warning");
 				const service = getService();
 				let text: string;
 				const run = /^run\s+(\S+)\s+([\s\S]+)$/.exec(input);
@@ -330,32 +401,104 @@ export function registerOmpss(
 export function registerRuntime(pi: ExtensionAPI, branch?: ChildLineage): () => OmpssRuntime | undefined {
 	const binding = new SessionBinding();
 	let runtime: OmpssRuntime | undefined;
-	let preferences: DisplayPreferences | undefined;
-	const getPreferences = () => (preferences ??= createDisplayPreferences());
+	const agentDir = () => process.env.PI_CODING_AGENT_DIR ?? join(homedir(), ".pi", "agent");
+	let ui: UiSettingsCache | undefined;
+	// One cache per session: settings edits refresh the same values the fleet renders.
+	const getUi = () => (ui ??= createUiSettings(branch?.registryPath ?? resolveRegistryPath(agentDir())));
+	const visibleAgents: VisibleAgentsInput = {
+		get value() {
+			return getUi().value.maxVisibleAgents;
+		},
+		ensureLoaded: () => getUi().ensureLoaded(),
+	};
+	// Session-local strip state: expansion and selection never persist and never touch a file.
+	const strip = new FleetStrip();
+	const fleetKeys = (): FleetKeys => {
+		const value = activeKeys ?? getUi().value;
+		const label = (key: string) => (key === "off" ? "" : key);
+		return { toggle: label(value.toggleKey), inspect: label(value.inspectKey) };
+	};
 	registerOmpss(
 		pi,
-		() => (runtime ??= createRuntime(pi, binding, getPreferences(), branch)).service,
+		() => (runtime ??= createRuntime(pi, binding, visibleAgents, strip, fleetKeys, branch)).service,
 		binding,
 		() => runtime?.viewer,
+		() => runtime?.fleet,
 	);
-	registerSubagentsSettings(pi, () => {
-		const agentDir = process.env.PI_CODING_AGENT_DIR ?? join(homedir(), ".pi", "agent");
-		return {
-			registryPath: branch?.registryPath ?? resolveRegistryPath(agentDir),
-			preferences: getPreferences(),
-			onDisplayChanged: (ctx) => {
-				runtime?.viewer.activate(ctx);
-				runtime?.viewer.redraw();
-			},
-		};
-	});
+	registerOmpssSettings(pi, () => ({
+		registryPath: branch?.registryPath ?? resolveRegistryPath(agentDir()),
+		ui: getUi(),
+		activeKeys: () => activeKeys,
+		onDisplayChanged: (ctx) => {
+			runtime?.viewer.activate(ctx);
+			runtime?.viewer.redraw();
+		},
+	}));
 
-	pi.on("session_start", (_event, ctx) => binding.bind(ctx));
+	let activeKeys: UiSettings | undefined;
+	let stopInput: (() => void) | undefined;
+	pi.on("session_start", async (_event, ctx) => {
+		binding.bind(ctx);
+		if (ctx.mode !== "tui") return;
+		// Refresh, then bind view shortcuts before the host snapshots editor bindings for this session.
+		const state = await getUi().refresh();
+		const registration = registerViewShortcuts(pi, state.value, {
+			toggleFleet: () => {
+				const owner = binding.owner;
+				// An empty session still binds the strip; without runs it renders no lines.
+				if (owner) runtime?.fleet.attach(owner);
+				strip.toggle();
+				if (owner) runtime?.fleet.repaint(owner);
+			},
+			openInspection: (view) => {
+				// Inspection opens at the fleet's selected root, keeping one view controller.
+				void runtime?.viewer.inspect(strip.selection(), view).catch(() => undefined);
+			},
+		});
+		activeKeys = registration.keys;
+		for (const diagnostic of registration.diagnostics) ctx.ui.notify(`OMPSS shortcuts: ${diagnostic}`, "warning");
+		// Fleet arrows work only while the strip is expanded, the draft is empty and the editor owns focus.
+		stopInput?.();
+		stopInput = ctx.ui.onTerminalInput((data) => {
+			const owner = binding.owner;
+			const current = runtime;
+			if (!owner || !current) return undefined;
+			const facts = current.fleet.factsOf(owner);
+			return handleFleetInput(
+				{
+					strip,
+					activeRunIds: () =>
+						current.manager
+							.list(owner)
+							.filter((entry) => !isTerminal(entry.state))
+							.map((entry) => entry.id),
+					editorText: () => {
+						try {
+							return ctx.ui.getEditorText();
+						} catch {
+							return " ";
+						}
+					},
+					editorOwnsFocus: () => (facts?.focus ? editorOwnsFocus(facts.focus) : false),
+					onViewChanged: () => current.viewer.redraw(owner),
+					onInspect: (runId) => {
+						void current.viewer.inspect(runId, ctx).catch(() => undefined);
+					},
+				},
+				data,
+			)
+				? { consume: true }
+				: undefined;
+		});
+	});
 	// Quit, reload and session replacement all end here: detach first so no message reaches a successor,
 	// then stop the children and wait until their cleanup is confirmed.
 	pi.on("session_shutdown", async () => {
 		const owner = binding.owner;
+		stopInput?.();
+		stopInput = undefined;
 		runtime?.viewer.dispose();
+		if (owner) runtime?.fleet.clear(owner);
 		binding.end();
 		runtime?.disposeObservations();
 		if (owner && runtime) await runtime.service.shutdown(owner);

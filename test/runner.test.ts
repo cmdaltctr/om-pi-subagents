@@ -62,6 +62,22 @@ describe("buildLaunch", () => {
 		expect(plan.env).toMatchObject({ PATH: "/usr/bin", OMPSS_CHILD: "1", OMPSS_RUN_TOKEN: "token-1" });
 	});
 
+	it("opts managed children out of OMMS maintenance without touching the parent environment", () => {
+		const parent = { ...input().env, OMMS_DISABLE_WEB_AUTOSTART: "0", OMMS_DISABLE_AUTO_BACKFILL: "0" };
+		const original = process.env.OMMS_DISABLE_WEB_AUTOSTART;
+		const plan = buildLaunch({ ...input(), env: parent });
+		// OMMS 4.8.0 reads these exact flags before starting web maintenance or history import.
+		expect(plan.env).toMatchObject({
+			OMMS_DISABLE_WEB_AUTOSTART: "1",
+			OMMS_DISABLE_AUTO_BACKFILL: "1",
+		});
+		expect(plan.env.OMSS_DISABLE_WEB_AUTOSTART).toBeUndefined();
+		expect(plan.env.OMSS_DISABLE_AUTO_BACKFILL).toBeUndefined();
+		// The parent's own environment stays untouched.
+		expect(parent.OMMS_DISABLE_WEB_AUTOSTART).toBe("0");
+		expect(parent.OMMS_DISABLE_AUTO_BACKFILL).toBe("0");
+		expect(process.env.OMMS_DISABLE_WEB_AUTOSTART).toBe(original);
+	});
 	it("selects exactly the approved tools, and none for an empty list", () => {
 		expect(valueAfter(buildLaunch(input({ tools: ["read", "grep"] })).args, "--tools")).toBe("read,grep");
 		const none = buildLaunch(input({ tools: [] })).args;

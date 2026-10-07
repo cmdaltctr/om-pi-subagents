@@ -1,4 +1,5 @@
 import type { ChildLineage } from "./protocol.ts";
+import { plain } from "./plain.ts";
 import { isTerminal, type RunState } from "./runs.ts";
 
 export const OBSERVATION_LIMITS = Object.freeze({
@@ -7,6 +8,10 @@ export const OBSERVATION_LIMITS = Object.freeze({
 	recordBytes: 16 * 1024,
 	backlog: 32,
 	backlogMs: 5000,
+	/** Task labels are single-line character-bounded summaries of the submitted task. */
+	summaryChars: 160,
+	/** Assistant previews are bounded by UTF-8 bytes, not characters. */
+	previewBytes: 4096,
 });
 
 /** Display identity keeps the immediate owner's session for later private detail reads. */
@@ -21,6 +26,10 @@ export interface ObservationSnapshot extends Pick<ChildLineage, "rootSessionId" 
 	readonly endedAt?: number;
 	readonly revision: number;
 	readonly activeTools: readonly { readonly id: string; readonly name: string }[];
+	/** Sanitised single-line label of the submitted task, at most 160 characters. */
+	readonly taskSummary?: string;
+	/** Sanitised visible assistant text, provisional and at most 4 KiB of UTF-8. */
+	readonly assistantPreview?: string;
 }
 
 export const observationId = (value: unknown): value is string =>
@@ -30,6 +39,19 @@ const integer = (value: unknown): value is number =>
 const text = (value: unknown, max: number): value is string =>
 	typeof value === "string" && value.trim().length > 0 && value.length <= max;
 const states: readonly string[] = ["starting", "running", "stopping", "completed", "failed", "cancelled"];
+
+/** Sanitise optional display text and enforce its bound. Over-sized or emptied text rejects the record. */
+function displayText(value: unknown, kind: "summary" | "preview"): { ok: true; value?: string } | { ok: false } {
+	if (value === undefined) return { ok: true };
+	if (typeof value !== "string") return { ok: false };
+	const sanitised = plain(value, value.length);
+	if (!sanitised) return { ok: false };
+	const within =
+		kind === "summary"
+			? sanitised.length <= OBSERVATION_LIMITS.summaryChars
+			: Buffer.byteLength(sanitised, "utf8") <= OBSERVATION_LIMITS.previewBytes;
+	return within ? { ok: true, value: sanitised } : { ok: false };
+}
 
 /** Copy JSON data before validation so getters and unlisted fields never enter retained state. */
 export function parseObservation(value: unknown): { snapshot: ObservationSnapshot; toolsOmitted: boolean } | undefined {
@@ -63,6 +85,9 @@ function parseData(data: Record<string, unknown>): ReturnType<typeof parseObserv
 		if (tools.length < OBSERVATION_LIMITS.tools) tools.push(Object.freeze({ id: tool.id, name: tool.name }));
 	}
 	const state = data.state as RunState;
+	const taskSummary = displayText(data.taskSummary, "summary");
+	const assistantPreview = displayText(data.assistantPreview, "preview");
+	if (!taskSummary.ok || !assistantPreview.ok) return undefined;
 	return {
 		toolsOmitted: data.activeTools.length > OBSERVATION_LIMITS.tools,
 		snapshot: Object.freeze({
@@ -79,6 +104,8 @@ function parseData(data: Record<string, unknown>): ReturnType<typeof parseObserv
 			...(data.endedAt !== undefined ? { endedAt: data.endedAt as number } : {}),
 			revision: data.revision,
 			activeTools: Object.freeze(isTerminal(state) ? [] : tools),
+			...(taskSummary.value !== undefined ? { taskSummary: taskSummary.value } : {}),
+			...(assistantPreview.value !== undefined ? { assistantPreview: assistantPreview.value } : {}),
 		}),
 	};
 }

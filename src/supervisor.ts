@@ -33,6 +33,8 @@ export interface SupervisorDeps {
 	onReady?(run: RunView, info: { model?: string }): void;
 	/** Display-only task tool events. Startup replay is excluded. */
 	onProgress?(run: RunView, record: RpcRecord): void;
+	/** Supplies the submitted task text when the task prompt is sent, for display labelling only. */
+	onTask?(run: RunView, task: string): void;
 	/** Install the independent display subscription after readiness; return its detach function. */
 	onObservation?(run: RunView, channel: RpcChannel, token: string): () => void;
 	/** Missing display evidence never changes result judgement. */
@@ -166,6 +168,11 @@ export function createSupervisor(deps: SupervisorDeps): Supervisor {
 			let acknowledged = false;
 			try {
 				taskSubmitted = true;
+				try {
+					deps.onTask?.(run, request.task);
+				} catch {
+					displayFailed();
+				}
 				const response = await channel.request({ type: "prompt", message: request.task }, TASK_ACK_MS);
 				if (!response.success || response.data?.disposition !== "started") {
 					return await stopWith(

@@ -5,10 +5,11 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { loadRegistry } from "../src/config.ts";
 import {
-	createDisplayPreferences,
 	displayPreferencesPath,
 	readLimitSettings,
 	saveLimitSetting,
+	saveUiSetting,
+	type UiField,
 } from "../src/settings-persistence.ts";
 
 vi.mock("node:fs/promises", async (importOriginal) => {
@@ -18,14 +19,14 @@ vi.mock("node:fs/promises", async (importOriginal) => {
 
 let root: string;
 let registry: string;
-let display: string;
+let _display: string;
 const yaml = `# Operator mappings\nversion: 1\nlimits:\n  maxDepth: 3 # root starts at zero\n  maxConcurrentRuns: 4 # per parent\nagents:\n  reader:\n    persona: reader.md\n    tools: [read]\n    thinking: off\n    model: fake/counter\n`;
 
 beforeEach(async () => {
 	vi.clearAllMocks();
 	root = await fs.mkdtemp(join(tmpdir(), "ompss-settings-"));
 	registry = join(root, "registry.yaml");
-	display = join(root, "config", "pi-subagents", "config.json");
+	_display = join(root, "config", "pi-subagents", "config.json");
 	await fs.writeFile(join(root, "reader.md"), "Read the selected task.");
 	await fs.writeFile(registry, yaml);
 });
@@ -127,9 +128,10 @@ describe("execution-limit persistence", () => {
 		await delay(50);
 		expect(settled).toBe(false);
 		expect(await fs.readFile(registry, "utf8")).toBe(yaml);
-		const prefs = createDisplayPreferences(display);
-		await prefs.save(await prefs.refresh(), 6);
-		expect(prefs.value).toBe(6);
+		const other = join(root, "other.yaml");
+		await fs.writeFile(other, "version: 1\nagents: {}\n");
+		await saveUiSetting(await readLimitSettings(other), "maxVisibleAgents", 6);
+		expect((await loadRegistry(other)).ui.maxVisibleAgents).toBe(6);
 		const newer = yaml.replace("maxConcurrentRuns: 4", "maxConcurrentRuns: 5");
 		await fs.writeFile(registry, newer);
 		await fs.unlink(lock);
@@ -155,90 +157,134 @@ describe("execution-limit persistence", () => {
 	});
 });
 
-describe("display preferences", () => {
+describe("display preferences path", () => {
 	it("uses absolute XDG paths and a home fallback for relative XDG paths", () => {
 		expect(displayPreferencesPath({ XDG_CONFIG_HOME: root }, root)).toBe(join(root, "pi-subagents", "config.json"));
 		expect(displayPreferencesPath({ XDG_CONFIG_HOME: "relative" }, root)).toBe(
 			join(root, ".config", "pi-subagents", "config.json"),
 		);
 	});
+});
 
-	it("does no I/O when created or read from the cache", async () => {
-		const read = vi.mocked(fs.open);
-		const prefs = createDisplayPreferences(display);
-		expect(prefs.value).toBe(4);
-		expect(read).not.toHaveBeenCalled();
-		const displayed = await prefs.refresh();
-		expect(displayed.diagnostics).toEqual([]);
-		expect(prefs.value).toBe(4);
-		await expect(fs.stat(display)).rejects.toMatchObject({ code: "ENOENT" });
+describe("ui settings persistence", () => {
+	it("saves visible agents into ui while preserving comments, limits and mappings", async () => {
+		const displayed = await readLimitSettings(registry);
+		await saveUiSetting(displayed, "maxVisibleAgents", 7);
+		const saved = await fs.readFile(registry, "utf8");
+		expect(saved).toContain("maxVisibleAgents: 7");
+		expect(saved).toContain("maxConcurrentRuns: 4 # per parent");
+		expect(saved).toContain("# Operator mappings");
+		expect(saved).toContain("persona: reader.md");
+		const loaded = await loadRegistry(registry);
+		expect(loaded.limits).toEqual({ maxDepth: 3, maxConcurrentRuns: 4 });
+		expect(loaded.ui.maxVisibleAgents).toBe(7);
+		expect(loaded.agents.get("reader")?.model).toBe("fake/counter");
+		expect((await fs.stat(registry)).mode & 0o777).toBe(0o600);
 	});
 
-	it("preserves unrelated JSON keys and updates cache only after saving", async () => {
-		await fs.mkdir(join(root, "config", "pi-subagents"), { recursive: true });
-		await fs.writeFile(display, '{"maxVisibleAgents":8,"unrelated":{"keep":true}}');
-		const prefs = createDisplayPreferences(display);
-		const displayed = await prefs.refresh();
-		expect(prefs.value).toBe(8);
-		await prefs.save(displayed, 2);
-		expect(prefs.value).toBe(2);
-		expect(JSON.parse(await fs.readFile(display, "utf8"))).toEqual({ maxVisibleAgents: 2, unrelated: { keep: true } });
-		expect((await fs.stat(display)).mode & 0o777).toBe(0o600);
-		expect(createDisplayPreferences(display).value).toBe(4);
+	it("creates a ui mapping when the registry has none", async () => {
+		await fs.writeFile(registry, "version: 1\nagents: {}\n");
+		await saveUiSetting(await readLimitSettings(registry), "toggleKey", "alt+p");
+		const loaded = await loadRegistry(registry);
+		expect(loaded.ui.toggleKey).toBe("alt+p");
+		expect(loaded.ui.maxVisibleAgents).toBe(5);
 	});
 
-	it.each([0, -1, 257, 1.5, Infinity, NaN, "3", Number.MAX_SAFE_INTEGER + 1])(
-		"rejects invalid visible-agent value %s",
-		async (value) => {
-			const prefs = createDisplayPreferences(display);
-			await expect(prefs.save(await prefs.refresh(), value as number)).rejects.toThrow(/1.*256/i);
-			expect(prefs.value).toBe(4);
-			await expect(fs.stat(display)).rejects.toMatchObject({ code: "ENOENT" });
-		},
-	);
-
-	it.each(["{", "[]", "null", '{"maxVisibleAgents":null}', '{"maxVisibleAgents":0}', '{"maxVisibleAgents":"4"}'])(
-		"diagnoses invalid display config and refuses to overwrite: %s",
-		async (text) => {
-			await fs.mkdir(join(root, "config", "pi-subagents"), { recursive: true });
-			await fs.writeFile(display, text);
-			const prefs = createDisplayPreferences(display);
-			const displayed = await prefs.refresh();
-			expect(prefs.value).toBe(4);
-			expect(displayed.diagnostics.length).toBeGreaterThan(0);
-			await expect(prefs.save(displayed, 2)).rejects.toThrow(/fix/i);
-			expect(await fs.readFile(display, "utf8")).toBe(text);
-		},
-	);
-
-	it("picks up another session's edits on refresh and detects a stale save", async () => {
-		const one = createDisplayPreferences(display);
-		const two = createDisplayPreferences(display);
-		const displayed = await one.refresh();
-		await two.save(await two.refresh(), 6);
-		await expect(one.save(displayed, 2)).rejects.toThrow(/reopen settings/i);
-		expect(one.value).toBe(4);
-		await one.refresh();
-		expect(one.value).toBe(6);
+	it.each([
+		["maxVisibleAgents", 0],
+		["maxVisibleAgents", 257],
+		["maxVisibleAgents", 1.5],
+		["maxVisibleAgents", "5"],
+		["toggleKey", "Alt+O"],
+		["toggleKey", "alt o"],
+		["toggleKey", "control+o"],
+		["toggleKey", 12],
+		["inspectKey", ""],
+		["inspectKey", "disabled"],
+	])("rejects invalid %s=%v without touching the file", async (field, value) => {
+		const displayed = await readLimitSettings(registry);
+		await expect(saveUiSetting(displayed, field as UiField, value as number | string)).rejects.toThrow(
+			/1.*256|key specification|off/i,
+		);
+		expect(await fs.readFile(registry, "utf8")).toBe(yaml);
 	});
 
-	it("keeps cache and disk unchanged after failed atomic replacement", async () => {
-		const prefs = createDisplayPreferences(display);
-		await prefs.save(await prefs.refresh(), 8);
-		const displayed = await prefs.refresh();
-		const previous = await fs.readFile(display, "utf8");
+	it.each(["toggleKey", "inspectKey"])("rejects the Tab alias for %s", async (field) => {
+		const displayed = await readLimitSettings(registry);
+		await expect(saveUiSetting(displayed, field as UiField, field === "toggleKey" ? "ctrl+i" : "tab")).rejects.toThrow(
+			/unsafe.*Tab|choose another key/i,
+		);
+		expect(await fs.readFile(registry, "utf8")).toBe(yaml);
+	});
+
+	it("accepts off for both shortcuts", async () => {
+		const displayed = await readLimitSettings(registry);
+		await saveUiSetting(displayed, "toggleKey", "off");
+		await saveUiSetting(await readLimitSettings(registry), "inspectKey", "off");
+		expect((await loadRegistry(registry)).ui).toEqual({ maxVisibleAgents: 5, toggleKey: "off", inspectKey: "off" });
+	});
+
+	it("rejects a key that duplicates the other declared shortcut", async () => {
+		const displayed = await readLimitSettings(registry);
+		await saveUiSetting(displayed, "inspectKey", "alt+p");
+		await expect(saveUiSetting(await readLimitSettings(registry), "toggleKey", "alt+p")).rejects.toThrow(
+			/duplicate.*alt\+p|choose distinct/i,
+		);
+		expect((await loadRegistry(registry)).ui.toggleKey).toBe("alt+o");
+	});
+
+	it("requires explicit confirmation before creating a missing registry", async () => {
+		const missing = join(root, "missing", "registry.yaml");
+		const displayed = await readLimitSettings(missing);
+		await expect(saveUiSetting(displayed, "maxVisibleAgents", 2)).rejects.toThrow(/confirm/i);
+		await expect(fs.stat(missing)).rejects.toMatchObject({ code: "ENOENT" });
+		await saveUiSetting(displayed, "maxVisibleAgents", 2, true);
+		expect((await loadRegistry(missing)).ui.maxVisibleAgents).toBe(2);
+		expect((await loadRegistry(missing)).agents.size).toBe(0);
+	});
+
+	it("rejects external edits since display", async () => {
+		const displayed = await readLimitSettings(registry);
+		const newer = yaml.replace("maxConcurrentRuns: 4", "maxConcurrentRuns: 5");
+		await fs.writeFile(registry, newer);
+		await expect(saveUiSetting(displayed, "toggleKey", "alt+p")).rejects.toThrow(/reopen settings/i);
+		expect(await fs.readFile(registry, "utf8")).toBe(newer);
+	});
+
+	it("honours a cross-process file lock without blocking ui saves to another destination", async () => {
+		const displayed = await readLimitSettings(registry);
+		const lock = `${registry}.lock`;
+		await fs.writeFile(lock, "other session", { flag: "wx", mode: 0o600 });
+		const saving = saveUiSetting(displayed, "maxVisibleAgents", 2);
+		let settled = false;
+		const outcome = saving.then(
+			() => {
+				settled = true;
+				return undefined;
+			},
+			(error: unknown) => {
+				settled = true;
+				return error;
+			},
+		);
+		await delay(50);
+		expect(settled).toBe(false);
+		const other = join(root, "other.yaml");
+		await fs.writeFile(other, "version: 1\nagents: {}\n");
+		await saveUiSetting(await readLimitSettings(other), "maxVisibleAgents", 6);
+		expect((await loadRegistry(other)).ui.maxVisibleAgents).toBe(6);
+		const newer = yaml.replace("maxConcurrentRuns: 4", "maxConcurrentRuns: 5");
+		await fs.writeFile(registry, newer);
+		await fs.unlink(lock);
+		expect(await outcome).toMatchObject({ message: expect.stringMatching(/reopen settings/i) });
+		expect(await fs.readFile(registry, "utf8")).toBe(newer);
+	});
+
+	it("keeps the original file and releases temporary resources after failed ui replacement", async () => {
+		const displayed = await readLimitSettings(registry);
 		vi.mocked(fs.rename).mockRejectedValueOnce(new Error("synthetic replacement failure"));
-		await expect(prefs.save(displayed, 2)).rejects.toThrow(/replacement failure/i);
-		expect(await fs.readFile(display, "utf8")).toBe(previous);
-		expect(prefs.value).toBe(8);
-	});
-
-	it("labels an oversized config invalid without saving over it", async () => {
-		await fs.mkdir(join(root, "config", "pi-subagents"), { recursive: true });
-		await fs.writeFile(display, JSON.stringify({ padding: "x".repeat(300_000) }));
-		const prefs = createDisplayPreferences(display);
-		const displayed = await prefs.refresh();
-		expect(displayed.diagnostics.join(" ")).toMatch(/large|bound/i);
-		await expect(prefs.save(displayed, 2)).rejects.toThrow(/fix/i);
+		await expect(saveUiSetting(displayed, "maxVisibleAgents", 2)).rejects.toThrow(/replacement failure/i);
+		expect(await fs.readFile(registry, "utf8")).toBe(yaml);
+		expect((await fs.readdir(root)).filter((name) => /\.tmp$|\.lock$/.test(name))).toEqual([]);
 	});
 });

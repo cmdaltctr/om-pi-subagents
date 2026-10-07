@@ -78,7 +78,7 @@ describe("registration", () => {
 	it("registers the ompss tool and the /ompss command, and starts no process", () => {
 		const { tools, commands } = loadExtension();
 		expect([...tools.keys()]).toEqual(["ompss"]);
-		expect([...commands.keys()]).toEqual(["ompss", "subagents-settings"]);
+		expect([...commands.keys()]).toEqual(["ompss", "ompss-settings", "subagents-settings"]);
 		for (const [name, spy] of Object.entries(processSpies)) expect(spy, name).not.toHaveBeenCalled();
 	});
 
@@ -274,12 +274,35 @@ describe("SessionBinding", () => {
 		expect(binding.owner).toBe("session-1");
 	});
 
-	it("sets a string widget above the editor for its owner only", () => {
+	it("sets a string widget below the editor and adapts live components for its owner only", () => {
 		const binding = new SessionBinding();
 		const setWidget = vi.fn();
 		binding.bind(session(true, vi.fn(), setWidget));
-		binding.messenger(pi(), "session-1")!.setWidget!(["OMPSS: reader running"]);
-		expect(setWidget).toHaveBeenCalledWith("ompss", ["OMPSS: reader running"], { placement: "aboveEditor" });
+		const messenger = binding.messenger(pi(), "session-1")!;
+		messenger.setWidget!(["OMPSS: reader running"]);
+		expect(setWidget).toHaveBeenCalledWith("ompss", ["OMPSS: reader running"], { placement: "belowEditor" });
+		// Interactive hosts keep a live component fed with real terminal facts.
+		const painted: string[] = [];
+		messenger.setWidget!((terminal) => ({
+			render: (width) => (painted.push(`rows=${terminal.rows} width=${width}`), []),
+			invalidate: () => terminal.requestRender(),
+		}));
+		const factory = setWidget.mock.calls.at(-1)![1] as (tui: unknown, theme: unknown) => unknown;
+		expect(factory).toBeTypeOf("function");
+		let rendered = 0;
+		const component = factory(
+			{
+				terminal: { rows: 24 },
+				requestRender: () => {
+					rendered++;
+				},
+			},
+			undefined,
+		) as { render(width: number): string[]; invalidate(): void };
+		expect(component.render(0)).toEqual([]);
+		expect(painted).toEqual(["rows=24 width=0"]);
+		component.invalidate();
+		expect(rendered).toBe(1);
 		expect(binding.messenger(pi(), "foreign")).toBeUndefined();
 	});
 

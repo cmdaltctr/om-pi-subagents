@@ -74,6 +74,47 @@ agents:
 	}
 });
 
+describe("ui settings in the store", () => {
+	const uiYaml = (ui: string) => `version: 1
+${ui}agents:
+  reader:
+    persona: ./personas/reader.md
+    tools: [read]
+    thinking: off
+`;
+
+	it("serves ui settings from the snapshot", async () => {
+		await write(dir, "personas/reader.md", "Read.");
+		await write(dir, "om-pi-subagents.yaml", uiYaml("ui:\n  maxVisibleAgents: 6\n"));
+		const store = createRegistryStore(join(dir, "om-pi-subagents.yaml"));
+		const snapshot = await store.refresh();
+		expect(snapshot.ui).toEqual({ maxVisibleAgents: 6, toggleKey: "alt+o", inspectKey: "alt+i" });
+	});
+
+	it("blocks refresh on invalid ui values and serves no stale configuration", async () => {
+		await write(dir, "personas/reader.md", "Read.");
+		await write(dir, "om-pi-subagents.yaml", uiYaml(""));
+		const store = createRegistryStore(join(dir, "om-pi-subagents.yaml"));
+		await store.refresh();
+
+		await write(dir, "om-pi-subagents.yaml", uiYaml("ui:\n  maxVisibleAgents: 0\n"));
+		await expect(store.refresh()).rejects.toThrow(/ui\.maxVisibleAgents/);
+		expect(() => store.get("reader")).toThrow(/ui\.maxVisibleAgents/);
+		expect(() => store.list()).toThrow(/ui\.maxVisibleAgents/);
+	});
+
+	it("recovers once the ui error is repaired", async () => {
+		await write(dir, "personas/reader.md", "Read.");
+		await write(dir, "om-pi-subagents.yaml", uiYaml('ui:\n  toggleKey: "alt o"\n'));
+		const store = createRegistryStore(join(dir, "om-pi-subagents.yaml"));
+		await expect(store.refresh()).rejects.toThrow(/ui\.toggleKey/);
+
+		await write(dir, "om-pi-subagents.yaml", uiYaml('ui:\n  toggleKey: "off"\n'));
+		const snapshot = await store.refresh();
+		expect(snapshot.ui.toggleKey).toBe("off");
+	});
+});
+
 describe("refresh", () => {
 	async function setup() {
 		await write(dir, "personas/reader.md", "Version one.");

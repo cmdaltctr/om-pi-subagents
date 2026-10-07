@@ -21,7 +21,7 @@ export interface WorkspaceOptions {
 	/** MCP servers to configure, with the tool names each one offers. Default: `fixture` with lookup, delete, peek. */
 	mcpServers?: Record<string, { tools: string[] }>;
 	/** Plant files before start-up, for example ambient extensions the child must not load. */
-	seed?: (paths: { cwd: string; agentDir: string }) => Promise<void>;
+	seed?: (paths: { cwd: string; agentDir: string; home: string; model: FakeModel }) => Promise<void>;
 }
 
 /** A counting fake model, an isolated agent directory and a working directory. No Pi process yet. */
@@ -80,7 +80,7 @@ export async function createWorkspace(options: WorkspaceOptions = {}): Promise<W
 			}),
 		);
 	}
-	await options.seed?.({ cwd, agentDir });
+	await options.seed?.({ cwd, agentDir, home: join(root, "home"), model });
 	return {
 		model,
 		root,
@@ -123,6 +123,8 @@ export interface FixtureOptions extends WorkspaceOptions {
 	env?: Record<string, string>;
 	/** Build the command line with OMPSS's own launcher instead of the fixed isolation flags. */
 	launch?: (paths: { cwd: string; agentDir: string }) => LaunchPlan;
+	/** Reuse a caller-owned workspace; the caller then disposes it after every fixture. */
+	workspace?: Workspace;
 }
 
 /**
@@ -130,7 +132,7 @@ export interface FixtureOptions extends WorkspaceOptions {
  * and a local MCP server. No real credentials, settings or network are involved.
  */
 export async function startPi(options: FixtureOptions = {}): Promise<PiFixture> {
-	const workspace = await createWorkspace(options);
+	const workspace = options.workspace ?? (await createWorkspace(options));
 	const { cwd, agentDir, isolationEnv } = workspace;
 	const child = options.launch
 		? spawnChild(
@@ -213,7 +215,8 @@ export async function startPi(options: FixtureOptions = {}): Promise<PiFixture> 
 		async dispose() {
 			if (child.exitCode === null) child.kill("SIGKILL");
 			await exited;
-			await workspace.dispose();
+			// A caller-owned workspace outlives this fixture and is disposed by its owner.
+			if (!options.workspace) await workspace.dispose();
 		},
 	};
 	return fixture;

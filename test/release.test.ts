@@ -70,20 +70,22 @@ describe("the package is ready to publish", () => {
 			"docs/USAGE.md",
 			"docs/UNINSTALL.md",
 			"skills/om-pi-subagents/SKILL.md",
+			"docs/assets/om-pi-subagents-logo.svg",
 			"src/settings.ts",
 			"src/settings-persistence.ts",
+			"src/capabilities.ts",
 			"src/observation.ts",
 			"src/observation-validation.ts",
 			"src/observation-relay.ts",
 			"src/observation-transport.ts",
-			"src/tree-card.ts",
+			"src/acknowledgement.ts",
 			"src/viewer.ts",
 			"src/inspector.ts",
 			"src/details.ts",
 		])
 			expect(files, required).toContain(required);
 		const allowed =
-			/^(src\/[a-z-]+\.ts|docs\/[A-Z-]+\.md|skills\/om-pi-subagents\/SKILL\.md|README\.md|LICENSE|CHANGELOG\.md|package\.json)$/;
+			/^(src\/[a-z-]+\.ts|docs\/[A-Z-]+\.md|docs\/assets\/om-pi-subagents-logo\.svg|skills\/om-pi-subagents\/SKILL\.md|README\.md|LICENSE|CHANGELOG\.md|package\.json)$/;
 		expect(files.filter((f) => !allowed.test(f))).toEqual([]);
 	});
 

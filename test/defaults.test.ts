@@ -29,8 +29,9 @@ describe("README makes no legacy-compatibility claim", () => {
 
 	it("lists every unsupported legacy feature", () => {
 		const unsupported = section("Not supported");
-		for (const feature of [/subagent/i, /workflow/i, /fleet/i, /council/i, /resum/i])
-			expect(unsupported).toMatch(feature);
+		for (const feature of [/subagent/i, /workflow/i, /council/i, /resum/i]) expect(unsupported).toMatch(feature);
+		expect(unsupported).not.toMatch(/fleet commands/i);
+		expect(readme).toContain("/ompss fleet");
 	});
 
 	it("makes no drop-in or compatibility claim", () => {

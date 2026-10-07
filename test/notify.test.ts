@@ -123,12 +123,15 @@ describe("delivery record", () => {
 	});
 });
 
-describe("panel delivery", () => {
-	function panelSetup() {
+describe("delivery separation", () => {
+	function deliverySetup() {
 		let owner: string | undefined = "s1";
 		const setWidget = vi.fn();
 		const setStatus = vi.fn();
-		const send = vi.fn(async () => undefined);
+		const sent: Array<{ message: { content: string; details: unknown }; options: unknown }> = [];
+		const send = vi.fn(async (message: { content: string; details: unknown }, options: unknown) => {
+			sent.push({ message, options });
+		});
 		const readOutput = vi.fn(async (_run: RunView): Promise<string | undefined> => "THE ANSWER");
 		const recordDelivery = vi.fn(async () => undefined);
 		const notifier = createNotifier({
@@ -142,6 +145,7 @@ describe("panel delivery", () => {
 			setWidget,
 			setStatus,
 			send,
+			sent,
 			readOutput,
 			recordDelivery,
 			bind: (next: string | undefined) => {
@@ -150,61 +154,50 @@ describe("panel delivery", () => {
 		};
 	}
 
-	it("keeps completed output visible and reads it once for both delivery paths", async () => {
-		const h = panelSetup();
+	it("delivers saved output once and never paints a widget", async () => {
+		const h = deliverySetup();
 		h.notifier.onChange(view({ state: "running" }));
-		h.notifier.onChange(view());
 		await h.notifier.onTerminal(view());
-		expect(h.setWidget.mock.lastCall?.[0].join("\n")).toContain("completed");
-		expect(h.setWidget.mock.lastCall?.[0].join("\n")).toContain("THE ANSWER");
 		expect(h.send).toHaveBeenCalledTimes(1);
 		expect(h.readOutput).toHaveBeenCalledTimes(1);
+		expect(h.sent[0].message.content).toContain("THE ANSWER");
+		expect(h.setWidget).not.toHaveBeenCalled();
 	});
 
-	it.each(["failed", "cancelled"] as const)("retains %s and preserves cancellation delivery rules", async (state) => {
-		const h = panelSetup();
+	it.each(["failed", "cancelled"] as const)("keeps %s delivery rules without painting a widget", async (state) => {
+		const h = deliverySetup();
 		h.notifier.onChange(view({ state }));
 		await h.notifier.onTerminal(view({ state }));
-		const text = h.setWidget.mock.lastCall?.[0].join("\n") ?? "";
-		expect(text).toContain(state);
-		if (state === "failed") expect(text).toContain("Partial output:");
-		else {
+		if (state === "failed") {
+			expect(h.send).toHaveBeenCalledTimes(1);
+			expect(h.sent[0].message.content).toContain("failed.");
+			expect(h.sent[0].message.content).toContain("THE ANSWER");
+		} else {
 			expect(h.send).not.toHaveBeenCalled();
 			expect(h.readOutput).not.toHaveBeenCalled();
 		}
+		expect(h.setWidget).not.toHaveBeenCalled();
 	});
 
 	it("keeps the final state when output cannot be read", async () => {
-		const h = panelSetup();
+		const h = deliverySetup();
 		h.readOutput.mockRejectedValue(new Error("disk unavailable"));
 		h.notifier.onChange(view());
 		await h.notifier.onTerminal(view());
-		expect(h.setWidget.mock.lastCall?.[0]).toEqual(["OMPSS: reader completed (run-1)"]);
 		expect(h.send).toHaveBeenCalledTimes(1);
+		expect(h.sent[0].message.content).toContain("No output was saved.");
+		expect(h.setWidget).not.toHaveBeenCalled();
 	});
 
-	it("drops foreign progress and uses the latest lifecycle snapshot for tools", () => {
-		const h = panelSetup();
-		h.notifier.onChange(view({ state: "running" }));
-		const count = h.setWidget.mock.calls.length;
+	it("ignores runs owned by another session", () => {
+		const h = deliverySetup();
 		h.notifier.onChange(view({ owner: "other" }));
-		h.notifier.onProgress(view({ owner: "other" }), {
-			type: "tool_execution_start",
-			toolCallId: "x",
-			toolName: "evil",
-		});
-		expect(h.setWidget).toHaveBeenCalledTimes(count);
-		h.notifier.onProgress(view({ state: "starting" }), {
-			type: "tool_execution_start",
-			toolCallId: "a",
-			toolName: "read",
-		});
-		expect(h.setWidget.mock.lastCall?.[0].join("\n")).toContain("reader running");
-		expect(h.setWidget.mock.lastCall?.[0]).toEqual(["OMPSS: reader running (run-1)", "Tools: read"]);
+		expect(h.setStatus).not.toHaveBeenCalled();
+		expect(h.setWidget).not.toHaveBeenCalled();
 	});
 
-	it("does not let an old preview replace a newer run", async () => {
-		const h = panelSetup();
+	it("does not let an old terminal read keep a newer run active", async () => {
+		const h = deliverySetup();
 		let release!: (text: string) => void;
 		h.readOutput.mockImplementation(
 			() =>
@@ -217,11 +210,11 @@ describe("panel delivery", () => {
 		h.notifier.onChange(view({ id: "run-2", state: "starting" }));
 		release("OLD OUTPUT");
 		await pending;
-		expect(h.setWidget.mock.lastCall?.[0]).toEqual(["OMPSS: reader starting (run-2)"]);
+		expect(h.setStatus).toHaveBeenLastCalledWith("ompss: reader starting");
 	});
 
 	it.each([undefined, "replacement"])("rechecks ownership after an output read when owner becomes %s", async (next) => {
-		const h = panelSetup();
+		const h = deliverySetup();
 		let release!: (text: string) => void;
 		h.readOutput.mockImplementation(
 			() =>
@@ -231,24 +224,23 @@ describe("panel delivery", () => {
 		);
 		h.notifier.onChange(view());
 		const pending = h.notifier.onTerminal(view());
-		const count = h.setWidget.mock.calls.length;
+		const count = h.setStatus.mock.calls.length;
 		h.bind(next);
 		release("OLD OUTPUT");
 		await pending;
-		expect(h.setWidget).toHaveBeenCalledTimes(count);
+		expect(h.setStatus).toHaveBeenCalledTimes(count);
 		expect(h.send).not.toHaveBeenCalled();
 		expect(h.recordDelivery).toHaveBeenCalledWith(view(), { delivered: false, error: "the owning session has ended" });
 	});
 
-	it.each(["setStatus", "setWidget"] as const)("contains a throwing %s callback independently", async (callback) => {
-		const h = panelSetup();
-		h[callback].mockImplementation(() => {
+	it("contains a throwing setStatus callback independently", async () => {
+		const h = deliverySetup();
+		h.setStatus.mockImplementation(() => {
 			throw new Error("UI failed");
 		});
 		expect(() => h.notifier.onChange(view({ state: "running" }))).not.toThrow();
 		await expect(h.notifier.onTerminal(view())).resolves.toBeUndefined();
 		expect(h.send).toHaveBeenCalledTimes(1);
-		expect(h.setWidget).toHaveBeenCalled();
 		expect(h.setStatus).toHaveBeenCalled();
 	});
 });

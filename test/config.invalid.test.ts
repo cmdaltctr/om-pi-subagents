@@ -186,6 +186,51 @@ describe("persona file", () => {
 	});
 });
 
+describe("ui settings", () => {
+	const uiHead = (ui: string) => `version: 1
+ui:
+${ui}`;
+
+	it("rejects a non-mapping ui value", async () => {
+		await expectRejected(await config(valid, "version: 1\nui: [1]\n"), /ui.*must be a mapping/i);
+	});
+
+	it("rejects an unknown ui field", async () => {
+		await expectRejected(await config(valid, uiHead("  visible: 5\n")), /ui\.visible.*unknown field/i);
+	});
+
+	it.each([0, -1, 257, 2.5, '"5"', "null", "[]"])("rejects maxVisibleAgents %s", async (value) => {
+		await expectRejected(
+			await config(valid, uiHead(`  maxVisibleAgents: ${value}\n`)),
+			/ui\.maxVisibleAgents.*1 to 256/i,
+		);
+	});
+
+	const invalidKeys = ["''", '"alt o"', '"CTRL+O"', '"Alt+O"', 12, '"f13"', '"[]"', '"control+o"', '"ctrl+"'];
+	it.each(invalidKeys)("rejects invalid toggleKey %s", async (key) => {
+		await expectRejected(await config(valid, uiHead(`  toggleKey: ${key}\n`)), /ui\.toggleKey.*(key|off)/i);
+	});
+
+	it("rejects ctrl+i because legacy terminals read it as Tab", async () => {
+		await expectRejected(await config(valid, uiHead('  toggleKey: "ctrl+i"\n')), /ui\.toggleKey.*(ctrl\+i|tab)/i);
+	});
+
+	it("rejects tab as the inspection key", async () => {
+		await expectRejected(await config(valid, uiHead("  inspectKey: tab\n")), /ui\.inspectKey.*(ctrl\+i|tab)/i);
+	});
+
+	it("rejects duplicate fleet and inspection keys", async () => {
+		await expectRejected(
+			await config(valid, uiHead('  toggleKey: "alt+p"\n  inspectKey: "alt+p"\n')),
+			/ui\.inspectKey.*duplicate.*alt\+p/i,
+		);
+	});
+
+	it("rejects an off value spelled differently", async () => {
+		await expectRejected(await config(valid, uiHead('  inspectKey: "disabled"\n')), /ui\.inspectKey.*(key|off)/i);
+	});
+});
+
 describe("skills and extensions", () => {
 	it("rejects a missing skill file", async () => {
 		await expectRejected(await config(`${valid}    skills: [./skills/none/SKILL.md]\n`), /agents\.reader\.skills/);

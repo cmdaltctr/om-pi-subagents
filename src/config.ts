@@ -23,10 +23,22 @@ export interface RunLimits {
 	readonly maxDepth: number;
 }
 
+/** Presentation settings from the optional `ui` mapping. Key values are Pi key specifications or `off`. */
+export interface UiSettings {
+	readonly maxVisibleAgents: number;
+	readonly toggleKey: string;
+	readonly inspectKey: string;
+}
+
+/** Which `ui` fields this YAML declares. Undeclared fields use defaults; only visible rows have a legacy fallback. */
+export type UiDeclarations = Readonly<Record<keyof UiSettings, boolean>>;
+
 /** One coherent file revision, retained by its launch caller across later refreshes. */
 export interface ConfigurationSnapshot {
 	readonly registryPath: string;
 	readonly limits: RunLimits;
+	readonly ui: UiSettings;
+	readonly uiDeclarations: UiDeclarations;
 	readonly agents: Registry;
 }
 
@@ -43,11 +55,53 @@ export class RegistryError extends Error {
 }
 
 const SUPPORTED_VERSION = 1;
+export const DEFAULT_MAX_VISIBLE_AGENTS = 5;
+export const DEFAULT_TOGGLE_KEY = "alt+o";
+export const DEFAULT_INSPECT_KEY = "alt+i";
 const MAX_FILE_BYTES = 256 * 1024;
 const NAME_PATTERN = /^[a-z][a-z0-9-]{0,63}$/;
 const TOOL_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_.-]*$/;
 const THINKING_LEVELS = ["off", "minimal", "low", "medium", "high", "xhigh", "max"];
 const AGENT_FIELDS = ["persona", "tools", "model", "thinking", "skills", "extensions"];
+const UI_FIELDS: readonly (keyof UiSettings)[] = ["maxVisibleAgents", "toggleKey", "inspectKey"];
+/** Pi key specifications are lowercase `modifier+base` pairs; `pageUp` and `pageDown` keep their capitals. */
+const SPECIAL_KEYS = [
+	"escape",
+	"esc",
+	"enter",
+	"return",
+	"space",
+	"backspace",
+	"delete",
+	"insert",
+	"clear",
+	"home",
+	"end",
+	"pageUp",
+	"pageDown",
+	"up",
+	"down",
+	"left",
+	"right",
+	"f1",
+	"f2",
+	"f3",
+	"f4",
+	"f5",
+	"f6",
+	"f7",
+	"f8",
+	"f9",
+	"f10",
+	"f11",
+	"f12",
+];
+const SYMBOL_KEYS = "`-=[]\\;',./!@#$%^&*()_+|~{}:<>?";
+const KEY_SPEC_PATTERN = new RegExp(
+	`^(?:(?:ctrl|shift|alt|super)\\+)*(?:[a-z0-9]|${SPECIAL_KEYS.join("|")}|[${SYMBOL_KEYS.replace(/[\\\]^-]/g, "\\$&")}])$`,
+);
+/** Legacy terminals send one byte for both Tab and Ctrl+I, so neither can own a distinct action. */
+const UNSAFE_KEYS = new Set(["tab", "ctrl+i"]);
 const FRONTMATTER = /^﻿?---[ \t]*(\r?\n|$)/;
 
 type Plain = Record<string, unknown>;
@@ -59,9 +113,10 @@ const isPlain = (value: unknown): value is Plain =>
 export async function loadRegistry(yamlPath: string): Promise<ConfigurationSnapshot> {
 	// No file yet means the operator has mapped no agents. The package ships none.
 	// nosemgrep: AIK_ts_generic_path_traversal -- The trusted operator selects this registry path; resolve only normalises a missing filename, with no file read.
-	if (!existsSync(yamlPath)) return configurationSnapshot(new Map(), validateLimits(undefined), resolve(yamlPath));
+	if (!existsSync(yamlPath))
+		return configurationSnapshot(new Map(), validateLimits(undefined), validateUi(undefined), resolve(yamlPath));
 	const data = parseYaml(await readBounded("om-pi-subagents.yaml", yamlPath));
-	const unknownTop = Object.keys(data).find((key) => !["version", "agents", "limits"].includes(key));
+	const unknownTop = Object.keys(data).find((key) => !["version", "agents", "limits", "ui"].includes(key));
 	if (unknownTop) throw new RegistryError(unknownTop, "unknown field");
 	if (data.version === undefined) throw new RegistryError("version", "required");
 	if (data.version !== SUPPORTED_VERSION) {
@@ -70,12 +125,13 @@ export async function loadRegistry(yamlPath: string): Promise<ConfigurationSnaps
 	if (!isPlain(data.agents)) throw new RegistryError("agents", "required mapping (use {} for no agents)");
 
 	const limits = validateLimits(data.limits);
+	const ui = validateUi(data.ui);
 	const yamlDir = dirname(yamlPath);
 	const registry = new Map<string, AgentSnapshot>();
 	for (const [name, raw] of Object.entries(data.agents)) {
 		registry.set(name, await buildSnapshot(name, raw, yamlDir));
 	}
-	return configurationSnapshot(registry, limits, await realpath(yamlPath));
+	return configurationSnapshot(registry, limits, ui, await realpath(yamlPath));
 }
 
 function validateLimits(value: unknown): RunLimits {
@@ -92,9 +148,63 @@ function validateLimits(value: unknown): RunLimits {
 	return Object.freeze({ maxConcurrentRuns: number("maxConcurrentRuns", 1), maxDepth: number("maxDepth", 0) });
 }
 
+function validateUi(value: unknown): { settings: UiSettings; declarations: UiDeclarations } {
+	if (value !== undefined && !isPlain(value)) throw new RegistryError("ui", "must be a mapping");
+	const raw = (value ?? {}) as Plain;
+	const unknown = Object.keys(raw).find((key) => !UI_FIELDS.includes(key as keyof UiSettings));
+	if (unknown) throw new RegistryError(`ui.${unknown}`, "unknown field");
+
+	const visible = raw.maxVisibleAgents;
+	if (
+		visible !== undefined &&
+		(typeof visible !== "number" || !Number.isSafeInteger(visible) || visible < 1 || visible > 256)
+	)
+		throw new RegistryError("ui.maxVisibleAgents", "must be a safe integer from 1 to 256");
+	const toggle = raw.toggleKey === undefined ? undefined : checkUiKey("toggleKey", raw.toggleKey);
+	const inspect = raw.inspectKey === undefined ? undefined : checkUiKey("inspectKey", raw.inspectKey);
+	// Compare effective values: one declared key can also collide with the other key's default.
+	const effectiveToggle = toggle ?? DEFAULT_TOGGLE_KEY;
+	const effectiveInspect = inspect ?? DEFAULT_INSPECT_KEY;
+	if (effectiveToggle === effectiveInspect && effectiveToggle !== "off")
+		throw new RegistryError("ui.inspectKey", `duplicate of ui.toggleKey (${effectiveInspect}); choose distinct keys`);
+	return {
+		settings: Object.freeze({
+			maxVisibleAgents: visible ?? DEFAULT_MAX_VISIBLE_AGENTS,
+			toggleKey: toggle ?? DEFAULT_TOGGLE_KEY,
+			inspectKey: inspect ?? DEFAULT_INSPECT_KEY,
+		}),
+		declarations: Object.freeze({
+			maxVisibleAgents: visible !== undefined,
+			toggleKey: toggle !== undefined,
+			inspectKey: inspect !== undefined,
+		}),
+	};
+}
+
+/** Validate one shortcut value outside a full registry load. Throws a RegistryError naming `ui.<field>`. */
+export function checkUiKey(field: "toggleKey" | "inspectKey", value: unknown): string {
+	const key = (name: string, setting: unknown): string => {
+		if (typeof setting !== "string" || setting === "")
+			throw new RegistryError(`ui.${name}`, 'must be a Pi key specification (for example alt+o) or "off"');
+		if (UNSAFE_KEYS.has(setting))
+			throw new RegistryError(
+				`ui.${name}`,
+				`${setting} is unsafe: legacy terminals read it the same as Tab; choose another key`,
+			);
+		if (setting !== "off" && !KEY_SPEC_PATTERN.test(setting))
+			throw new RegistryError(
+				`ui.${name}`,
+				'must be a lowercase Pi key specification (for example alt+o, ctrl+alt+p) or "off"',
+			);
+		return setting;
+	};
+	return key(field, value);
+}
+
 function configurationSnapshot(
 	registry: Map<string, AgentSnapshot>,
 	limits: RunLimits,
+	ui: { settings: UiSettings; declarations: UiDeclarations },
 	registryPath: string,
 ): ConfigurationSnapshot {
 	// A frozen Map still exposes set/delete. This view exposes only read operations.
@@ -110,7 +220,7 @@ function configurationSnapshot(
 			registry.forEach((value, key) => callback.call(thisArg, value, key, agents));
 		},
 	});
-	return Object.freeze({ agents, limits, registryPath });
+	return Object.freeze({ agents, limits, registryPath, ui: ui.settings, uiDeclarations: ui.declarations });
 }
 
 export interface RegistryStore {

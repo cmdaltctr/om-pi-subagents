@@ -1,12 +1,33 @@
-// Terminal notifications and the status line. Messaging is injected, so the rules are testable
-// without a parent Pi session.
+// Terminal result delivery and the status line. Messaging is injected, so the rules are testable
+// without a parent Pi session. The persistent fleet strip lives in fleet-widget.ts: this module
+// never paints a widget, so result delivery cannot race the presentation layer.
 
+import { plain } from "./plain.ts";
 import type { RunView } from "./runs.ts";
-import { RunPanel } from "./panel.ts";
 
 export const RESULT_MESSAGE = "ompss-result";
 /** Most result text put into the parent's conversation. The full text stays in output.md. */
 export const MAX_OUTPUT_CHARS = 4000;
+/** Agent-name bound for the single-run status line. */
+const MAX_NAME_CHARS = 48;
+
+/** Terminal facts a live strip component needs from an interactive host. */
+export interface TerminalFacts {
+	readonly rows: number;
+	requestRender(): void;
+	/** Public focus accessors for view navigation; absent where the host exposes none. */
+	readonly focus?: { getFocusedComponent(): unknown; hasOverlay(): boolean };
+}
+
+/** A live widget component; the host renders, invalidates and disposes it. */
+export interface WidgetComponent {
+	render(width: number): string[];
+	invalidate(): void;
+	dispose?(): void;
+}
+
+/** Interactive hosts keep a live component; line hosts receive plain lines. */
+export type WidgetContent = ((terminal: TerminalFacts) => WidgetComponent) | string[] | undefined;
 
 export interface Messenger {
 	send(
@@ -15,7 +36,7 @@ export interface Messenger {
 	): Promise<void>;
 	/** Absent when the parent has no UI. */
 	setStatus?: (text: string | undefined) => void;
-	setWidget?: (lines: string[] | undefined) => void;
+	setWidget?: (content: WidgetContent, placement?: "aboveEditor" | "belowEditor") => void;
 }
 
 export interface NotifierDeps {
@@ -25,30 +46,38 @@ export interface NotifierDeps {
 	directoryFor(run: RunView): string;
 	/** Saved apart from the run's result, so a failed delivery never changes it. */
 	recordDelivery(run: RunView, result: { delivered: boolean; error?: string }): Promise<void>;
-	/** Cached display preference. Rendering must never refresh files. */
-	visibleAgents?(): number;
 }
 
 const errorText = (error: unknown) => (error instanceof Error ? error.message : String(error));
+const isTerminalState = (state: RunView["state"]) =>
+	state === "completed" || state === "failed" || state === "cancelled";
 
 export function createNotifier(deps: NotifierDeps) {
 	const notified = new Set<string>();
-	const panel = new RunPanel(deps.visibleAgents);
+	/** Active runs per owner; drives the status line only. */
+	const active = new Map<string, Map<string, { agent: string; state: RunView["state"] }>>();
 
-	function draw(run: RunView): void {
-		if (panel.matches(run)) redraw(run.owner);
+	function status(owner: string): string | undefined {
+		const runs = [...(active.get(owner)?.values() ?? [])];
+		if (!runs.length) return undefined;
+		if (runs.length > 1) return `ompss: ${runs.length} active runs`;
+		return `ompss: ${plain(runs[0].agent, MAX_NAME_CHARS)} ${runs[0].state}`;
 	}
 
-	function redraw(owner: string): void {
-		try {
-			deps.messenger(owner)?.setStatus?.(panel.status(owner));
-		} catch {
-			/* A status failure must not block the widget. */
+	function apply(run: RunView): void {
+		const messenger = deps.messenger(run.owner);
+		if (!messenger) return;
+		let session = active.get(run.owner);
+		if (!session) {
+			session = new Map();
+			active.set(run.owner, session);
 		}
+		if (isTerminalState(run.state)) session.delete(run.id);
+		else session.set(run.id, { agent: run.agent, state: run.state });
 		try {
-			deps.messenger(owner)?.setWidget?.(panel.render(owner));
+			messenger.setStatus?.(status(run.owner));
 		} catch {
-			/* Display failures do not change the run. */
+			/* A status failure must not block delivery. */
 		}
 	}
 
@@ -68,8 +97,11 @@ export function createNotifier(deps: NotifierDeps) {
 	}
 
 	return {
-		/** Repaint cached display state after a preference or descendant observation changes. */
-		redraw,
+		/** Update the status line from authoritative lifecycle snapshots. */
+		onChange(run: RunView): void {
+			apply(run);
+		},
+
 		/** Send one follow-up for a finished run. A cancelled run sends nothing. Never throws. */
 		async onTerminal(run: RunView): Promise<void> {
 			if (run.state === "cancelled" || notified.has(run.id)) return;
@@ -79,13 +111,11 @@ export function createNotifier(deps: NotifierDeps) {
 
 			if (!deps.messenger(run.owner)) return record({ delivered: false, error: "the owning session has ended" });
 			try {
-				// Capture terminal order before a delayed read; previews cannot choose the idle summary.
-				panel.onChange(run);
+				// Capture terminal order before a delayed read; the status line cannot stay active.
+				apply(run);
 				const output = await deps.readOutput(run).catch(() => undefined);
 				const messenger = deps.messenger(run.owner);
 				if (!messenger) return record({ delivered: false, error: "the owning session has ended" });
-				panel.setPreview(run, output);
-				draw(run);
 				await messenger.send(
 					{
 						customType: RESULT_MESSAGE,
@@ -98,25 +128,6 @@ export function createNotifier(deps: NotifierDeps) {
 				await record({ delivered: true });
 			} catch (error) {
 				await record({ delivered: false, error: errorText(error) });
-			}
-		},
-
-		/** Update the panel from authoritative lifecycle snapshots. */
-		onChange(run: RunView): void {
-			if (!deps.messenger(run.owner)) return;
-			panel.onChange(run);
-			draw(run);
-		},
-
-		/** Task metadata must not replace a newer lifecycle snapshot. */
-		onProgress(run: RunView, record: unknown): void {
-			if (!deps.messenger(run.owner) || !panel.matches(run)) return;
-			panel.onProgress(run, record);
-			try {
-				// nosemgrep: AIK_js_tainted_express_render -- This is RunPanel's sanitised string-array renderer, not an Express template or executable expression.
-				deps.messenger(run.owner)?.setWidget?.(panel.render(run.owner));
-			} catch {
-				/* Supervision continues. */
 			}
 		},
 	};

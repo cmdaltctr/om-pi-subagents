@@ -277,10 +277,19 @@ Put blocking issues first. Keep the whole answer under 400 words.
 | `version` | yes      | The number `1`. The text `'1'` and other numbers are rejected.     |
 | `agents`  | yes      | A mapping of agent names to settings. Use `agents: {}` for none.   |
 | `limits`  | no       | `maxConcurrentRuns` and `maxDepth`. Omitted fields default to one. |
+| `ui`      | no       | `maxVisibleAgents`, `toggleKey` and `inspectKey`. See below.       |
 
-Only `version`, `agents` and `limits` are allowed at the top level.
+Only `version`, `agents`, `limits` and `ui` are allowed at the top level.
 `maxConcurrentRuns` accepts safe integers of at least one; `maxDepth` accepts safe integers of at least zero.
 See [configured limits and nesting](USAGE.md#configured-limits-and-nesting) for the table, depth examples and branch ceilings.
+
+`ui.maxVisibleAgents` accepts safe integers from one to 256 and defaults to five.
+`ui.toggleKey` and `ui.inspectKey` accept lowercase Pi key specifications, such as `alt+o`
+or `ctrl+alt+p`, or `off` to disable the shortcut. The defaults are `alt+o` and `alt+i`.
+The two keys must differ. Tab and Ctrl+I are refused because legacy terminals send one byte
+for both. A key bound to an effective built-in action is refused with guidance when the
+session starts. Edit these fields with `/ompss-settings`, or by hand; see
+[operator settings](USAGE.md#operator-settings).
 
 ### Agent names
 
@@ -364,6 +373,7 @@ tools:
 - A tool from an extension needs its explicit `extensions` entry.
 - Approving the exact `ompss` tool loads OMPSS's managed delegator. It can select targets with their own tool permissions.
 - Approving `todo` requires the real todo extension too. OMPSS seeds only the child's normal-mode list.
+- Approving `memory` requires the real OMMS extension; its whole tool includes write and portability modes.
 
 Before the task is sent, OMPSS checks that every listed tool exists in the child. A missing tool stops the run before the model sees the task.
 
@@ -397,6 +407,34 @@ The containment rule applies to personas only.
 For `/skill:om-pi-subagents`, map the installed package's `skills/om-pi-subagents/SKILL.md` explicitly into a child.
 Use the folder shown by `pi list`. Loading a skill grants no tools.
 See [nested results and local todos](USAGE.md#nested-results-and-local-todos) for portable mapping examples.
+
+### Optional Memory and Todo for a mapped agent
+
+New mappings have both capabilities off. A parent's extensions never pass automatically to a child.
+Keep `tools`, `extensions` and `skills` explicit. Existing mappings remain effective.
+
+1. Install the optional package separately if you want it in a child.
+2. Run `/ompss-settings` and choose **Agent capabilities**.
+3. Choose an existing agent, then Memory or Todo.
+4. Choose **Enable** and enter the installed package folder or its published Pi extension entry.
+5. Read the proposed list changes and confirm them.
+
+The helper reads published package metadata without running its extension. It adds the exact
+`memory` or `todo` tool and that package's declared Pi extension. For Memory, choose
+**Enable with shipped skill** to add `omms-memory` explicitly. A missing package leaves YAML
+unchanged. The helper never installs it or edits the sibling's configuration.
+
+**Off** means no recognised sibling entry, mapped skill or matching tool approval.
+**On (configured)** means an extension and exact tool are mapped; check the sibling separately
+for backend health. **Partial** means a tool, extension or skill is missing or duplicated.
+Correct an unrecognised wrapper in YAML; the helper will not guess which custom code to remove.
+Choose **Disable** to remove recognised sibling entries, its skill and exact tool together.
+This stops memory recall/capture hooks or child todo bootstrap on the next launch. Active
+children retain their snapshot. The parent's tools and OpenSpec tasks stay unchanged.
+
+Approving `memory` permits every mode of that tool, including writes and portability.
+Only give this permission to a child that needs it. See [optional child capabilities](USAGE.md#optional-child-capabilities)
+for a complete agent example and a verified-result handoff.
 
 ### Complete example
 
@@ -460,42 +498,47 @@ Run `/reload` after you install, update or remove the package. Changes to the ag
 Errors appear in Pi as `OMPSS: <field>: <problem>`. The field shows the place in the mapping file, for example `agents.reader.tools`.
 OMPSS reports the first problem it finds. Fix it, then run `/ompss list` again.
 
-| Message (or part of it)                                                  | Cause                                                          | Fix                                                                                                      |
-| ------------------------------------------------------------------------ | -------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| `No personas mapped.`                                                    | No mapping file, or `agents: {}`                               | Create the mapping file. See [Set up your first agent](#set-up-your-first-agent).                        |
-| `version: required`                                                      | No `version` key. An empty mapping file also gives this.       | Add `version: 1` as the first line.                                                                      |
-| `version: unsupported ...; expected 1`                                   | `version` is not the number 1                                  | Write `version: 1` without quotes.                                                                       |
-| `agents: required mapping (use {} for no agents)`                        | `agents` is missing or is not a mapping                        | Add `agents:` with agents under it, or `agents: {}`.                                                     |
-| `<key>: unknown field`                                                   | A top-level key other than `version`, `agents` or `limits`     | Remove the key or correct its spelling.                                                                  |
-| `agents.<name>.<field>: unknown field`                                   | A misspelt or unsupported agent field, such as `toolz`         | Use only the fields in [Agent fields](#agent-fields).                                                    |
-| `invalid name; use [a-z][a-z0-9-]{0,63}`                                 | Capital letter, underscore, leading digit or too long          | Rename the agent. See [Agent names](#agent-names).                                                       |
-| `agents.<name>: must be a mapping`                                       | The agent has no fields under it                               | Indent its fields under the name.                                                                        |
-| `persona: required path`                                                 | No `persona` field, or it is empty                             | Add `persona: ./om-pi-subagents/personas/<name>.md`.                                                     |
-| `persona: cannot read <path>`                                            | The persona file does not exist                                | Create the file, or correct the path relative to the mapping folder.                                     |
-| `resolves outside the extension directory`                               | The path or a symbolic link leads outside the mapping folder   | Move the persona into the mapping file's folder.                                                         |
-| `cannot read <path> as a file`                                           | The path is a folder, or you have no read permission           | Point to a file. Check its permissions.                                                                  |
-| `<path> is empty`                                                        | The persona has only spaces or blank lines                     | Write the persona text.                                                                                  |
-| `has frontmatter; put settings in om-pi-subagents.yaml`                  | The persona starts with `---`                                  | Remove the block at the top. Move its settings to the mapping file.                                      |
-| `larger than 262144 bytes`                                               | The persona or mapping file is over 256 KiB                    | Make the file shorter.                                                                                   |
-| `tools: required (use [] for no tools)`                                  | No `tools` field                                               | Add `tools: [...]`, or `tools: []`.                                                                      |
-| `tools: must be a list of tool names`                                    | `tools` is not a list                                          | Write it as `[read, grep]` or as a `-` list.                                                             |
-| `is not an exact tool name (no wildcards or selectors)`                  | A wildcard, space, colon or empty name                         | Write each tool's exact name.                                                                            |
-| `thinking: required; set one of off, minimal, ...`                       | No `thinking` field                                            | Add `thinking: off` or another level.                                                                    |
-| `thinking: must be one of off, minimal, ...`                             | Unknown level, a number or an empty value                      | Use one of the listed levels.                                                                            |
-| `model: must be a non-empty string`                                      | `model` is empty, a number or a list                           | Write `provider/id`, or remove the field.                                                                |
-| `skills: must be a list of paths`, `extensions: must be a list of paths` | The value is not a list                                        | Write the paths as a list.                                                                               |
-| `skills[0]: cannot read <path>`, `extensions[0]: cannot read <path>`     | The path does not exist. For skills, a folder also gives this. | Correct the path. Point a skill to its `SKILL.md` file.                                                  |
-| `malformed YAML (...)`                                                   | YAML syntax error, such as a missing bracket                   | Fix the line named in the message.                                                                       |
-| `duplicate key`                                                          | The same key appears twice, often an agent name                | Rename or remove the second one.                                                                         |
-| `aliases are not allowed`                                                | The file uses `&` anchors or `*` aliases                       | Write each value out in full.                                                                            |
-| `custom tag ... is not allowed`                                          | The file uses a tag such as `!custom`                          | Remove the tag.                                                                                          |
-| `top level must be a mapping`                                            | The file is a list or a single value                           | Start with `version: 1` and `agents:`.                                                                   |
-| `unknown agent "<name>"; mapped agents: ...`                             | The name in `/ompss run` is not in the mapping file            | Use a name that `/ompss list` shows.                                                                     |
-| `the task cannot start with a slash`                                     | The task starts with `/`                                       | Reword the task.                                                                                         |
-| `child is not ready: tool "<name>" is not registered`                    | A listed tool does not exist in the child                      | Check the exact name. For MCP tools, configure the server in Pi. For extension tools, add the extension. |
-| `model ... is not in the model registry`                                 | The child does not know the model                              | Correct `model`, or add the provider extension.                                                          |
-| `model ... has no configured authentication`                             | The model has no credentials                                   | Log in to the provider or set its key in Pi.                                                             |
-| `permission violation: <tool> is not approved`                           | The model called a tool that is not on the list                | Add the tool if the agent needs it. Otherwise tighten the persona.                                       |
+| Message (or part of it)                                                  | Cause                                                            | Fix                                                                                                      |
+| ------------------------------------------------------------------------ | ---------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `No personas mapped.`                                                    | No mapping file, or `agents: {}`                                 | Create the mapping file. See [Set up your first agent](#set-up-your-first-agent).                        |
+| `version: required`                                                      | No `version` key. An empty mapping file also gives this.         | Add `version: 1` as the first line.                                                                      |
+| `version: unsupported ...; expected 1`                                   | `version` is not the number 1                                    | Write `version: 1` without quotes.                                                                       |
+| `agents: required mapping (use {} for no agents)`                        | `agents` is missing or is not a mapping                          | Add `agents:` with agents under it, or `agents: {}`.                                                     |
+| `<key>: unknown field`                                                   | A top-level key other than `version`, `agents`, `limits` or `ui` | Remove the key or correct its spelling.                                                                  |
+| `ui.<field>: unknown field`                                              | A key under `ui` other than the three supported fields           | Use `maxVisibleAgents`, `toggleKey` or `inspectKey`.                                                     |
+| `ui.maxVisibleAgents: must be a safe integer from 1 to 256`              | The value is zero, too large, fractional or not a number         | Write a whole number from 1 to 256.                                                                      |
+| `ui.toggleKey: must be a ... Pi key specification ... or "off"`          | A misspelt or uppercase key, for example `Alt+O`                 | Write the key in lowercase, such as `alt+o`, or `off`.                                                   |
+| `ui.<key>: ... unsafe ... same as Tab`                                   | `tab` or `ctrl+i`                                                | Choose another key; legacy terminals send one byte for both.                                             |
+| `ui.inspectKey: duplicate of ui.toggleKey`                               | Both shortcuts use the same key                                  | Give each shortcut its own key, or set one to `off`.                                                     |
+| `agents.<name>.<field>: unknown field`                                   | A misspelt or unsupported agent field, such as `toolz`           | Use only the fields in [Agent fields](#agent-fields).                                                    |
+| `invalid name; use [a-z][a-z0-9-]{0,63}`                                 | Capital letter, underscore, leading digit or too long            | Rename the agent. See [Agent names](#agent-names).                                                       |
+| `agents.<name>: must be a mapping`                                       | The agent has no fields under it                                 | Indent its fields under the name.                                                                        |
+| `persona: required path`                                                 | No `persona` field, or it is empty                               | Add `persona: ./om-pi-subagents/personas/<name>.md`.                                                     |
+| `persona: cannot read <path>`                                            | The persona file does not exist                                  | Create the file, or correct the path relative to the mapping folder.                                     |
+| `resolves outside the extension directory`                               | The path or a symbolic link leads outside the mapping folder     | Move the persona into the mapping file's folder.                                                         |
+| `cannot read <path> as a file`                                           | The path is a folder, or you have no read permission             | Point to a file. Check its permissions.                                                                  |
+| `<path> is empty`                                                        | The persona has only spaces or blank lines                       | Write the persona text.                                                                                  |
+| `has frontmatter; put settings in om-pi-subagents.yaml`                  | The persona starts with `---`                                    | Remove the block at the top. Move its settings to the mapping file.                                      |
+| `larger than 262144 bytes`                                               | The persona or mapping file is over 256 KiB                      | Make the file shorter.                                                                                   |
+| `tools: required (use [] for no tools)`                                  | No `tools` field                                                 | Add `tools: [...]`, or `tools: []`.                                                                      |
+| `tools: must be a list of tool names`                                    | `tools` is not a list                                            | Write it as `[read, grep]` or as a `-` list.                                                             |
+| `is not an exact tool name (no wildcards or selectors)`                  | A wildcard, space, colon or empty name                           | Write each tool's exact name.                                                                            |
+| `thinking: required; set one of off, minimal, ...`                       | No `thinking` field                                              | Add `thinking: off` or another level.                                                                    |
+| `thinking: must be one of off, minimal, ...`                             | Unknown level, a number or an empty value                        | Use one of the listed levels.                                                                            |
+| `model: must be a non-empty string`                                      | `model` is empty, a number or a list                             | Write `provider/id`, or remove the field.                                                                |
+| `skills: must be a list of paths`, `extensions: must be a list of paths` | The value is not a list                                          | Write the paths as a list.                                                                               |
+| `skills[0]: cannot read <path>`, `extensions[0]: cannot read <path>`     | The path does not exist. For skills, a folder also gives this.   | Correct the path. Point a skill to its `SKILL.md` file.                                                  |
+| `malformed YAML (...)`                                                   | YAML syntax error, such as a missing bracket                     | Fix the line named in the message.                                                                       |
+| `duplicate key`                                                          | The same key appears twice, often an agent name                  | Rename or remove the second one.                                                                         |
+| `aliases are not allowed`                                                | The file uses `&` anchors or `*` aliases                         | Write each value out in full.                                                                            |
+| `custom tag ... is not allowed`                                          | The file uses a tag such as `!custom`                            | Remove the tag.                                                                                          |
+| `top level must be a mapping`                                            | The file is a list or a single value                             | Start with `version: 1` and `agents:`.                                                                   |
+| `unknown agent "<name>"; mapped agents: ...`                             | The name in `/ompss run` is not in the mapping file              | Use a name that `/ompss list` shows.                                                                     |
+| `the task cannot start with a slash`                                     | The task starts with `/`                                         | Reword the task.                                                                                         |
+| `child is not ready: tool "<name>" is not registered`                    | A listed tool does not exist in the child                        | Check the exact name. For MCP tools, configure the server in Pi. For extension tools, add the extension. |
+| `model ... is not in the model registry`                                 | The child does not know the model                                | Correct `model`, or add the provider extension.                                                          |
+| `model ... has no configured authentication`                             | The model has no credentials                                     | Log in to the provider or set its key in Pi.                                                             |
+| `permission violation: <tool> is not approved`                           | The model called a tool that is not on the list                  | Add the tool if the agent needs it. Otherwise tighten the persona.                                       |
 
 ## Security
 

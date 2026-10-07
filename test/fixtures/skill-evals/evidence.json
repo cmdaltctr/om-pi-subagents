@@ -15,5 +15,31 @@
 		"file": "test/nesting.cleanup.test.ts",
 		"test": "propagates a depth-two cleanup failure to the root despite successful outer process cleanup"
 	},
-	{ "eval_id": 5, "file": "test/todo.parent.test.ts", "test": "preserves %s parent tasks with %s load order" }
+	{ "eval_id": 5, "file": "test/todo.parent.test.ts", "test": "preserves %s parent tasks with %s load order" },
+	{
+		"eval_id": 6,
+		"file": "test/fleet.test.ts",
+		"test": "keeps five active roots on exactly one persistent content row"
+	},
+	{
+		"eval_id": 6,
+		"file": "test/interactive-fleet.test.ts",
+		"test": "keeps %s input safe with the %s theme"
+	},
+	{
+		"eval_id": 7,
+		"file": "test/capability-settings.e2e.test.ts",
+		"test": "enables then disables the real todo entry for future children"
+	},
+	{
+		"eval_id": 7,
+		"file": "test/capability-settings.e2e.test.ts",
+		"test": "enables then disables the real OMMS entry and its hooks"
+	},
+	{ "eval_id": 8, "file": "test/todo.parent.test.ts", "test": "preserves %s parent tasks with %s load order" },
+	{
+		"eval_id": 8,
+		"file": "test/memory.coexistence.test.ts",
+		"test": "launches a memory child with %s parent load order"
+	}
 ]

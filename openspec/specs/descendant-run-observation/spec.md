@@ -50,38 +50,50 @@ Observed nodes SHALL report the state determined by their immediate parent's run
 
 ### Requirement: Bound observation without limiting execution
 
-The observation path SHALL bound record sizes, retained nodes and tool metadata. It MUST report incomplete or omitted observations when those bounds are exceeded. Display capacity MUST NOT change launch admission, nesting permissions, cleanup or result delivery.
+The observation path SHALL bound record sizes, retained nodes, tool metadata and optional task/assistant display text. Task summaries SHALL be at most 160 characters; assistant previews SHALL be at most 4 KiB of UTF-8. Preview publication SHALL be coalesced to at most five updates per second per run. Existing record and node safety bounds SHALL remain. Incomplete or omitted evidence MUST be labelled. These display bounds MUST NOT change launch admission, permissions, cleanup or delivery.
 
 #### Scenario: A large tree exceeds the observation bound
 
 - **WHEN** configured runs produce more observations than the viewer retains
-- **THEN** the tree reports that observations are omitted
-- **AND** all admitted runs keep their configured execution behaviour
+- **THEN** the tree reports omitted observations
+- **AND** admitted runs keep their configured execution behaviour
 
 #### Scenario: An observation is malformed or oversized
 
-- **WHEN** the display path receives invalid or oversized observation metadata inside a valid transport record
-- **THEN** it rejects that observation without changing any run outcome
+- **WHEN** a valid transport contains invalid or oversized display metadata
+- **THEN** that observation is rejected without changing a run outcome
+
+#### Scenario: A child streams a large answer
+
+- **WHEN** visible assistant text exceeds the preview bound or arrives rapidly
+- **THEN** retained display text and preview publication stay within their limits
+- **AND** normal model output, lifecycle processing and saved-result collection continue
 
 ### Requirement: Keep observation separate from conversation and control
 
-Observation updates SHALL remain display-only and SHALL exclude tool arguments, raw tool results, thinking, stderr and authentication fields. They MUST NOT trigger model requests, duplicate result messages, keep execution tools open or allow an ancestor to control a descendant owned by another immediate parent.
+Observations SHALL remain display-only, with optional sanitised task labels and visible assistant previews. Tool arguments, raw results, thinking, stderr, system history and authentication fields SHALL remain excluded. Updates MUST NOT trigger model requests, duplicate results, hold execution tools open, prove completion or grant ancestor control over another immediate parent's child.
 
 #### Scenario: A descendant emits frequent progress
 
-- **WHEN** its display metadata changes during a run
-- **THEN** the root viewer updates without requesting another model turn
-- **AND** the normal terminal result reaches the immediate parent once
+- **WHEN** display metadata changes during a run
+- **THEN** the viewer updates without requesting another model turn
+- **AND** the terminal result reaches the immediate parent once
 
 #### Scenario: The root attempts direct descendant cancellation
 
-- **WHEN** the root knows a grandchild's id through the viewer and uses the existing cancel command with that id
-- **THEN** existing immediate-parent ownership checks still apply
+- **WHEN** the root uses an observed grandchild id with the existing cancel command
+- **THEN** immediate-parent ownership checks still apply
 
 #### Scenario: Sensitive tool fields appear in RPC records
 
-- **WHEN** a child emits tool arguments, results or authentication fields
-- **THEN** those fields do not enter the observation metadata
+- **WHEN** records contain tool arguments, results, thinking, authentication fields or system history
+- **THEN** those fields do not enter retained presentation metadata
+
+#### Scenario: A live preview arrives before clean exit
+
+- **WHEN** a child has visible assistant text but exit or cleanup is unconfirmed
+- **THEN** that preview is labelled provisional
+- **AND** the run cannot become completed from the preview
 
 ### Requirement: End observation with its owning session
 
@@ -97,3 +109,30 @@ Replacing or shutting down a session SHALL detach its display observers. Late ev
 
 - **WHEN** rendering or observation callbacks fail
 - **THEN** run supervision, cleanup and result persistence continue
+
+### Requirement: Correlate display text with the submitted run
+
+Task labels and assistant previews SHALL belong to the validated run identity and submitted task. Replayed startup content, foreign records and stale revisions MUST NOT populate another run's text. Sanitisation SHALL remove terminal controls and direction overrides without rewriting saved output. Older records without these optional fields SHALL remain valid.
+
+#### Scenario: A grandchild produces answer text
+
+- **WHEN** a validated grandchild emits visible assistant text for its submitted task
+- **THEN** the root can inspect its provisional preview beneath the correct parent
+- **AND** no sibling preview changes
+
+#### Scenario: Startup or delayed evidence arrives
+
+- **WHEN** assistant content belongs to startup replay or an older revision
+- **THEN** it does not replace current task display text
+
+#### Scenario: A record uses the earlier metadata shape
+
+- **WHEN** a valid observation omits task and preview fields
+- **THEN** its lifecycle and tool information remain observable
+- **AND** unavailable text stays labelled rather than invented
+
+#### Scenario: Display text contains terminal instructions
+
+- **WHEN** task labels or assistant previews contain terminal controls or direction overrides
+- **THEN** the UI shows safe text
+- **AND** saved task and answer files are unchanged

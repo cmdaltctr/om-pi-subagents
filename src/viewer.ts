@@ -1,5 +1,5 @@
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { Text, getKeybindings, type Component } from "@earendil-works/pi-tui";
+import type { Component } from "@earendil-works/pi-tui";
 import {
 	createDetailReader,
 	DetailSelection,
@@ -9,22 +9,24 @@ import {
 } from "./details.ts";
 import { Inspector } from "./inspector.ts";
 import type { ObservationStore, ObservedTree } from "./observation.ts";
-import { plain } from "./panel.ts";
-import type { DisplayPreferences } from "./settings-persistence.ts";
-import { TreeCard } from "./tree-card.ts";
+import { plain } from "./plain.ts";
+import { LaunchAcknowledgement, type AcknowledgementData } from "./acknowledgement.ts";
+
+/**
+ * Read-only presentation input for visible-agent bounds. Supplied from the session UI settings
+ * cache; reading `value` performs no file access.
+ */
+export interface VisibleAgentsInput {
+	readonly value: number;
+	ensureLoaded(): Promise<{ diagnostics: readonly string[] }>;
+}
 
 export const TREE_ENTRY = "ompss-tree";
-export interface RunCardIdentity {
-	readonly owner: string;
-	readonly runId: string;
-}
-interface Invalidation {
-	owner: string;
-	invalidate: () => void;
-}
+/** A launch acknowledgement's own data: identity plus the captured agent label. */
+export interface RunCardIdentity extends AcknowledgementData {}
 interface ViewerOptions {
 	readonly observations: ObservationStore;
-	readonly preferences: DisplayPreferences;
+	readonly preferences: VisibleAgentsInput;
 	readonly storeRoot: string;
 	readonly owner: () => string | undefined;
 	readonly redraw: (owner: string) => void;
@@ -65,7 +67,6 @@ export class RunViewer {
 	private context: ExtensionContext | undefined;
 	private ended = false;
 	private readonly stops = new Map<string, () => void>();
-	private readonly invalidations = new Map<object, Invalidation>();
 	private active: Inspector | undefined;
 	private readonly rpcReads = new Set<DetailSelection>();
 
@@ -118,16 +119,6 @@ export class RunViewer {
 
 	redraw(owner = this.options.owner()): void {
 		if (!owner || !this.live(owner)) return;
-		// A renderer may replace its callback while invalidating itself.
-		// oxlint-disable-next-line unicorn/no-useless-spread -- Callbacks can replace registrations while this loop runs.
-		for (const registration of [...this.invalidations.values()]) {
-			if (registration.owner !== owner) continue;
-			try {
-				registration.invalidate();
-			} catch {
-				/* Presentation must not change a run. */
-			}
-		}
 		try {
 			this.options.redraw(owner);
 		} catch {
@@ -135,23 +126,13 @@ export class RunViewer {
 		}
 	}
 
-	render(identity: RunCardIdentity, expanded: boolean, context?: { state: object; invalidate: () => void }): Component {
-		if (!this.live(identity.owner) || this.context?.mode !== "tui")
-			return new Text("OMPSS: observation unavailable", 0, 0);
-		if (context) this.invalidations.set(context.state, { owner: identity.owner, invalidate: context.invalidate });
-		return new TreeCard(
-			() => (this.live(identity.owner) ? this.options.observations.tree(identity.owner, identity.runId) : undefined),
-			expanded,
-			() => this.options.preferences.value,
-			() => getKeybindings().getKeys("app.tools.expand").join("/"),
-			(id) => {
-				const ctx = this.context;
-				if (!ctx || !this.live(identity.owner)) return;
-				void this.inspect(id, ctx).catch((error: unknown) => {
-					this.notify(identity.owner, `OMPSS inspection: ${(error as Error).message}`);
-				});
-			},
-		);
+	/**
+	 * Render a transcript launch acknowledgement. Acknowledgements are static and self-contained:
+	 * they carry their own bounded text, subscribe to nothing and never become live per-run trees,
+	 * so host expansion (Ctrl+O) reveals only the captured acknowledgement text.
+	 */
+	render(identity: RunCardIdentity, expanded: boolean, detail?: string): Component {
+		return new LaunchAcknowledgement(identity, expanded, detail);
 	}
 
 	private async rpcDetails(root: string, runId: string, ctx: ExtensionContext, read: DetailReader): Promise<void> {
@@ -247,7 +228,6 @@ export class RunViewer {
 		this.closeActive();
 		for (const stop of this.stops.values()) stop();
 		this.stops.clear();
-		this.invalidations.clear();
 		this.context = undefined;
 	}
 }

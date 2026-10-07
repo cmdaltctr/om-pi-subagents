@@ -21,6 +21,7 @@
 	"files": [
 		"src",
 		"skills/om-pi-subagents/SKILL.md",
+		"docs/assets/om-pi-subagents-logo.svg",
 		"docs/INSTALL.md",
 		"docs/SETUP.md",
 		"docs/USAGE.md",

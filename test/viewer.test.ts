@@ -2,7 +2,7 @@ import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { describe, expect, it, vi } from "vitest";
 import { ObservationStore } from "../src/observation.ts";
 import type { RunDetails } from "../src/details.ts";
-import type { DisplayPreferences } from "../src/settings-persistence.ts";
+import type { VisibleAgentsInput } from "../src/viewer.ts";
 import { RunViewer } from "../src/viewer.ts";
 const mocks = vi.hoisted(() => ({ read: vi.fn() }));
 vi.mock("../src/details.ts", async (original) => ({
@@ -30,7 +30,7 @@ function setup() {
 	};
 	observations.updateRoot(root);
 	let owner = "session";
-	const preferences = { value: 4, ensureLoaded: async () => ({ diagnostics: [] }) } as unknown as DisplayPreferences;
+	const preferences: VisibleAgentsInput = { value: 4, ensureLoaded: async () => ({ diagnostics: [] }) };
 	const redraw = vi.fn();
 	const notify = vi.fn();
 	const context = {
@@ -64,6 +64,25 @@ function setup() {
 	};
 }
 describe("viewer lifecycle", () => {
+	it("renders compact launch acknowledgements that never become live trees", () => {
+		const fixture = setup();
+		const launchText = "Started run owned (worker) in the background.";
+		const collapsed = fixture.viewer.render({ owner: "session", runId: "owned", agent: "worker" }, false, launchText);
+		expect(collapsed.render(100)).toHaveLength(1);
+		const expanded = fixture.viewer.render({ owner: "session", runId: "owned", agent: "worker" }, true, launchText);
+		const lines = expanded.render(100).join("\n");
+		expect(lines).toContain("Started run owned");
+		// Host expansion reveals acknowledgement text only, never per-run rows or navigation.
+		expect(lines).not.toContain("descendants");
+		expect(lines).not.toMatch(/Arrows|Enter inspect/);
+		// A historical entry from an older session stays bounded, labelled and identity-bearing.
+		const historical = fixture.viewer.render({ owner: "old-session", runId: "hist-12345678" }, true);
+		const shown = historical.render(100).join("\n");
+		expect(shown).toMatch(/unavailable/i);
+		expect(shown).toContain("hist-12");
+		expect(shown).not.toMatch(/running|completed|failed|cancelled/);
+		fixture.viewer.dispose();
+	});
 	it("disposes the modal when the host rejects its custom UI promise", async () => {
 		const fixture = setup();
 		mocks.read.mockImplementation(async () => new Promise(() => {}));

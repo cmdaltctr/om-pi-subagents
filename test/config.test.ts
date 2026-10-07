@@ -109,6 +109,74 @@ describe("explicit thinking", () => {
 	);
 });
 
+describe("ui settings", () => {
+	const uiYaml = (ui: string) => `version: 1
+${ui}agents: {}
+`;
+
+	it("applies the default five visible agents and Alt+O/Alt+I when ui is omitted", async () => {
+		await write("om-pi-subagents.yaml", uiYaml(""));
+		const registry = await loadRegistry(yamlPath());
+		expect(registry.ui).toEqual({ maxVisibleAgents: 5, toggleKey: "alt+o", inspectKey: "alt+i" });
+	});
+
+	it("accepts an empty ui mapping", async () => {
+		await write("om-pi-subagents.yaml", uiYaml("ui: {}\n"));
+		const registry = await loadRegistry(yamlPath());
+		expect(registry.ui).toEqual({ maxVisibleAgents: 5, toggleKey: "alt+o", inspectKey: "alt+i" });
+	});
+
+	it("carries declared ui values", async () => {
+		await write(
+			"om-pi-subagents.yaml",
+			uiYaml('ui:\n  maxVisibleAgents: 9\n  toggleKey: "ctrl+alt+p"\n  inspectKey: "off"\n'),
+		);
+		const registry = await loadRegistry(yamlPath());
+		expect(registry.ui).toEqual({ maxVisibleAgents: 9, toggleKey: "ctrl+alt+p", inspectKey: "off" });
+	});
+
+	it("applies only the matching default for each omitted ui field", async () => {
+		await write("om-pi-subagents.yaml", uiYaml("ui:\n  maxVisibleAgents: 8\n"));
+		const registry = await loadRegistry(yamlPath());
+		expect(registry.ui).toEqual({ maxVisibleAgents: 8, toggleKey: "alt+o", inspectKey: "alt+i" });
+		await write("om-pi-subagents.yaml", uiYaml('ui:\n  inspectKey: "off"\n'));
+		expect((await loadRegistry(yamlPath())).ui).toEqual({
+			maxVisibleAgents: 5,
+			toggleKey: "alt+o",
+			inspectKey: "off",
+		});
+	});
+
+	it("keeps ui settings beside limits and mapped agents", async () => {
+		await write("personas/reader.md", "Read things.");
+		await write(
+			"om-pi-subagents.yaml",
+			`version: 1
+limits:
+  maxConcurrentRuns: 4
+  maxDepth: 3
+ui:
+  maxVisibleAgents: 2
+agents:
+  reader:
+    persona: ./personas/reader.md
+    tools: [read]
+    thinking: off
+`,
+		);
+		const registry = await loadRegistry(yamlPath());
+		expect([...registry.agents.keys()]).toEqual(["reader"]);
+		expect(registry.limits).toEqual({ maxConcurrentRuns: 4, maxDepth: 3 });
+		expect(registry.ui).toEqual({ maxVisibleAgents: 2, toggleKey: "alt+o", inspectKey: "alt+i" });
+	});
+
+	it("freezes the resolved ui settings", async () => {
+		await write("om-pi-subagents.yaml", uiYaml("ui: {}\n"));
+		const registry = await loadRegistry(yamlPath());
+		expect(Object.isFrozen(registry.ui)).toBe(true);
+	});
+});
+
 describe("persona snapshot", () => {
 	it("resolves persona paths relative to the YAML file", async () => {
 		await write("personas/reader.md", "Read things.");

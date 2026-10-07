@@ -58,6 +58,42 @@
 				"Require an explicit verified parent update",
 				"Allow real todo reminder continuations to finish"
 			]
+		},
+		{
+			"id": 6,
+			"prompt": "OMPSS is running five agents. Show me their tasks without filling the editor, then inspect a grandchild while preserving my draft.",
+			"expected_output": "Keep the below-editor fleet collapsed to one row by default. Use Alt+O or /ompss fleet to scroll direct agents; open the descendant modal with Alt+I or /ompss inspect. Closing restores the editor draft without stopping work.",
+			"files": [],
+			"expectations": [
+				"Keep five active roots to one default content row",
+				"Use the independent fleet shortcut or command, not Ctrl+O",
+				"Scroll roots and inspect retained descendants by run id",
+				"Leave active runs and the editor draft unchanged"
+			]
+		},
+		{
+			"id": 7,
+			"prompt": "OMPSS lists Memory as Partial for my researcher. Enable real OMMS and Todo for this one agent, then turn both off later without changing active children.",
+			"expected_output": "Explain the Partial Memory mapping and request explicit operator confirmation through /ompss-settings. Select installed published Memory and Todo resources, preview exact tools/extensions/optional skills edits, keep other agents unchanged, and remove each recognised entry with its exact tool for future launches only.",
+			"files": [],
+			"expectations": [
+				"Never install optional packages or guess ownership of a custom wrapper",
+				"Explain that memory approval includes write and portability modes",
+				"Use one confirmed per-agent YAML save with conflict checks",
+				"Keep admitted children and parent sibling settings unchanged"
+			]
+		},
+		{
+			"id": 8,
+			"prompt": "OMPSS delivered a child's answer and OMMS captured the session. Please mark my linked parent task done and save this as a decision immediately.",
+			"expected_output": "Check the saved output, terminal state and cleanup first. A provisional preview or child capture does not verify completion. The parent decides whether to update its own linked task at the current revision or record a useful verified finding through its own memory tool.",
+			"files": [],
+			"expectations": [
+				"Check saved output and confirmed cleanup before claiming completion",
+				"Treat child OMMS capture as session evidence, not a verified decision",
+				"Keep parent task and memory actions explicit and parent-owned",
+				"Do not copy child todo ids into a parent OpenSpec binding"
+			]
 		}
 	]
 }

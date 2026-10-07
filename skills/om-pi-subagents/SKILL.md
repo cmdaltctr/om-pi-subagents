@@ -1,6 +1,6 @@
 ---
 name: om-pi-subagents
-description: Configure and operate OMPSS mapped Pi subagents. Use for live agent trees, read-only inspection, operator settings, OMPSS YAML limits, parallel or nested delegation, subagent results, subtree cancellation, cleanup failures, and todo ownership in OMPSS children.
+description: Configure and operate OMPSS mapped Pi subagents. Use for compact fleet navigation, descendant inspection, /ompss-settings, per-agent Memory and Todo controls, YAML limits, parallel or nested delegation, result handoff, subtree cancellation, cleanup failures, and parent/child ownership.
 license: MIT
 compatibility: Pi with om-pi-subagents installed and operator-managed mappings.
 ---
@@ -51,19 +51,23 @@ Nesting requires exact `ompss` approval in the delegator's mapping.
 
 ## Operator settings
 
-Ask the operator to run `/subagents-settings` when a setting needs changing.
-This command uses native dialogs in interactive Pi and supported RPC clients. It is outside the model-callable tool.
-It accepts no extra arguments and requires UI dialogs before reading files.
+Ask the operator to run `/ompss-settings` when a setting needs changing.
+`/subagents-settings` is an alias. Native dialogs work in interactive Pi and supported RPC clients.
+The command is outside the model-callable tool. It requires UI dialogs before reading files.
 
-| Setting                             | Valid values                             | Storage                                 |
-| ----------------------------------- | ---------------------------------------- | --------------------------------------- |
-| Maximum nesting depth               | Safe integer of at least 0; root depth 0 | Registry `limits.maxDepth`              |
-| Parallel direct children per parent | Safe integer of at least 1               | Registry `limits.maxConcurrentRuns`     |
-| Visible agents                      | Safe integer from 1 to 256; default 4    | `<config-dir>/pi-subagents/config.json` |
+| Setting                             | Valid values                             | Storage                             |
+| ----------------------------------- | ---------------------------------------- | ----------------------------------- |
+| Maximum nesting depth               | Safe integer of at least 0; root depth 0 | Registry `limits.maxDepth`          |
+| Parallel direct children per parent | Safe integer of at least 1               | Registry `limits.maxConcurrentRuns` |
+| Visible agents                      | Safe integer from 1 to 256; default 5    | Registry `ui.maxVisibleAgents`      |
+| Fleet list / inspection shortcut    | Pi key specification or `off`            | Registry `ui.toggleKey/inspectKey`  |
+| Agent capabilities                  | Select agent, then Memory or Todo        | That agent's existing YAML lists    |
 
 The menu shows the resolved registry destination, including `OMPSS_REGISTRY` overrides.
-The display config uses absolute `XDG_CONFIG_HOME`, otherwise `~/.config`.
-Execution limits stay in YAML. OMPSS never writes todo preferences or Pi's `settings.json`.
+YAML owns limits and UI fields. A valid legacy visible-row value remains read-only fallback
+until the operator confirms its import into YAML. Neither edit writes the old display JSON.
+Shortcut changes require `/reload`. Visible-row changes repaint immediately.
+OMPSS never writes sibling preferences or Pi's `settings.json`.
 
 Each edit requires confirmation. A cancelled input or declined save leaves that setting unchanged;
 earlier confirmed saves remain in effect. A missing registry requires explicit creation confirmation and starts with `agents: {}`.
@@ -74,28 +78,35 @@ Failed writes leave the existing destination and display cache unchanged.
 Fresh launches use saved limits. Existing runs continue, while inherited branch ceilings remain in force.
 Depth zero disables new launches. Explain that per-parent branching can multiply process and provider load before increasing limits.
 
-## View trees and inspect saved evidence
+## Navigate the fleet and inspect saved evidence
 
-Ask the operator to use Pi's native `app.tools.expand` action, default Ctrl+O, to expand run cards.
-The hint follows configured keys. Tool launches and TUI slash launches show the same hierarchy.
-The visible-agent preference bounds expanded cards and the compact widget. Status counts stay complete.
-Missing observation evidence stays labelled incomplete; display state cannot decide completion or permit a launch.
+The below-editor fleet starts collapsed to one content row regardless of active-run count.
+Alt+O expands a bounded list of direct agents; Alt+I opens the descendant modal.
+Use `/ompss fleet` or `/ompss inspect` when shortcuts are unavailable. The defaults can be changed or set to `off`.
+With an empty editor, arrows select and scroll every active root, Enter inspects, and Escape collapses.
+The default expansion shows at most five root rows, a summary and one navigation row.
+Incomplete descendant observations stay labelled. A hidden row is still reachable by scrolling.
 
-1. Run `/ompss inspect` to choose a retained node in the current session.
-2. Select with arrows and press Enter for its saved task and output.
-3. Use PageUp or PageDown to scroll details.
-4. Press Escape to close the viewer without stopping work.
+Pi's native `app.tools.expand` action (Ctrl+O by default) expands transcript output only.
+Launch acknowledgements stay compact; native expansion never creates another live tree.
+
+1. Run `/ompss inspect` to open the current session's retained tree.
+2. Use arrows to choose a node, Left/Right to fold branches, and Enter to open details.
+3. Use PageUp or PageDown to scroll selected output.
+4. Press Escape to return or close without stopping work.
 
 `/ompss inspect <run-id>` opens a selected node directly. Fullscreen supports row clicks; regular mode uses keys.
-Hidden retained nodes remain keyboard-accessible. Supported RPC clients receive bounded text.
-Inspection follows verified descendant ownership, but status and cancellation remain immediate-parent actions.
-Never use an observed descendant id as authority to control that run from an ancestor.
+The modal retains descendants in parent-first order. Narrow terminals show tree and details in sequence.
+Selected previews contain visible assistant text only, capped at 4 KiB and labelled provisional.
+Only saved output after a clean exit and confirmed cleanup proves completion. Older or missing evidence remains labelled.
+Supported RPC clients receive bounded text rather than a terminal modal.
+Inspection never grants status or cancellation over another immediate parent's child.
 
 Selected reads open only validated `config.json` and `output.md`, capped at 64 KiB each.
 Missing evidence is unavailable. Failed or cancelled output stays partial, and truncation points to the saved file.
 Persona files, authentication files, raw event logs and stderr are not opened.
 Tasks and outputs can contain sensitive text. Check them before sharing screenshots or RPC responses.
-The inspector starts no process, sends no model turn and leaves todo widgets and preferences separate.
+Inspection starts no process or model turn and leaves sibling widgets separate.
 
 ## Receive and assess results
 
@@ -120,19 +131,31 @@ Cancellation stops the owned subtree and leaves unrelated siblings running.
 Shutdown closes admission before cancelling owned work. Spare capacity cannot bypass a cleanup block.
 Never start another run to work around unconfirmed cleanup or claim completion from partial output alone.
 
-## Keep todo ownership separate
+## Keep Memory and Todo optional and locally owned
 
-The parent owns its normal tasks or linked OpenSpec checklist.
-A child uses the real `om-pi-todo` extension only when its mapping lists that extension and approves `todo`.
-Its list starts empty in normal mode. Siblings and grandchildren have separate local task ids.
+New agent mappings have both capabilities Off. Existing explicit mappings stay in effect.
+The parent owns its memory decisions and normal tasks or linked OpenSpec checklist.
+A child loads real OMMS or `om-pi-todo` only through its own mapped extension and exact `memory` or `todo` tool.
+The todo list starts empty in normal mode. Siblings and grandchildren have separate local task ids.
 
-Subagent completion never checks a parent's task automatically.
-After verifying the result, explicitly update the parent's todo through its own tool and current revision.
-Children must update or explain their own in-progress tasks so real reminder continuations can finish.
+To enable either later, ask the operator to select **Agent capabilities** in `/ompss-settings`.
+Choose one mapped agent, then Memory or Todo, and provide an installed package folder or published Pi entry.
+Confirm the exact `tools`, `extensions` and optional `skills` changes for that agent.
+Memory can include its shipped `omms-memory` skill. Whole-tool `memory` approval includes write and portability modes.
+**On (configured)** reports the mapping, not backend health. **Partial** needs correction of missing or ambiguous resources.
+The helper never installs packages or changes OMMS stores, todo preferences or parent Pi settings.
+**Disable** removes the recognised extension, skill and exact tool together for future launches.
+An admitted child keeps its captured mapping. Descendant targets do not inherit the delegator's switch state.
+
+The parent can search memory before a bounded delegation. Give the child only verified context.
+OMMS owns child recall, manual tool use and configured capture. A child's capture is not verified completion.
+After checking the saved result and cleanup, explicitly update the parent's todo through its own tool
+and current revision. Record useful verified knowledge through the parent's real memory tool when appropriate.
+Children must update or explain their own in-progress tasks so reminder continuations can finish.
 Never copy parent tasks, sync bindings or global preferences into child lists.
 
 ## Explicit child skill loading
 
 Map this installed `SKILL.md` through the child's `skills` list to make these instructions available there.
-Use the path from the package folder shown by `pi list`. Ambient child skills stay disabled.
-The skill supports the existing list, run, status and cancel actions; it adds no fleet or scheduling commands.
+Use the package folder shown by `pi list`. Ambient child skills stay disabled.
+Loading this skill grants no tools. Use only the exact approved `ompss`, `memory` and `todo` tool names.

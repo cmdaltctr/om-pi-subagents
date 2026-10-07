@@ -44,6 +44,10 @@ export interface ObservedTree {
 export interface RootDisplay {
 	readonly model?: string;
 	readonly activeTools?: ObservationSnapshot["activeTools"];
+	/** Sanitised submitted-task label, produced by the relay at task submission. */
+	readonly taskSummary?: string;
+	/** Latest sanitised visible assistant text, provisional until the saved result exists. */
+	readonly assistantPreview?: string;
 }
 interface Entry {
 	snapshot: ObservationSnapshot;
@@ -105,6 +109,8 @@ export class ObservationStore {
 			revision: (previous?.revision ?? 0) + 1,
 			model: display.model ?? previous?.model,
 			activeTools: display.activeTools ?? previous?.activeTools ?? [],
+			taskSummary: display.taskSummary ?? previous?.taskSummary,
+			assistantPreview: display.assistantPreview ?? previous?.assistantPreview,
 		});
 		if (!parsed) return false;
 		const current = parsed.snapshot;
