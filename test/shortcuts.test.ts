@@ -50,7 +50,7 @@ describe("registerViewShortcuts", () => {
 		});
 		expect([...registrations.keys()]).toEqual(["alt+i"]);
 		expect(registration.keys.toggleKey).toBe("off");
-		expect(registration.diagnostics[0]).toMatch(/ctrl\+o.*built-in.*\/ompss-settings/i);
+		expect(registration.diagnostics[0]).toMatch(/ctrl\+o.*built-in.*\/omps-settings/i);
 		expect(actions.onConflict).toHaveBeenCalledOnce();
 	});
 

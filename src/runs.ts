@@ -68,7 +68,7 @@ export class OccupiedError extends Error {
 		readonly limit: number,
 	) {
 		super(
-			`session capacity reached (limits.maxConcurrentRuns: ${limit}); active runs: ${activeRunIds.join(", ")}. Wait for a run, cancel it with "ompss cancel ${activeRunIds[0]}", or edit limits.maxConcurrentRuns in YAML.`,
+			`session capacity reached (limits.maxConcurrentRuns: ${limit}); active runs: ${activeRunIds.join(", ")}. Wait for a run, cancel it with "omps cancel ${activeRunIds[0]}", or edit limits.maxConcurrentRuns in YAML.`,
 		);
 		this.activeRunId = activeRunIds[0];
 		this.name = "OccupiedError";

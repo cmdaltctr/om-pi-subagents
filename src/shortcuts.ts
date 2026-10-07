@@ -23,7 +23,7 @@ const builtinBindings = (): ResolvedBindings => getKeybindings().getResolvedBind
 
 /**
  * Whether an effective built-in action already owns this key. The host keeps such keys:
- * a remapped `app.tools.expand` frees its old key without OMPSS editing any keybinding.
+ * a remapped `app.tools.expand` frees its old key without OMPS editing any keybinding.
  */
 export function occupiedByBuiltin(key: string, resolved: ResolvedBindings = builtinBindings()): boolean {
 	for (const keys of Object.values(resolved)) {
@@ -64,7 +64,7 @@ export function registerViewShortcuts(
 		const key = settings[field];
 		if (key === "off") return;
 		if (occupiedByBuiltin(key, resolved)) {
-			const message = `${key} is bound to a built-in action; choose another key in /ompss-settings`;
+			const message = `${key} is bound to a built-in action; choose another key in /omps-settings`;
 			diagnostics.push(message);
 			actions.onConflict?.(message);
 			return;
@@ -72,7 +72,7 @@ export function registerViewShortcuts(
 		pi.registerShortcut(key as KeyId, { description, handler: once(field, run) });
 		bound[field] = key;
 	};
-	bind("toggleKey", "Toggle the OMPSS agent fleet", actions.toggleFleet);
-	bind("inspectKey", "Inspect OMPSS agents", actions.openInspection);
+	bind("toggleKey", "Toggle the OMPS agent fleet", actions.toggleFleet);
+	bind("inspectKey", "Inspect OMPS agents", actions.openInspection);
 	return { keys: Object.freeze(bound) as UiSettings, diagnostics: Object.freeze(diagnostics) };
 }

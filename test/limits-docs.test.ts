@@ -11,7 +11,7 @@ describe("public parallel and nested guidance", () => {
 		const readme = await read("README.md");
 		const block = /<!-- docs-test: limits -->\s*```yaml\n([\s\S]*?)```/.exec(readme);
 		expect(block).not.toBeNull();
-		const directory = await mkdtemp(join(tmpdir(), "ompss-doc-limits-"));
+		const directory = await mkdtemp(join(tmpdir(), "omps-doc-limits-"));
 		try {
 			const path = join(directory, "registry.yaml");
 			await writeFile(path, block![1]);
@@ -54,7 +54,7 @@ describe("public parallel and nested guidance", () => {
 		expect(instructions).not.toContain("the single active run");
 		const context = await read("openspec/config.yaml");
 		expect(context).toContain("direct-child capacity per parent session");
-		expect(context).toContain("Exact ompss approval permits nesting");
+		expect(context).toContain("Exact omps approval permits nesting");
 		expect(context).not.toContain("one native RPC child per parent session");
 	});
 

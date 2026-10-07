@@ -9,8 +9,8 @@ let home: string;
 const savedHome = process.env.HOME;
 
 beforeEach(async () => {
-	dir = await mkdtemp(join(tmpdir(), "ompss-store-"));
-	home = await mkdtemp(join(tmpdir(), "ompss-home-"));
+	dir = await mkdtemp(join(tmpdir(), "omps-store-"));
+	home = await mkdtemp(join(tmpdir(), "omps-home-"));
 	process.env.HOME = home;
 });
 

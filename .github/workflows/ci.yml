@@ -22,7 +22,7 @@ jobs:
     timeout-minutes: 15
     env:
       # Host setup installs the pinned Pi 0.99.1 CLI alongside its packages.
-      OMPSS_PI_BIN: ${{ github.workspace }}/.pi-host/node_modules/.bin/pi
+      OMPS_PI_BIN: ${{ github.workspace }}/.pi-host/node_modules/.bin/pi
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

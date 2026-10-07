@@ -90,7 +90,7 @@ export function createSupervisor(deps: SupervisorDeps): Supervisor {
 					runToken,
 					lineage: {
 						...(request.nesting ?? {
-							registryPath: resolvePath(deps.env?.OMPSS_REGISTRY ?? "om-pi-subagents.yaml"),
+							registryPath: resolvePath(deps.env?.OMPS_REGISTRY ?? "om-pi-subagents.yaml"),
 							depth: 1,
 							maxDepth: request.limits?.maxDepth ?? 1,
 							rootSessionId: run.owner,

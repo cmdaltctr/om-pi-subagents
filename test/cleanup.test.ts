@@ -82,7 +82,7 @@ describe("stopGroup", () => {
 	});
 
 	it("sends SIGTERM to the group first, so the child can run its own clean-up", async () => {
-		const marker = join(tmpdir(), `ompss-group-term-${process.pid}-${Date.now()}`);
+		const marker = join(tmpdir(), `omps-group-term-${process.pid}-${Date.now()}`);
 		const child = spawn("sh", ["-c", `trap 'touch ${marker}; exit 0' TERM; sleep 300 & wait`], {
 			detached: true,
 			stdio: ["pipe", "ignore", "ignore"],
@@ -229,7 +229,7 @@ describe.skipIf(!PI_AVAILABLE)("abrupt parent exit", () => {
 	/** Run a parent that launches a child, kill it without warning, and expect the child tree to vanish. */
 	async function killParent(busy: boolean): Promise<void> {
 		const workspace = await createWorkspace();
-		const scratch = await mkdtemp(join(tmpdir(), "ompss-parent-"));
+		const scratch = await mkdtemp(join(tmpdir(), "omps-parent-"));
 		extra.push(
 			() => rm(scratch, { recursive: true, force: true }),
 			() => workspace.dispose(),

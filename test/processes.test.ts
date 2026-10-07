@@ -89,7 +89,7 @@ describe("OwnedProcesses", () => {
 	});
 
 	it("sends SIGTERM first, so a survivor can run its own clean-up", async () => {
-		const marker = join(tmpdir(), `ompss-term-${process.pid}-${Date.now()}`);
+		const marker = join(tmpdir(), `omps-term-${process.pid}-${Date.now()}`);
 		const script = `const { spawn } = require("node:child_process");
       const c = spawn("sh", ["-c", "trap 'touch ${marker}; exit 0' TERM; sleep 300 & wait"], { detached: true, stdio: "ignore" });
       console.log(c.pid); setInterval(() => {}, 1000);`;

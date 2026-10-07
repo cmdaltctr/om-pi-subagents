@@ -59,7 +59,7 @@ describe("buildLaunch", () => {
 	it("uses the working directory, the child marker and the run token", () => {
 		const plan = buildLaunch(input());
 		expect(plan).toMatchObject({ command: "/bin/pi", cwd: "/work" });
-		expect(plan.env).toMatchObject({ PATH: "/usr/bin", OMPSS_CHILD: "1", OMPSS_RUN_TOKEN: "token-1" });
+		expect(plan.env).toMatchObject({ PATH: "/usr/bin", OMPS_CHILD: "1", OMPS_RUN_TOKEN: "token-1" });
 	});
 
 	it("opts managed children out of OMMS maintenance without touching the parent environment", () => {

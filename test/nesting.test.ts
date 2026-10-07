@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createRegistryStore } from "../src/config.ts";
-import { parseChildPolicy } from "../src/protocol.ts";
+import { parseChildPolicy, readChildPolicy } from "../src/protocol.ts";
 import { buildLaunch } from "../src/runner.ts";
 import { RunManager, type Supervisor } from "../src/runs.ts";
 import { createService } from "../src/service.ts";
@@ -15,7 +15,7 @@ const lineage = {
 	rootSessionId: "root",
 	runId: "child",
 };
-const policy = { tools: ["ompss"], startupDeadlineMs: 1000, lineage };
+const policy = { tools: ["omps"], startupDeadlineMs: 1000, lineage };
 const agent = {
 	name: "reader",
 	personaPath: "/personas/reader.md",
@@ -68,21 +68,32 @@ describe("validated child lineage", () => {
 	});
 });
 
+describe("old namespace rejection", () => {
+	it("does not read policy supplied only under the old environment name", () => {
+		expect(typeof readChildPolicy({ OMPSS_POLICY: JSON.stringify(policy) })).toBe("string");
+	});
+
+	it("does not load managed delegation with only the old tool approval", () => {
+		const plan = buildLaunch({ ...launch, snapshot: { ...agent, tools: ["ompss"] } });
+		expect(plan.args).not.toContain(new URL("../src/managed-child.ts", import.meta.url).pathname);
+	});
+});
+
 describe("isolated nested launcher", () => {
 	it("carries canonical registry selection and validated lineage into every child", () => {
 		const plan = buildLaunch({
 			...launch,
-			env: { OMPSS_REGISTRY: "/wrong/registry.yaml", PI_CODING_AGENT_DIR: "/isolated/agent" },
+			env: { OMPS_REGISTRY: "/wrong/registry.yaml", PI_CODING_AGENT_DIR: "/isolated/agent" },
 		});
-		expect(plan.env.OMPSS_REGISTRY).toBe(lineage.registryPath);
+		expect(plan.env.OMPS_REGISTRY).toBe(lineage.registryPath);
 		expect(plan.env.PI_CODING_AGENT_DIR).toBe("/isolated/agent");
-		expect(JSON.parse(plan.env.OMPSS_POLICY!).lineage).toEqual(lineage);
+		expect(JSON.parse(plan.env.OMPS_POLICY!).lineage).toEqual(lineage);
 	});
 
-	it("loads a managed entry only for exact ompss approval, including at maximum depth", () => {
+	it("loads a managed entry only for exact omps approval, including at maximum depth", () => {
 		const delegated = buildLaunch({
 			...launch,
-			snapshot: { ...agent, tools: ["ompss"] },
+			snapshot: { ...agent, tools: ["omps"] },
 			lineage: { ...lineage, maxDepth: 1 },
 		});
 		expect(delegated.args).toContain(new URL("../src/managed-child.ts", import.meta.url).pathname);
@@ -93,14 +104,14 @@ describe("isolated nested launcher", () => {
 
 	it("inherits the immediate parent's model and preserves target-specific thinking", () => {
 		const plan = buildLaunch({ ...launch, parentModel: "fake/immediate", snapshot: { ...agent, thinking: "low" } });
-		expect(JSON.parse(plan.env.OMPSS_POLICY!).model).toBe("fake/immediate");
+		expect(JSON.parse(plan.env.OMPS_POLICY!).model).toBe("fake/immediate");
 		expect(plan.args[plan.args.indexOf("--thinking") + 1]).toBe("low");
 	});
 });
 
 let dir: string;
 beforeEach(async () => {
-	dir = await mkdtemp(join(tmpdir(), "ompss-depth-"));
+	dir = await mkdtemp(join(tmpdir(), "omps-depth-"));
 	await mkdir(join(dir, "personas"));
 	await writeFile(join(dir, "personas", "reader.md"), "Read.");
 });

@@ -7,7 +7,7 @@ import { createWorkspace } from "./fixtures/pi-rpc.ts";
 const pinnedModules = process.env.PI_HOST_MODULES ?? resolve(".pi-host/node_modules");
 
 function findCurrentModules(): string | undefined {
-	if (process.env.OMPSS_CURRENT_HOST_MODULES) return process.env.OMPSS_CURRENT_HOST_MODULES;
+	if (process.env.OMPS_CURRENT_HOST_MODULES) return process.env.OMPS_CURRENT_HOST_MODULES;
 	for (const directory of (process.env.PATH ?? "").split(delimiter).filter(Boolean)) {
 		const cli = join(directory, "pi");
 		if (!existsSync(cli)) continue;

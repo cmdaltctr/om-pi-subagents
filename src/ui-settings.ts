@@ -46,7 +46,7 @@ interface LegacyValue {
 async function readLegacy(path: string): Promise<LegacyValue> {
 	let text: string | undefined;
 	try {
-		// nosemgrep: AIK_ts_generic_path_traversal -- The fixed legacy OMPSS display path, never model input.
+		// nosemgrep: AIK_ts_generic_path_traversal -- The fixed legacy OMPS display path, never model input.
 		text = await readSettingsText(path);
 	} catch (error) {
 		return { diagnostic: `${path}: ${(error as Error).message} Using ${DEFAULT_MAX_VISIBLE_AGENTS} visible agents.` };

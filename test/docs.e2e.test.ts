@@ -43,11 +43,23 @@ const notices = (fixture: PiFixture) =>
 		.map((r) => r.message as string);
 
 describe("README setup steps", () => {
+	it("opens /omps-settings through native dialogs without starting a model request", async () => {
+		const { fixture } = await install();
+		const pending = fixture.send({ type: "prompt", message: "/omps-settings" });
+		const dialog = await fixture.waitFor(
+			(record) => record.type === "extension_ui_request" && record.method === "select",
+		);
+		expect(dialog.title).toMatch(/^OMPS settings/);
+		fixture.child.stdin!.write(`${JSON.stringify({ type: "extension_ui_response", id: dialog.id, value: "Done" })}\n`);
+		expect((await pending).data.disposition).toBe("handled");
+		expect(fixture.model.requests).toHaveLength(0);
+	});
+
 	it("an empty registry lists no personas, then the README mapping makes `reader` available and runnable", async () => {
 		const { fixture } = await install();
 
 		// Step 4: a new install answers that nothing is mapped.
-		expect((await fixture.send({ type: "prompt", message: "/ompss list" })).data.disposition).toBe("handled");
+		expect((await fixture.send({ type: "prompt", message: "/omps list" })).data.disposition).toBe("handled");
 		await waitFor(() => notices(fixture).includes("No personas mapped."));
 
 		// "Add your first agent": the persona and mapping come straight from the README.
@@ -55,14 +67,14 @@ describe("README setup steps", () => {
 		await writeFile(join(fixture.agentDir, "om-pi-subagents", "personas", "reader.md"), block("persona"));
 		await writeFile(join(fixture.agentDir, "om-pi-subagents.yaml"), block("yaml"));
 
-		await fixture.send({ type: "prompt", message: "/ompss list" });
+		await fixture.send({ type: "prompt", message: "/omps list" });
 		await waitFor(() => notices(fixture).some((text) => /^reader: tools \[read, grep, find, ls\]$/.test(text)));
 
 		// Start a run, as the README says, and wait for the result.
 		fixture.model.script = (body): Turn =>
 			JSON.stringify(body).includes("You read files and answer") ? { text: "CHILD DONE" } : { text: "parent ok" };
-		await fixture.send({ type: "prompt", message: "/ompss run reader Summarise the README" });
-		const runs = join(fixture.agentDir, "ompss", "runs");
+		await fixture.send({ type: "prompt", message: "/omps run reader Summarise the README" });
+		const runs = join(fixture.agentDir, "omps", "runs");
 		const latest = async () => {
 			const [session] = await readdir(runs).catch(() => []);
 			const [run] = session ? await readdir(join(runs, session)) : [];
@@ -88,8 +100,8 @@ describe("README setup steps", () => {
 			join(fixture.agentDir, "om-pi-subagents.yaml"),
 			block("yaml").replace("[read, grep, find, ls]", "[read, mcp]"),
 		);
-		await fixture.send({ type: "prompt", message: "/ompss run reader go" });
-		const runs = join(fixture.agentDir, "ompss", "runs");
+		await fixture.send({ type: "prompt", message: "/omps run reader go" });
+		const runs = join(fixture.agentDir, "omps", "runs");
 		await waitFor(async () => {
 			const [session] = await readdir(runs).catch(() => []);
 			const [run] = session ? await readdir(join(runs, session)) : [];

@@ -1,7 +1,7 @@
 # Set up your agents
 
-OMPSS runs agents. An agent is a name in one YAML file, a persona file, a list of allowed tools and a thinking level.
-You can also give it a model, skills and extensions. OMPSS ships no agents, so you create each one yourself.
+OMPS runs agents. An agent is a name in one YAML file, a persona file, a list of allowed tools and a thinking level.
+You can also give it a model, skills and extensions. OMPS ships no agents, so you create each one yourself.
 
 Contents:
 
@@ -30,30 +30,30 @@ Both live in your Pi agent directory. Run files go in a sub-folder of the same d
 │       ├── reader.md
 │       └── reviewer.md
 ├── mcp.json                      # Pi's own MCP server list, if you use MCP tools
-└── ompss/
-    └── runs/<session-id>/<run-id>/   # one private folder per run, written by OMPSS
+└── omps/
+    └── runs/<session-id>/<run-id>/   # one private folder per run, written by OMPS
 ```
 
 Rules for these locations:
 
-- OMPSS reads the mapping file from `~/.pi/agent/om-pi-subagents.yaml`.
-- If you do not have this file, OMPSS has no agents. `/ompss list` answers `No personas mapped.`
+- OMPS reads the mapping file from `~/.pi/agent/om-pi-subagents.yaml`.
+- If you do not have this file, OMPS has no agents. `/omps list` answers `No personas mapped.`
 - Persona paths are relative to the folder that holds the mapping file.
 - A persona must stay inside that folder after symbolic links are resolved. A path or link that leads outside it is rejected.
 - The package contains no mapping file and no personas. Package updates do not write to your agent directory.
 
-### Persona, persona folder and `ompss/`: the difference
+### Persona, persona folder and `omps/`: the difference
 
 Several names look alike. Each one is a different thing.
 
-| Name                                    | What it is                                                           | Who creates it          | How OMPSS uses it                                                                                                               |
-| --------------------------------------- | -------------------------------------------------------------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| Name                                    | What it is                                                           | Who creates it         | How OMPS uses it                                                                                                              |
+| --------------------------------------- | -------------------------------------------------------------------- | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
 | `~/.pi/agent/om-pi-subagents.yaml`      | The mapping file. A file. It lists every agent.                      | You                     | Reads it to learn the agent names and their settings.                                                                           |
 | `~/.pi/agent/om-pi-subagents/`          | A folder for your files for this extension. It holds `personas/`.    | You, with `mkdir`       | Never reads the folder itself.                                                                                                  |
 | `~/.pi/agent/om-pi-subagents/personas/` | The persona folder. It holds your persona files.                     | You, with `mkdir`       | Never reads the folder itself. It reads only the files that `persona:` lines name.                                              |
-| Persona                                 | One Markdown file with the instructions for one agent.               | You                     | Reads it on `/ompss list` and `/ompss run`. Saves a copy as `persona.md`. Gives the copy to the child Pi as system prompt text. |
+| Persona                                 | One Markdown file with the instructions for one agent.               | You                    | Reads it on `/omps list` and `/omps run`. Saves a copy as `persona.md`. Gives the copy to the child Pi as system prompt text. |
 | `persona:` field                        | One line under an agent in the YAML. It holds the path to a persona. | You                     | Joins the path to the YAML's folder. Reads that one file.                                                                       |
-| `~/.pi/agent/ompss/`                    | The run folder.                                                      | OMPSS, on the first run | Writes each run's files here. See [USAGE.md](USAGE.md).                                                                         |
+| `~/.pi/agent/omps/`                     | The run folder.                                                      | OMPS, on the first run | Writes each run's files here. See [USAGE.md](USAGE.md).                                                                       |
 
 The mapping file and the `om-pi-subagents/` folder sit side by side and have almost the same name.
 The file is the list of agents. The folder holds the files that the list points to.
@@ -62,29 +62,29 @@ Rules that follow from this:
 
 - Keep every persona in `~/.pi/agent/om-pi-subagents/personas/`. Every example in these docs uses this folder.
 - The package creates neither folder. You create both with `mkdir -p ~/.pi/agent/om-pi-subagents/personas`.
-- OMPSS does not scan the persona folder. A file in it that no `persona:` line names is ignored.
-- OMPSS itself accepts any path inside `~/.pi/agent/`. Use the path above so that your set-up matches the docs.
+- OMPS does not scan the persona folder. A file in it that no `persona:` line names is ignored.
+- OMPS itself accepts any path inside `~/.pi/agent/`. Use the path above so that your set-up matches the docs.
 - If you move the persona folder, edit every `persona:` line that uses it.
 
 ### Where each `persona:` path points
 
-OMPSS takes the `persona:` text from the YAML exactly as you wrote it.
+OMPS takes the `persona:` text from the YAML exactly as you wrote it.
 It then joins that text to the folder that holds the mapping file. By default this folder is `~/.pi/agent/`.
 The folder where you start Pi has no effect.
 
-| `persona:` value in the YAML           | File OMPSS reads                                 |
+| `persona:` value in the YAML           | File OMPS reads                                  |
 | -------------------------------------- | ------------------------------------------------ |
 | `./om-pi-subagents/personas/reader.md` | `~/.pi/agent/om-pi-subagents/personas/reader.md` |
 
-- If the folder or the file is missing, `/ompss list` fails with `agents.<name>.persona: cannot read <path>`. The `<path>` is the text from your YAML, not the full path.
+- If the folder or the file is missing, `/omps list` fails with `agents.<name>.persona: cannot read <path>`. The `<path>` is the text from your YAML, not the full path.
 - To check which folder your YAML uses, run `grep persona: ~/.pi/agent/om-pi-subagents.yaml`.
 
 Two environment variables change these locations:
 
 | Variable              | Effect                                                                                                             |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| `OMPSS_REGISTRY`      | Full path of the mapping file to use instead. Persona paths then resolve from that file's folder.                  |
-| `PI_CODING_AGENT_DIR` | Replaces `~/.pi/agent` as the agent directory. The default mapping file and the `ompss/runs/` folder move with it. |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `OMPS_REGISTRY`       | Full path of the mapping file to use instead. Persona paths then resolve from that file's folder.                 |
+| `PI_CODING_AGENT_DIR` | Replaces `~/.pi/agent` as the agent directory. The default mapping file and the `omps/runs/` folder move with it. |
 
 Set either variable before you start Pi.
 
@@ -92,7 +92,7 @@ Set either variable before you start Pi.
 
 This procedure makes an agent called `reader`. It reads files and answers questions about them.
 
-1. Install OMPSS. See [How to install](INSTALL.md).
+1. Install OMPS. See [How to install](INSTALL.md).
 2. Run `/reload` in Pi.
 3. Open a terminal.
 4. Make the persona folder:
@@ -123,7 +123,7 @@ This procedure makes an agent called `reader`. It reads files and answers questi
    EOF
    ```
 
-7. In Pi, run `/ompss list`. The answer is:
+7. In Pi, run `/omps list`. The answer is:
 
    ```text
    reader: tools [read, grep, find, ls]
@@ -132,41 +132,41 @@ This procedure makes an agent called `reader`. It reads files and answers questi
 8. Start a run:
 
    ```text
-   /ompss run reader Summarise the README
+   /omps run reader Summarise the README
    ```
 
    The answer gives the run id and the run folder:
 
    ```text
    Started run <run-id> (reader) in the background.
-   Files: <agent-dir>/ompss/runs/<session-id>/<run-id>
-   Check it with "ompss status <run-id>". The result arrives as a follow-up message.
+   Files: <agent-dir>/omps/runs/<session-id>/<run-id>
+   Check it with "omps status <run-id>". The result arrives as a follow-up message.
    ```
 
 9. Wait for the result. It arrives as a new message in the parent conversation.
 
-The run uses the parent's working directory and the parent's model. To see progress, run `/ompss` or `/ompss status <run-id>`.
+The run uses the parent's working directory and the parent's model. To see progress, run `/omps` or `/omps status <run-id>`.
 See [How to use](USAGE.md) for the panel, run states and cancellation.
 
 If step 7 shows an error, find the message in [Common errors and fixes](#common-errors-and-fixes).
 
 ## Write a persona
 
-A persona is plain Markdown text. OMPSS adds it to the end of the child Pi's system prompt (the standing instructions the model reads before the task).
+A persona is plain Markdown text. OMPS adds it to the end of the child Pi's system prompt (the standing instructions the model reads before the task).
 Pi keeps its own system prompt and tool descriptions. Your persona comes after them.
-The task you give in `/ompss run` reaches the child as a separate message.
+The task you give in `/omps run` reaches the child as a separate message.
 
 ### Settings go in the YAML file, not in the persona
 
 A persona file holds instructions only. Do not add YAML frontmatter to it.
-Frontmatter is a settings block between two `---` lines at the top of a Markdown file. Some other tools use it. OMPSS does not.
+Frontmatter is a settings block between two `---` lines at the top of a Markdown file. Some other tools use it. OMPS does not.
 
 | Where                              | What goes there                                                                |
 | ---------------------------------- | ------------------------------------------------------------------------------ |
 | Persona `.md` file                 | The instructions for the model, in plain Markdown only.                        |
 | `~/.pi/agent/om-pi-subagents.yaml` | `tools`, `model`, `thinking`, `skills`, `extensions`, and the `persona:` path. |
 
-Wrong. OMPSS rejects this persona file:
+Wrong. OMPS rejects this persona file:
 
 ```markdown
 ---
@@ -193,12 +193,12 @@ agents:
     thinking: high
 ```
 
-If a persona starts with `---`, `/ompss list` and `/ompss run` fail with `has frontmatter; put settings in om-pi-subagents.yaml`.
+If a persona starts with `---`, `/omps list` and `/omps run` fail with `has frontmatter; put settings in om-pi-subagents.yaml`.
 
 ### What happens to the file
 
-1. OMPSS reads the persona when you run `/ompss list` or `/ompss run`.
-2. At launch, OMPSS saves a copy as `persona.md` in the run folder.
+1. OMPS reads the persona when you run `/omps list` or `/omps run`.
+2. At launch, OMPS saves a copy as `persona.md` in the run folder.
 3. The child receives that copy through Pi's `--append-system-prompt` option.
 
 A run uses the text that existed when it started. Edits after that point apply to the next run only.
@@ -208,7 +208,7 @@ A run uses the text that existed when it started. Edits after that point apply t
 - Read as UTF-8 text.
 - Maximum size is 262,144 bytes (256 KiB).
 - It must contain text other than spaces and blank lines.
-- It must not start with `---`. OMPSS treats that as frontmatter (a settings block) and rejects it. Put all settings in the mapping file.
+- It must not start with `---`. OMPS treats that as frontmatter (a settings block) and rejects it. Put all settings in the mapping file.
 - It must be a file. A folder is rejected.
 
 ### What to put in it
@@ -288,12 +288,12 @@ See [configured limits and nesting](USAGE.md#configured-limits-and-nesting) for 
 or `ctrl+alt+p`, or `off` to disable the shortcut. The defaults are `alt+o` and `alt+i`.
 The two keys must differ. Tab and Ctrl+I are refused because legacy terminals send one byte
 for both. A key bound to an effective built-in action is refused with guidance when the
-session starts. Edit these fields with `/ompss-settings`, or by hand; see
+session starts. Edit these fields with `/omps-settings`, or by hand; see
 [operator settings](USAGE.md#operator-settings).
 
 ### Agent names
 
-Each key under `agents` is an agent name. You use it in `/ompss run <name> <task>`.
+Each key under `agents` is an agent name. You use it in `/omps run <name> <task>`.
 
 - Start with a lower-case letter (`a` to `z`).
 - Continue with lower-case letters, digits or hyphens.
@@ -318,14 +318,14 @@ Any other field is rejected. The child loads nothing else from your Pi set-up: n
 ### If a field is missing
 
 | Missing field                   | What happens                                                                                         | What to do                                                   |
-| ------------------------------- | ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| ------------------------------- | -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
 | `model` only                    | The child uses the parent's current model. It keeps its own `thinking` value.                        | Add `model: provider/id` if this agent needs a fixed model.  |
-| `thinking` only                 | `/ompss list` and `/ompss run` reject the mapping. The child does not start, even if `model` is set. | Add a valid `thinking` level.                                |
+| `thinking` only                 | `/omps list` and `/omps run` reject the mapping. The child does not start, even if `model` is set. | Add a valid `thinking` level.                                |
 | Both `model` and `thinking`     | The missing `thinking` level blocks the mapping. No model is chosen and no child starts.             | Add `thinking`; leave `model` out to use the parent's model. |
-| `persona`                       | `/ompss list` and `/ompss run` report `agents.<name>.persona: required path`.                        | Add a path to a persona file.                                |
-| Persona file named by `persona` | `/ompss list` and `/ompss run` report `agents.<name>.persona: cannot read <path>`.                   | Create the file or correct its path.                         |
+| `persona`                       | `/omps list` and `/omps run` report `agents.<name>.persona: required path`.                        | Add a path to a persona file.                                |
+| Persona file named by `persona` | `/omps list` and `/omps run` report `agents.<name>.persona: cannot read <path>`.                   | Create the file or correct its path.                         |
 
-A name under `agents` does not create a persona file. OMPSS checks the file each time you list or start an agent.
+A name under `agents` does not create a persona file. OMPS checks the file each time you list or start an agent.
 An invalid mapping blocks launches until you fix it. See [Common errors and fixes](#common-errors-and-fixes).
 
 ### `tools`
@@ -348,7 +348,7 @@ Pi's built-in tools:
 | `tool_search` | Find tools that are not shown to the model, such as MCP tools | no            |
 | `codemode`    | Run JavaScript that calls the other approved tools            | no            |
 
-`/ompss list` marks an agent with `edit`, `write`, `bash` or `powershell` as `write-capable`.
+`/omps list` marks an agent with `edit`, `write`, `bash` or `powershell` as `write-capable`.
 `codemode` and `tool_search` can only call tools that are also on the list.
 
 MCP tools come from an MCP server (a separate program that gives Pi extra tools). Their names have this form:
@@ -371,16 +371,16 @@ tools:
 - Listing an MCP tool does not set up its server. Configure the server in Pi first, for example with `pi mcp add`, and check it with `pi mcp list`.
 - The old tool name `mcp` no longer exists. Use the native `mcp__<server>__<tool>` names.
 - A tool from an extension needs its explicit `extensions` entry.
-- Approving the exact `ompss` tool loads OMPSS's managed delegator. It can select targets with their own tool permissions.
-- Approving `todo` requires the real todo extension too. OMPSS seeds only the child's normal-mode list.
+- Approving the exact `omps` tool loads OMPS's managed delegator. It can select targets with their own tool permissions.
+- Approving `todo` requires the real todo extension too. OMPS seeds only the child's normal-mode list.
 - Approving `memory` requires the real OMMS extension; its whole tool includes write and portability modes.
 
-Before the task is sent, OMPSS checks that every listed tool exists in the child. A missing tool stops the run before the model sees the task.
+Before the task is sent, OMPS checks that every listed tool exists in the child. A missing tool stops the run before the model sees the task.
 
 ### `thinking`
 
 `thinking` is required for every agent. The child never takes the parent's thinking level.
-OMPSS passes the value to Pi as `--thinking`. Pi limits it to what the selected model supports.
+OMPS passes the value to Pi as `--thinking`. Pi limits it to what the selected model supports.
 
 ### `model`
 
@@ -388,7 +388,7 @@ Write the model as `provider/id`, the same form Pi uses. Run `pi --list-models` 
 
 - Without `model`, the child uses the parent's current model. If the parent has no selected model, Pi uses its normal startup default in the child.
 - The model must be known to the child and have configured credentials. If not, the run fails before the task is sent.
-- OMPSS does not choose another model when this check fails.
+- OMPS does not choose another model when this check fails.
 - A model from a custom provider needs the extension that registers it. Add that extension to `extensions`.
 
 ### `skills` and `extensions`
@@ -414,7 +414,7 @@ New mappings have both capabilities off. A parent's extensions never pass automa
 Keep `tools`, `extensions` and `skills` explicit. Existing mappings remain effective.
 
 1. Install the optional package separately if you want it in a child.
-2. Run `/ompss-settings` and choose **Agent capabilities**.
+2. Run `/omps-settings` and choose **Agent capabilities**.
 3. Choose an existing agent, then Memory or Todo.
 4. Choose **Enable** and enter the installed package folder or its published Pi extension entry.
 5. Read the proposed list changes and confirm them.
@@ -466,7 +466,7 @@ agents:
       - ~/.pi/agent/skills/citations/SKILL.md
 ```
 
-Each persona file must exist before `/ompss list` succeeds. `/ompss list` then shows:
+Each persona file must exist before `/omps list` succeeds. `/omps list` then shows:
 
 ```text
 reviewer: tools [read, grep, find, ls]
@@ -474,7 +474,7 @@ writer: tools [read, grep, find, ls, edit, write]; model my-provider/my-model; w
 docs-researcher: tools [read, tool_search, mcp__context7__resolve-library-id, mcp__context7__query-docs]
 ```
 
-### YAML features OMPSS rejects
+### YAML features OMPS rejects
 
 - Duplicate keys, including two agents with the same name.
 - Aliases and anchors (`&name`, `*name`).
@@ -483,20 +483,20 @@ docs-researcher: tools [read, tool_search, mcp__context7__resolve-library-id, mc
 
 ## When changes apply
 
-OMPSS reads the mapping file and every persona again each time you run `/ompss list` or `/ompss run`.
-The `ompss` tool's `list` and `run` actions do the same.
+OMPS reads the mapping file and every persona again each time you run `/omps list` or `/omps run`.
+The `omps` tool's `list` and `run` actions do the same.
 
 - Edits to the mapping file or a persona apply at the next `list` or `run`. You do not need `/reload`.
 - A run that already started keeps the settings and persona text it started with.
-- `/ompss`, `/ompss status` and `/ompss cancel` do not read the mapping file.
-- If the file is invalid, `list` and `run` show the error. No run starts until you fix the file. OMPSS never falls back to older settings.
+- `/omps`, `/omps status` and `/omps cancel` do not read the mapping file.
+- If the file is invalid, `list` and `run` show the error. No run starts until you fix the file. OMPS never falls back to older settings.
 
 Run `/reload` after you install, update or remove the package. Changes to the agent files do not need it.
 
 ## Common errors and fixes
 
-Errors appear in Pi as `OMPSS: <field>: <problem>`. The field shows the place in the mapping file, for example `agents.reader.tools`.
-OMPSS reports the first problem it finds. Fix it, then run `/ompss list` again.
+Errors appear in Pi as `OMPS: <field>: <problem>`. The field shows the place in the mapping file, for example `agents.reader.tools`.
+OMPS reports the first problem it finds. Fix it, then run `/omps list` again.
 
 | Message (or part of it)                                                  | Cause                                                            | Fix                                                                                                      |
 | ------------------------------------------------------------------------ | ---------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
@@ -533,7 +533,7 @@ OMPSS reports the first problem it finds. Fix it, then run `/ompss list` again.
 | `aliases are not allowed`                                                | The file uses `&` anchors or `*` aliases                         | Write each value out in full.                                                                            |
 | `custom tag ... is not allowed`                                          | The file uses a tag such as `!custom`                            | Remove the tag.                                                                                          |
 | `top level must be a mapping`                                            | The file is a list or a single value                             | Start with `version: 1` and `agents:`.                                                                   |
-| `unknown agent "<name>"; mapped agents: ...`                             | The name in `/ompss run` is not in the mapping file              | Use a name that `/ompss list` shows.                                                                     |
+| `unknown agent "<name>"; mapped agents: ...`                             | The name in `/omps run` is not in the mapping file               | Use a name that `/omps list` shows.                                                                      |
 | `the task cannot start with a slash`                                     | The task starts with `/`                                         | Reword the task.                                                                                         |
 | `child is not ready: tool "<name>" is not registered`                    | A listed tool does not exist in the child                        | Check the exact name. For MCP tools, configure the server in Pi. For extension tools, add the extension. |
 | `model ... is not in the model registry`                                 | The child does not know the model                                | Correct `model`, or add the provider extension.                                                          |
@@ -547,4 +547,4 @@ OMPSS reports the first problem it finds. Fix it, then run `/ompss list` again.
 - The guard checks tool names only. It is not an operating-system sandbox (a boundary the operating system enforces).
 - A tool name does not prove what the tool does. Only list tools you trust.
 - Agents with `edit`, `write`, `bash` or `powershell` can change files with your permissions. Start them in a folder that is safe to change.
-- Personas, tasks and outputs can contain sensitive text. Run folders are private to your user account, and OMPSS never deletes them.
+- Personas, tasks and outputs can contain sensitive text. Run folders are private to your user account, and OMPS never deletes them.

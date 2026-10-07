@@ -12,7 +12,7 @@ const root = fileURLToPath(new URL("..", import.meta.url));
 
 /** Install only the locally packed tarball in a disposable consumer. Never edit the source worktree. */
 async function installPackedPackage(): Promise<{ path: string; dispose(): Promise<void> }> {
-	const temporary = await mkdtemp(join(tmpdir(), "ompss-packed-skill-"));
+	const temporary = await mkdtemp(join(tmpdir(), "omps-packed-skill-"));
 	try {
 		const output = execFileSync("npm", ["pack", "--ignore-scripts", "--json", "--pack-destination", temporary], {
 			cwd: root,
@@ -63,7 +63,7 @@ describe.skipIf(!PI_AVAILABLE)("disposable packed package skill", () => {
 				await parent.send({ type: "prompt", message: "/skill:om-pi-subagents Explain fleet and capability settings" });
 				await parent.waitFor((record) => record.type === "agent_settled");
 				const request = JSON.stringify(parent.model.requests);
-				for (const phrase of ["/ompss fleet", "/ompss-settings", "On (configured)", "parent's real memory tool"])
+				for (const phrase of ["/omps fleet", "/omps-settings", "On (configured)", "parent's real memory tool"])
 					expect(request).toContain(phrase);
 				const child = await startPi({
 					mcp: false,

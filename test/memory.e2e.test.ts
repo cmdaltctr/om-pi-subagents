@@ -14,7 +14,7 @@ import {
 } from "./fixtures/memory.ts";
 
 const describeMemory = describe.skipIf(!memoryAvailable());
-const ADDED_FACT = "Fixture fact: OMPSS tests keep every memory store disposable";
+const ADDED_FACT = "Fixture fact: OMPS tests keep every memory store disposable";
 
 /** One real Pi with only the OMMS entry loaded, sharing a caller-owned workspace. */
 async function startMemorySession(workspace: Workspace, autoCapture = false) {
@@ -146,6 +146,6 @@ describeMemory("real OMMS sibling on Pi", () => {
 
 	it(`records the inspected sibling version ${MEMORY_VERSION} for compatibility evidence`, () => {
 		// The resolver validated the exact published version before returning the entry.
-		expect(resolveMemoryExtension()).toMatch(/om-memory-system|OMPSS_OMMS_ENTRY/);
+		expect(resolveMemoryExtension()).toMatch(/om-memory-system|OMPS_OMMS_ENTRY/);
 	});
 });

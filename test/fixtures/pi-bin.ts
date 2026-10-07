@@ -14,7 +14,7 @@ function executable(path: string): boolean {
 
 /** Find the test CLI without borrowing a machine-specific installation. */
 export function resolveTestPi(env: NodeJS.ProcessEnv = process.env, canRun = executable): string | undefined {
-	if (env.OMPSS_PI_BIN) return canRun(env.OMPSS_PI_BIN) ? env.OMPSS_PI_BIN : undefined;
+	if (env.OMPS_PI_BIN) return canRun(env.OMPS_PI_BIN) ? env.OMPS_PI_BIN : undefined;
 	if (canRun(HOST_PI)) return HOST_PI;
 	return (env.PATH ?? "")
 		.split(delimiter)

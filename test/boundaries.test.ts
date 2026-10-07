@@ -44,7 +44,7 @@ describe("sibling boundaries", () => {
 	});
 
 	it("fails when a disposable copy adds a sibling client import, result parser or runtime dependency", async () => {
-		const root = await mkdtemp(join(tmpdir(), "ompss-boundary-"));
+		const root = await mkdtemp(join(tmpdir(), "omps-boundary-"));
 		try {
 			await writeFile(
 				join(root, "violating.ts"),

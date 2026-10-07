@@ -28,7 +28,7 @@ const view = (patch: Partial<RunView> = {}): RunView => ({
 });
 
 beforeEach(async () => {
-	root = await fs.mkdtemp(join(tmpdir(), "ompss-details-"));
+	root = await fs.mkdtemp(join(tmpdir(), "omps-details-"));
 	observations = new ObservationStore();
 	observations.updateRoot(view(), { model: "fake/counter" });
 	observations.bindChildSession({ owner: "session", runId: "direct" }, "child-session");

@@ -3,7 +3,7 @@ import * as fs from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import ompss from "../src/index.ts";
+import omps from "../src/index.ts";
 import { loadRegistry } from "../src/config.ts";
 
 const processes = vi.hoisted(() => ({ spawn: vi.fn(), spawnSync: vi.fn(), execFile: vi.fn(), exec: vi.fn() }));
@@ -24,12 +24,12 @@ let display: string;
 const yaml = "version: 1\nlimits: { maxDepth: 3, maxConcurrentRuns: 4 }\nagents: {}\n";
 
 beforeEach(async () => {
-	root = await fs.mkdtemp(join(tmpdir(), "ompss-settings-ui-"));
+	root = await fs.mkdtemp(join(tmpdir(), "omps-settings-ui-"));
 	registry = join(root, "agents.yaml");
 	display = join(root, "config", "pi-subagents", "config.json");
 	await fs.writeFile(registry, yaml);
-	vi.stubEnv("OMPSS_CHILD", "");
-	vi.stubEnv("OMPSS_REGISTRY", registry);
+	vi.stubEnv("OMPS_CHILD", "");
+	vi.stubEnv("OMPS_REGISTRY", registry);
 	vi.stubEnv("PI_CODING_AGENT_DIR", join(root, "agent"));
 	vi.stubEnv("XDG_CONFIG_HOME", join(root, "config"));
 	vi.clearAllMocks();
@@ -52,7 +52,7 @@ function load() {
 		sendMessage: vi.fn(),
 		sendUserMessage: vi.fn(),
 	};
-	ompss(pi as unknown as ExtensionAPI);
+	omps(pi as unknown as ExtensionAPI);
 	return { commands, tools, pi };
 }
 
@@ -69,7 +69,7 @@ function context(mode: "tui" | "rpc" | "print" | "json" = "tui", hasUI = true) {
 	return { mode, hasUI, cwd: root, ui, sessionManager: { getSessionId: () => "settings-session" } };
 }
 
-async function run(ctx: ReturnType<typeof context>, args = "", command = "ompss-settings") {
+async function run(ctx: ReturnType<typeof context>, args = "", command = "omps-settings") {
 	const extension = load();
 	const handler = extension.commands.get(command);
 	expect(handler, `${command} must be registered`).toBeDefined();
@@ -100,16 +100,31 @@ function choose(ctx: ReturnType<typeof context>, needle: string, confirmed = tru
 }
 
 describe("settings commands", () => {
+	it("registers OMPS settings without old-acronym commands or file access", () => {
+		const extension = load();
+		expect([...extension.commands.keys()]).toEqual(["omps", "omps-settings", "subagents-settings"]);
+		expect(extension.tools.map((tool) => tool.name)).toEqual(["omps"]);
+		expect(fs.open).not.toHaveBeenCalled();
+		expect(fs.readFile).not.toHaveBeenCalled();
+	});
+
+	it.each(["omps-settings", "subagents-settings"])("%s opens the OMPS settings dialog", async (command) => {
+		const ctx = context();
+		await run(ctx, "", command);
+		expect(ctx.ui.select.mock.calls[0][0]).toMatch(/^OMPS settings\n/);
+		expect(ctx.ui.select.mock.calls[0][0]).toContain(registry);
+	});
+
 	it("registers the canonical command and its alias with no I/O and no model-callable settings action", () => {
 		const extension = load();
-		expect([...extension.commands.keys()]).toEqual(["ompss", "ompss-settings", "subagents-settings"]);
-		expect(extension.tools.map((tool) => tool.name)).toEqual(["ompss"]);
+		expect([...extension.commands.keys()]).toEqual(["omps", "omps-settings", "subagents-settings"]);
+		expect(extension.tools.map((tool) => tool.name)).toEqual(["omps"]);
 		expect((extension.tools[0].parameters as any).properties.action.enum).toEqual(["list", "run", "status", "cancel"]);
 		expect(fs.open).not.toHaveBeenCalled();
 		expect(fs.readFile).not.toHaveBeenCalled();
 	});
 
-	it.each(["ompss-settings", "subagents-settings"] as const)(
+	it.each(["omps-settings", "subagents-settings"] as const)(
 		"%s shows the same menu and destination",
 		async (command) => {
 			const ctx = context();
@@ -137,12 +152,12 @@ describe("settings commands", () => {
 		expect(ctx.ui.select).not.toHaveBeenCalled();
 	});
 
-	it.each(["ompss-settings", "subagents-settings"] as const)(
+	it.each(["omps-settings", "subagents-settings"] as const)(
 		"rejects extra syntax before any file access: %s",
 		async (command) => {
 			const ctx = context();
 			await run(ctx, "extra", command);
-			expect(ctx.ui.notify).toHaveBeenCalledWith("Usage: /ompss-settings (alias: /subagents-settings)", "warning");
+			expect(ctx.ui.notify).toHaveBeenCalledWith("Usage: /omps-settings (alias: /subagents-settings)", "warning");
 			expect(fs.open).not.toHaveBeenCalled();
 			expect(fs.readFile).not.toHaveBeenCalled();
 		},

@@ -6,14 +6,14 @@ import { describe, expect, it } from "vitest";
 
 const hosts = [
 	{ version: "0.99.1", modules: process.env.PI_HOST_MODULES ?? resolve(".pi-host/node_modules") },
-	{ version: "1.0.4", modules: process.env.OMPSS_CURRENT_HOST_MODULES },
+	{ version: "1.0.4", modules: process.env.OMPS_CURRENT_HOST_MODULES },
 ];
 const scenarios = ["defaults", "off", "conflict", "tab", "custom", "reload"];
 for (const host of hosts)
-	describe.skipIf(!host.modules)(`OMPSS view shortcuts ${host.version}`, () => {
+	describe.skipIf(!host.modules)(`OMPS view shortcuts ${host.version}`, () => {
 		for (const scenario of scenarios)
 			it(`registers and dispatches: ${scenario}`, () => {
-				const directory = mkdtempSync(join(tmpdir(), "ompss-shortcuts-"));
+				const directory = mkdtempSync(join(tmpdir(), "omps-shortcuts-"));
 				try {
 					const modules = resolve(host.modules!);
 					expect(existsSync(join(modules, "@earendil-works/pi-tui/dist/index.js"))).toBe(true);

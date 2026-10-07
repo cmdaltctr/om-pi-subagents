@@ -39,7 +39,7 @@ async function nested(faultyPs = false, holdLeaf = false): Promise<Supervised> {
 	const env: NodeJS.ProcessEnv = { ...process.env };
 	const run = await harness.setup({
 		deps: { env },
-		tools: ["ompss"],
+		tools: ["omps"],
 		limits: { maxConcurrentRuns: 4, maxDepth: 3 },
 		seed: async ({ agentDir }) => {
 			await writeFile(join(agentDir, "middle.md"), "MIDDLE-PERSONA-MARKER");
@@ -53,7 +53,7 @@ limits:
 agents:
   middle:
     persona: ./middle.md
-    tools: [ompss]
+    tools: [omps]
     thinking: off
   leaf:
     persona: ./leaf.md
@@ -64,7 +64,7 @@ agents:
 		},
 	});
 	Object.assign(env, run.workspace.isolationEnv, {
-		OMPSS_REGISTRY: join(run.workspace.agentDir, "om-pi-subagents.yaml"),
+		OMPS_REGISTRY: join(run.workspace.agentDir, "om-pi-subagents.yaml"),
 	});
 	if (faultyPs) {
 		const bin = join(run.workspace.root, "bin");
@@ -74,7 +74,7 @@ agents:
 		const script = join(bin, "ps");
 		await writeFile(
 			script,
-			`#!/bin/sh\ncase "$OMPSS_POLICY" in *'"depth":2'*) echo 'synthetic ps failure' >&2; exit 2;; esac\nexec ${JSON.stringify(ps)} "$@"\n`,
+			`#!/bin/sh\ncase "$OMPS_POLICY" in *'"depth":2'*) echo 'synthetic ps failure' >&2; exit 2;; esac\nexec ${JSON.stringify(ps)} "$@"\n`,
 		);
 		await chmod(script, 0o755);
 		// A fixture wrapper supplies PATH to the managed child without changing the test process's PATH.
@@ -85,7 +85,7 @@ agents:
 		);
 		await chmod(launcher, 0o755);
 		// Select the fixture explicitly, so an inherited CI override cannot bypass fault injection.
-		env.OMPSS_PI_BIN = launcher;
+		env.OMPS_PI_BIN = launcher;
 	}
 	run.workspace.model.script = (body) => {
 		const messages = JSON.stringify(body.messages);
@@ -94,11 +94,11 @@ agents:
 		if (messages.includes("MIDDLE-PERSONA-MARKER")) {
 			return body.messages.some((message: { role: string }) => message.role === "tool")
 				? { text: "Middle awaiting results" }
-				: { tool: "ompss", args: { action: "run", agent: "leaf", task: "LEAF-TASK" } };
+				: { tool: "omps", args: { action: "run", agent: "leaf", task: "LEAF-TASK" } };
 		}
 		return body.messages.some((message: { role: string }) => message.role === "tool")
 			? { text: "Root awaiting results" }
-			: { tool: "ompss", args: { action: "run", agent: "middle", task: "MIDDLE-TASK" } };
+			: { tool: "omps", args: { action: "run", agent: "middle", task: "MIDDLE-TASK" } };
 	};
 	return run;
 }

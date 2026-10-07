@@ -8,7 +8,7 @@ import { createUiSettings } from "../src/ui-settings.ts";
 let dir: string;
 
 beforeEach(async () => {
-	dir = await mkdtemp(join(tmpdir(), "ompss-ui-settings-"));
+	dir = await mkdtemp(join(tmpdir(), "omps-ui-settings-"));
 });
 
 afterEach(async () => {

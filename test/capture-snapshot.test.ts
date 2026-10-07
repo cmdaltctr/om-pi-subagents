@@ -12,14 +12,14 @@ afterEach(async () => {
 
 describe("disposable snapshot capture", () => {
 	it("records the focused modal in regular mode rather than the underlying editor", async () => {
-		const destination = await mkdtemp(join(tmpdir(), "ompss-capture-check-"));
+		const destination = await mkdtemp(join(tmpdir(), "omps-capture-check-"));
 		created.push(destination);
-		vi.stubEnv("OMPSS_CAPTURE_DIR", destination);
+		vi.stubEnv("OMPS_CAPTURE_DIR", destination);
 		const capture = createSnapshotCapture({
 			ui: {
 				renderNow: () => undefined,
 				render: () => ["Underlying editor"],
-				getFocusedComponent: () => ({ render: () => ["\u001b[36mOMPSS inspector\u001b[0m", "Selected child"] }),
+				getFocusedComponent: () => ({ render: () => ["\u001b[36mOMPS inspector\u001b[0m", "Selected child"] }),
 			},
 			terminal: { columns: 45, rows: 20 },
 			directory: join(destination, "session"),
@@ -30,7 +30,7 @@ describe("disposable snapshot capture", () => {
 		await capture("narrow-detail");
 		const file = join(destination, "fixture-regular-light-narrow-detail.txt");
 		const text = await readFile(file, "utf8");
-		expect(text).toContain("OMPSS inspector");
+		expect(text).toContain("OMPS inspector");
 		expect(text).toContain("Selected child");
 		expect(text).not.toContain("Underlying editor");
 		expect(text).not.toContain("\u001b");
@@ -38,20 +38,20 @@ describe("disposable snapshot capture", () => {
 	});
 
 	it("removes wrapped saved-output path fragments while keeping narrow detail text", async () => {
-		const destination = await mkdtemp(join(tmpdir(), "ompss-capture-check-"));
+		const destination = await mkdtemp(join(tmpdir(), "omps-capture-check-"));
 		created.push(destination);
-		vi.stubEnv("OMPSS_CAPTURE_DIR", destination);
+		vi.stubEnv("OMPS_CAPTURE_DIR", destination);
 		const capture = createSnapshotCapture({
 			ui: {
 				renderNow: () => undefined,
 				getFocusedComponent: () => ({
 					render: () => [
-						"OMPSS inspector",
+						"OMPS inspector",
 						"Task:",
 						"Selected task child-19",
 						"Saved output:",
 						"/private/var/folders/synthetic-run/output",
-						"n/T/ompss-native-viewer-private/child/output.md",
+						"n/T/omps-native-viewer-private/child/output.md",
 						"Escape back · PageUp/PageDown output",
 					],
 				}),
@@ -66,15 +66,15 @@ describe("disposable snapshot capture", () => {
 		const text = await readFile(join(destination, "fixture-regular-dark-narrow-detail.txt"), "utf8");
 		expect(text).toContain("Selected task child-19");
 		expect(text).toContain("Saved output: <disposable>");
-		expect(text).not.toContain("ompss-native-viewer-private");
+		expect(text).not.toContain("omps-native-viewer-private");
 		expect(text).not.toContain("synthetic-run");
 		expect(text).toContain("Escape back");
 	});
 
 	it("redacts disposable paths and accepts fleet lines without opening a terminal", async () => {
-		const destination = await mkdtemp(join(tmpdir(), "ompss-capture-check-"));
+		const destination = await mkdtemp(join(tmpdir(), "omps-capture-check-"));
 		created.push(destination);
-		vi.stubEnv("OMPSS_CAPTURE_DIR", destination);
+		vi.stubEnv("OMPS_CAPTURE_DIR", destination);
 		const capture = createSnapshotCapture({
 			ui: { renderNow: () => undefined, getFocusedComponent: () => null },
 			terminal: { columns: 45, rows: 6 },

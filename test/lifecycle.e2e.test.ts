@@ -35,7 +35,7 @@ async function startBusyChild(): Promise<{
 	statusFile: () => Promise<any>;
 	runDirectory: () => Promise<string>;
 }> {
-	extensionDir = await mkdtemp(join(tmpdir(), "ompss-life-"));
+	extensionDir = await mkdtemp(join(tmpdir(), "omps-life-"));
 	await mkdir(join(extensionDir, "personas"));
 	await writeFile(join(extensionDir, "personas/reader.md"), "CHILD-PERSONA: you read.");
 	await writeFile(
@@ -44,19 +44,19 @@ async function startBusyChild(): Promise<{
 	);
 	const fixture = await startPi({
 		args: ["-e", INDEX],
-		env: { OMPSS_REGISTRY: join(extensionDir, "om-pi-subagents.yaml"), OMPSS_PI_BIN: PI_BIN },
+		env: { OMPS_REGISTRY: join(extensionDir, "om-pi-subagents.yaml"), OMPS_PI_BIN: PI_BIN },
 	});
 	pi = fixture;
 	fixture.model.script = (body): Turn => {
 		const text = JSON.stringify(body);
 		if (text.includes("CHILD-PERSONA")) return { hang: true };
-		if (text.includes("OMPSS run")) return { text: "acknowledged" };
+		if (text.includes("OMPS run")) return { text: "acknowledged" };
 		if (text.includes('"role":"tool"')) return { text: "launched" };
-		return { tool: "ompss", args: { action: "run", agent: "reader", task: "look around" } };
+		return { tool: "omps", args: { action: "run", agent: "reader", task: "look around" } };
 	};
 
 	const runDirectory = async () => {
-		const root = join(fixture.agentDir, "ompss", "runs");
+		const root = join(fixture.agentDir, "omps", "runs");
 		const [session] = await readdir(root).catch(() => []);
 		const [run] = session ? await readdir(join(root, session)) : [];
 		return join(root, session, run);
@@ -84,13 +84,13 @@ describe("session replacement", () => {
 
 		await new Promise((done) => setTimeout(done, 1500));
 		const later = fixture.model.requests.slice(before);
-		expect(later.some((request) => JSON.stringify(request).includes("OMPSS run"))).toBe(false);
+		expect(later.some((request) => JSON.stringify(request).includes("OMPS run"))).toBe(false);
 	});
 
 	it("still offers the tool in the new session, with a fresh run table", async () => {
 		const { fixture } = await startBusyChild();
 		await fixture.send({ type: "new_session" });
-		fixture.model.script = (): Turn => ({ tool: "ompss", args: { action: "status" } });
+		fixture.model.script = (): Turn => ({ tool: "omps", args: { action: "status" } });
 		const before = fixture.model.requests.length;
 		await fixture.send({ type: "prompt", message: "status?" });
 		await waitFor(() => fixture.model.requests.length > before + 1);

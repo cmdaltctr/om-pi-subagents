@@ -1,18 +1,18 @@
 ---
 name: om-pi-subagents
-description: Configure and operate OMPSS mapped Pi subagents. Use for compact fleet navigation, descendant inspection, /ompss-settings, per-agent Memory and Todo controls, YAML limits, parallel or nested delegation, result handoff, subtree cancellation, cleanup failures, and parent/child ownership.
+description: Configure and operate OMPS mapped Pi subagents. Use for compact fleet navigation, descendant inspection, /omps-settings, per-agent Memory and Todo controls, YAML limits, parallel or nested delegation, result handoff, subtree cancellation, cleanup failures, and parent/child ownership.
 license: MIT
 compatibility: Pi with om-pi-subagents installed and operator-managed mappings.
 ---
 
-# OMPSS operations
+# OMPS operations
 
 Read [setup](../../docs/SETUP.md) for configuration.
 Use the [usage guide](../../docs/USAGE.md) for tool parameters, result timing and recovery.
 
 ## Discover before delegating
 
-1. Call `ompss` with `{ "action": "list" }`.
+1. Call `omps` with `{ "action": "list" }`.
 2. Select a target only from that returned mapping.
 3. Check current-session runs with `{ "action": "status" }` before starting more work.
 4. If no personas are mapped, report that and point to the setup guide.
@@ -27,7 +27,7 @@ This skill grants no tools and cannot bypass the child guard.
 1. Confirm the task and the target's approved tools.
 2. Verify the working directory before a write-capable launch.
 3. Use separate safe worktrees when parallel writers could change the same files.
-4. Call `ompss` with action `run`, the mapped `agent`, and the requested `task`.
+4. Call `omps` with action `run`, the mapped `agent`, and the requested `task`.
 5. Set `cwd` to a verified absolute directory when the current directory is unsuitable.
 6. Keep each returned run id for status and cancellation.
 
@@ -47,11 +47,11 @@ There is no machine-wide budget; branching can multiply the provider and process
 The root is depth zero. `maxDepth: 0` disables launches while listing and status remain available.
 Each launch adds one depth. A branch keeps its inherited depth ceiling and also respects fresh YAML.
 Raising depth permits new root branches; it does not expand an existing branch's permission.
-Nesting requires exact `ompss` approval in the delegator's mapping.
+Nesting requires exact `omps` approval in the delegator's mapping.
 
 ## Operator settings
 
-Ask the operator to run `/ompss-settings` when a setting needs changing.
+Ask the operator to run `/omps-settings` when a setting needs changing.
 `/subagents-settings` is an alias. Native dialogs work in interactive Pi and supported RPC clients.
 The command is outside the model-callable tool. It requires UI dialogs before reading files.
 
@@ -63,11 +63,11 @@ The command is outside the model-callable tool. It requires UI dialogs before re
 | Fleet list / inspection shortcut    | Pi key specification or `off`            | Registry `ui.toggleKey/inspectKey`  |
 | Agent capabilities                  | Select agent, then Memory or Todo        | That agent's existing YAML lists    |
 
-The menu shows the resolved registry destination, including `OMPSS_REGISTRY` overrides.
+The menu shows the resolved registry destination, including `OMPS_REGISTRY` overrides.
 YAML owns limits and UI fields. A valid legacy visible-row value remains read-only fallback
 until the operator confirms its import into YAML. Neither edit writes the old display JSON.
 Shortcut changes require `/reload`. Visible-row changes repaint immediately.
-OMPSS never writes sibling preferences or Pi's `settings.json`.
+OMPS never writes sibling preferences or Pi's `settings.json`.
 
 Each edit requires confirmation. A cancelled input or declined save leaves that setting unchanged;
 earlier confirmed saves remain in effect. A missing registry requires explicit creation confirmation and starts with `agents: {}`.
@@ -82,7 +82,7 @@ Depth zero disables new launches. Explain that per-parent branching can multiply
 
 The below-editor fleet starts collapsed to one content row regardless of active-run count.
 Alt+O expands a bounded list of direct agents; Alt+I opens the descendant modal.
-Use `/ompss fleet` or `/ompss inspect` when shortcuts are unavailable. The defaults can be changed or set to `off`.
+Use `/omps fleet` or `/omps inspect` when shortcuts are unavailable. The defaults can be changed or set to `off`.
 With an empty editor, arrows select and scroll every active root, Enter inspects, and Escape collapses.
 The default expansion shows at most five root rows, a summary and one navigation row.
 Incomplete descendant observations stay labelled. A hidden row is still reachable by scrolling.
@@ -90,12 +90,12 @@ Incomplete descendant observations stay labelled. A hidden row is still reachabl
 Pi's native `app.tools.expand` action (Ctrl+O by default) expands transcript output only.
 Launch acknowledgements stay compact; native expansion never creates another live tree.
 
-1. Run `/ompss inspect` to open the current session's retained tree.
+1. Run `/omps inspect` to open the current session's retained tree.
 2. Use arrows to choose a node, Left/Right to fold branches, and Enter to open details.
 3. Use PageUp or PageDown to scroll selected output.
 4. Press Escape to return or close without stopping work.
 
-`/ompss inspect <run-id>` opens a selected node directly. Fullscreen supports row clicks; regular mode uses keys.
+`/omps inspect <run-id>` opens a selected node directly. Fullscreen supports row clicks; regular mode uses keys.
 The modal retains descendants in parent-first order. Narrow terminals show tree and details in sequence.
 Selected previews contain visible assistant text only, capped at 4 KiB and labelled provisional.
 Only saved output after a clean exit and confirmed cleanup proves completion. Older or missing evidence remains labelled.
@@ -123,7 +123,7 @@ Cancelled runs send no automatic result message.
 ## Cancel and handle uncertain cleanup
 
 1. Find the owned run id through status.
-2. Call `ompss` with action `cancel` and that `runId`.
+2. Call `omps` with action `cancel` and that `runId`.
 3. Wait for a terminal state before assuming its subtree has stopped.
 4. If cleanup is unconfirmed, report the block and follow the usage guide's recovery procedure.
 
@@ -138,7 +138,7 @@ The parent owns its memory decisions and normal tasks or linked OpenSpec checkli
 A child loads real OMMS or `om-pi-todo` only through its own mapped extension and exact `memory` or `todo` tool.
 The todo list starts empty in normal mode. Siblings and grandchildren have separate local task ids.
 
-To enable either later, ask the operator to select **Agent capabilities** in `/ompss-settings`.
+To enable either later, ask the operator to select **Agent capabilities** in `/omps-settings`.
 Choose one mapped agent, then Memory or Todo, and provide an installed package folder or published Pi entry.
 Confirm the exact `tools`, `extensions` and optional `skills` changes for that agent.
 Memory can include its shipped `omms-memory` skill. Whole-tool `memory` approval includes write and portability modes.
@@ -158,4 +158,4 @@ Never copy parent tasks, sync bindings or global preferences into child lists.
 
 Map this installed `SKILL.md` through the child's `skills` list to make these instructions available there.
 Use the package folder shown by `pi list`. Ambient child skills stay disabled.
-Loading this skill grants no tools. Use only the exact approved `ompss`, `memory` and `todo` tool names.
+Loading this skill grants no tools. Use only the exact approved `omps`, `memory` and `todo` tool names.

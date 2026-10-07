@@ -107,10 +107,10 @@ function checkConfiguration(config: Record<string, any>, node: ObservedNode): vo
 export function createDetailReader(root: string, observations: ObservationStore, owner: string): DetailReader {
 	return async (rootRunId, runId, signal) => {
 		if (![owner, rootRunId, runId].every(observationId))
-			throw new Error("Invalid owned run identity. Use /ompss inspect without an id.");
+			throw new Error("Invalid owned run identity. Use /omps inspect without an id.");
 		const node = observations.node(owner, rootRunId, runId);
 		if (!node || !observationId(node.owner))
-			throw new Error("Unknown or unowned run. Use /ompss inspect without an id.");
+			throw new Error("Unknown or unowned run. Use /omps inspect without an id.");
 		signal?.throwIfAborted();
 		const directory = await runDirectory(root, node.owner, node.runId);
 		// nosemgrep: AIK_ts_generic_path_traversal -- Trusted store root and validated retained node ids; this fallback reports a missing file without reading it.

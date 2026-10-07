@@ -25,7 +25,7 @@ async function waitFor(check: () => Promise<boolean>) {
 }
 async function saved(fixture: PiFixture, filename: string) {
 	// nosemgrep: AIK_ts_generic_path_traversal -- Fixture-owned mkdtemp directory followed by constant components; local scan evidence documents its source.
-	const root = join(fixture.agentDir, "ompss", "runs");
+	const root = join(fixture.agentDir, "omps", "runs");
 	const paths = (await readdir(root, { recursive: true }).catch(() => [])).filter((path) =>
 		path.endsWith(`/${filename}`),
 	);
@@ -34,7 +34,7 @@ async function saved(fixture: PiFixture, filename: string) {
 }
 async function launch(fixture: PiFixture, task: string): Promise<string> {
 	const start = fixture.records.length;
-	await fixture.send({ type: "prompt", message: `/ompss run worker ${task}` });
+	await fixture.send({ type: "prompt", message: `/omps run worker ${task}` });
 	const notification = fixture.records.slice(start).find((record) => /Started run /.test(record.message ?? ""));
 	expect(notification).toBeDefined();
 	return /Started run ([a-f0-9-]+)/.exec(notification!.message)![1];
@@ -44,7 +44,7 @@ async function rootFixture() {
 	return startPi({
 		mcp: false,
 		args: ["-e", index],
-		env: { OMPSS_PI_BIN: PI_BIN },
+		env: { OMPS_PI_BIN: PI_BIN },
 		seed: async ({ agentDir }) => {
 			// nosemgrep: AIK_ts_generic_path_traversal -- Seed a constant persona filename in the disposable fixture directory.
 			await writeFile(join(agentDir, "worker.md"), "SAVED-LIMIT-WORKER");
@@ -73,7 +73,7 @@ describe.skipIf(!PI_AVAILABLE)("saved limits through fresh real launches", () =>
 			await editRpcSettings(fixture, 1, "1");
 			expect((await saved(fixture, "status.json")).every(({ data }) => data.state === "running")).toBe(true);
 			const start = fixture.records.length;
-			await fixture.send({ type: "prompt", message: "/ompss run worker rejected task" });
+			await fixture.send({ type: "prompt", message: "/omps run worker rejected task" });
 			expect(
 				fixture.records
 					.slice(start)
@@ -86,7 +86,7 @@ describe.skipIf(!PI_AVAILABLE)("saved limits through fresh real launches", () =>
 					fixture.waitFor(
 						(record) =>
 							record.type === "message_end" &&
-							record.message?.customType === "ompss-result" &&
+							record.message?.customType === "omps-result" &&
 							record.message.details?.runId === id,
 					),
 				),
@@ -96,13 +96,13 @@ describe.skipIf(!PI_AVAILABLE)("saved limits through fresh real launches", () =>
 					fixture.records.filter(
 						(record) =>
 							record.type === "message_end" &&
-							record.message?.customType === "ompss-result" &&
+							record.message?.customType === "omps-result" &&
 							record.message.details?.runId === id,
 					),
 				).toHaveLength(1);
 				const configuration = (await saved(fixture, "config.json")).find(({ data }) => data.runId === id);
 				expect(configuration).toBeDefined();
-				const output = join(fixture.agentDir, "ompss", "runs", configuration!.path.replace("config.json", "output.md"));
+				const output = join(fixture.agentDir, "omps", "runs", configuration!.path.replace("config.json", "output.md"));
 				expect(await readFile(output, "utf8")).toContain("Admitted worker completed");
 			}
 			expect(admitted.some(({ data }) => alive(data.pid))).toBe(false);
@@ -122,7 +122,7 @@ describe.skipIf(!PI_AVAILABLE)("saved limits through fresh real launches", () =>
 			const [{ data: before }] = await saved(fixture, "status.json");
 			await editRpcSettings(fixture, 0, "0");
 			const start = fixture.records.length;
-			await fixture.send({ type: "prompt", message: "/ompss run worker disabled task" });
+			await fixture.send({ type: "prompt", message: "/omps run worker disabled task" });
 			expect(
 				fixture.records
 					.slice(start)
@@ -131,10 +131,10 @@ describe.skipIf(!PI_AVAILABLE)("saved limits through fresh real launches", () =>
 			expect((await saved(fixture, "status.json"))[0].data.state).toBe("running");
 			expect(alive(before.pid)).toBe(true);
 			expect(await saved(fixture, "config.json")).toHaveLength(1);
-			await fixture.send({ type: "prompt", message: `/ompss cancel ${id}` });
+			await fixture.send({ type: "prompt", message: `/omps cancel ${id}` });
 			await waitFor(async () => (await saved(fixture, "status.json"))[0].data.state === "cancelled");
 			expect(alive(before.pid)).toBe(false);
-			expect(fixture.records.some((record) => record.message?.customType === "ompss-result")).toBe(false);
+			expect(fixture.records.some((record) => record.message?.customType === "omps-result")).toBe(false);
 			expect(await fixture.exit()).toBe(0);
 		} finally {
 			if (fixture.child.exitCode === null) await fixture.exit();
@@ -146,7 +146,7 @@ describe.skipIf(!PI_AVAILABLE)("saved limits through fresh real launches", () =>
 		let registryPath = "";
 		const fixture = await startPi({
 			mcp: false,
-			env: { OMPSS_PI_BIN: PI_BIN },
+			env: { OMPS_PI_BIN: PI_BIN },
 			seed: async ({ agentDir }) => {
 				// nosemgrep: AIK_ts_generic_path_traversal -- Seed a constant persona filename in the disposable fixture directory.
 				await writeFile(join(agentDir, "delegator.md"), "SAVED-LIMIT-DELEGATOR");
@@ -155,7 +155,7 @@ describe.skipIf(!PI_AVAILABLE)("saved limits through fresh real launches", () =>
 				await writeFile(
 					// nosemgrep: AIK_ts_generic_path_traversal -- Seed a constant registry filename in the disposable fixture directory.
 					join(agentDir, "om-pi-subagents.yaml"),
-					`version: 1\nlimits: { maxDepth: ${ceiling}, maxConcurrentRuns: 4 }\nagents:\n  worker:\n    persona: worker.md\n    tools: [ompss]\n    thinking: off\n`,
+					`version: 1\nlimits: { maxDepth: ${ceiling}, maxConcurrentRuns: 4 }\nagents:\n  worker:\n    persona: worker.md\n    tools: [omps]\n    thinking: off\n`,
 				);
 				// nosemgrep: AIK_ts_generic_path_traversal -- Canonicalise only the synthetic registry just written by this fixture.
 				registryPath = await realpath(join(agentDir, "om-pi-subagents.yaml"));
@@ -166,7 +166,7 @@ describe.skipIf(!PI_AVAILABLE)("saved limits through fresh real launches", () =>
 						name: "delegator",
 						personaPath: "unused",
 						persona: "SAVED-LIMIT-DELEGATOR",
-						tools: ["ompss"],
+						tools: ["omps"],
 						thinking: "off",
 						skills: [],
 						extensions: [],
@@ -189,13 +189,13 @@ describe.skipIf(!PI_AVAILABLE)("saved limits through fresh real launches", () =>
 				const hasTool = body.messages.some((message: { role: string }) => message.role === "tool");
 				return hasTool
 					? { text: "Worker received its descendant result" }
-					: { tool: "ompss", args: { action: "run", agent: "worker", task: "Next generation" } };
+					: { tool: "omps", args: { action: "run", agent: "worker", task: "Next generation" } };
 			};
 			const id = await launch(fixture, "First nested generation");
 			const result = await fixture.waitFor(
 				(record) =>
 					record.type === "message_end" &&
-					record.message?.customType === "ompss-result" &&
+					record.message?.customType === "omps-result" &&
 					record.message.details?.runId === id,
 			);
 			expect(result.message.details.state).toBe("completed");
@@ -205,7 +205,7 @@ describe.skipIf(!PI_AVAILABLE)("saved limits through fresh real launches", () =>
 			expect(configurations.map(({ data }) => data.nesting.depth).sort()).toEqual(ceiling === 2 ? [2] : [2, 3]);
 			const deepest = configurations.find(({ data }) => data.nesting.depth === ceiling)!;
 			const events = await readFile(
-				join(fixture.agentDir, "ompss", "runs", deepest.path.replace("config.json", "events.jsonl")),
+				join(fixture.agentDir, "omps", "runs", deepest.path.replace("config.json", "events.jsonl")),
 				"utf8",
 			);
 			expect(events).toContain(`attempted depth ${ceiling + 1}, limits.maxDepth ${ceiling}`);

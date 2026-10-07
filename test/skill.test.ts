@@ -11,7 +11,7 @@ import { PI_AVAILABLE, PI_BIN, startPi } from "./fixtures/pi-rpc.ts";
 const root = fileURLToPath(new URL("..", import.meta.url));
 const skill = join(root, "skills", "om-pi-subagents", "SKILL.md");
 
-describe("OMPSS skill resources", () => {
+describe("OMPS skill resources", () => {
 	it("has portable frontmatter, bounded instructions and real relative guide references", async () => {
 		const text = await readFile(skill, "utf8");
 		const match = /^---\n([\s\S]*?)\n---\n/.exec(text);
@@ -20,7 +20,7 @@ describe("OMPSS skill resources", () => {
 		expect(metadata.name).toBe("om-pi-subagents");
 		expect(metadata.description.length).toBeGreaterThan(30);
 		expect(metadata.description.length).toBeLessThanOrEqual(1024);
-		for (const topic of ["fleet", "inspection", "/ompss-settings", "Memory", "Todo", "ownership"])
+		for (const topic of ["fleet", "inspection", "/omps-settings", "Memory", "Todo", "ownership"])
 			expect(metadata.description, topic).toContain(topic);
 		expect(metadata["allowed-tools"]).toBeUndefined();
 		expect(text.split("\n").length).toBeLessThan(500);
@@ -30,8 +30,8 @@ describe("OMPSS skill resources", () => {
 		for (const reference of references)
 			expect(await readFile(resolve(dirname(skill), reference.split("#")[0]), "utf8")).not.toBe("");
 		for (const instruction of [
-			"/ompss fleet",
-			"/ompss inspect",
+			"/omps fleet",
+			"/omps inspect",
 			"Alt+O",
 			"Alt+I",
 			"On (configured)",
@@ -79,7 +79,7 @@ describe.skipIf(!PI_AVAILABLE)("real Pi skill discovery", () => {
 			expect(commands.some((command: { name: string }) => command.name === "skill:om-pi-subagents")).toBe(true);
 			await fixture.send({ type: "prompt", message: "/skill:om-pi-subagents Check current mappings" });
 			await fixture.waitFor((record) => record.type === "agent_settled");
-			expect(JSON.stringify(fixture.model.requests)).toContain("# OMPSS operations");
+			expect(JSON.stringify(fixture.model.requests)).toContain("# OMPS operations");
 			expect(JSON.stringify(fixture.model.requests)).toContain("Check current mappings");
 		} finally {
 			await fixture.exit();
@@ -155,7 +155,7 @@ describe.skipIf(!PI_AVAILABLE)("real Pi skill discovery", () => {
 						name: "child",
 						personaPath: "unused",
 						persona: "Skill loading fixture",
-						tools: approved ? ["ompss"] : ["read"],
+						tools: approved ? ["omps"] : ["read"],
 						thinking: "off",
 						skills: mapped ? [skill] : [],
 						extensions: [],
@@ -173,17 +173,17 @@ describe.skipIf(!PI_AVAILABLE)("real Pi skill discovery", () => {
 			const commands = (await fixture.send({ type: "get_commands" })).data.commands;
 			expect(commands.some((command: { name: string }) => command.name === "skill:om-pi-subagents")).toBe(mapped);
 			expect(commands.some((command: { name: string }) => command.name === "skill:ambient-skill")).toBe(false);
-			expect(commands.some((command: { name: string }) => command.name === "ompss")).toBe(approved);
+			expect(commands.some((command: { name: string }) => command.name === "omps")).toBe(approved);
 			if (!approved) {
 				fixture.model.script = [
-					{ tool: "ompss", args: { action: "run", agent: "unmapped", task: "Must be refused" } },
+					{ tool: "omps", args: { action: "run", agent: "unmapped", task: "Must be refused" } },
 					{ text: "Skill grants no delegation" },
 				];
 				await fixture.send({ type: "prompt", message: "Try to delegate after loading the skill" });
 				await fixture.waitFor((record) => record.type === "agent_settled");
 				expect(
 					fixture.records.some(
-						(record) => record.entry?.customType === VIOLATION_ENTRY && record.entry.data.tool === "ompss",
+						(record) => record.entry?.customType === VIOLATION_ENTRY && record.entry.data.tool === "omps",
 					),
 				).toBe(true);
 			}

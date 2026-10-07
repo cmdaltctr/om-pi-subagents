@@ -6,7 +6,7 @@ import { createPersistence } from "../src/persistence.ts";
 import { RunStore } from "../src/store.ts";
 
 it("saves fresh limits and effective lineage in private configuration and status evidence", async () => {
-	const root = await mkdtemp(join(tmpdir(), "ompss-nested-evidence-"));
+	const root = await mkdtemp(join(tmpdir(), "omps-nested-evidence-"));
 	const limits = Object.freeze({ maxConcurrentRuns: 4, maxDepth: 5 });
 	const nesting = Object.freeze({
 		registryPath: join(root, "registry.yaml"),

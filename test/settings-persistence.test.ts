@@ -24,7 +24,7 @@ const yaml = `# Operator mappings\nversion: 1\nlimits:\n  maxDepth: 3 # root sta
 
 beforeEach(async () => {
 	vi.clearAllMocks();
-	root = await fs.mkdtemp(join(tmpdir(), "ompss-settings-"));
+	root = await fs.mkdtemp(join(tmpdir(), "omps-settings-"));
 	registry = join(root, "registry.yaml");
 	_display = join(root, "config", "pi-subagents", "config.json");
 	await fs.writeFile(join(root, "reader.md"), "Read the selected task.");

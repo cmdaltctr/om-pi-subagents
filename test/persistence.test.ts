@@ -116,7 +116,7 @@ describe("delivery result", () => {
 		const { RunStore: Store } = await import("../src/store.ts");
 		const os = await import("node:os");
 		const fs = await import("node:fs/promises");
-		const root = await fs.mkdtemp(join(os.tmpdir(), "ompss-delivery-"));
+		const root = await fs.mkdtemp(join(os.tmpdir(), "omps-delivery-"));
 		try {
 			const persistence = create(new Store(join(root, "runs")));
 			const view = {
@@ -150,7 +150,7 @@ describe("flush", () => {
 		const { createPersistence: create } = await import("../src/persistence.ts");
 		const { RunStore: Store } = await import("../src/store.ts");
 		const { mkdtemp: tmp, rm: remove, readFile: read } = await import("node:fs/promises");
-		const root = await tmp(join((await import("node:os")).tmpdir(), "ompss-flush-"));
+		const root = await tmp(join((await import("node:os")).tmpdir(), "omps-flush-"));
 		try {
 			const persistence = create(new Store(join(root, "runs")));
 			const view = {

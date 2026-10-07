@@ -1,6 +1,6 @@
 # AGENTS.md
 
-OMPSS runs YAML-mapped personas as native Pi child processes. Read this file before changing the extension.
+OMPS runs YAML-mapped personas as native Pi child processes. Read this file before changing the extension.
 
 ## Architecture
 
@@ -94,7 +94,7 @@ Tooling tests live in `test/docs.test.ts`, `test/pi-bin.test.ts` and `test/setup
 - After a check passes, break its safeguard in a disposable copy and confirm failure.
 - Keep deliberate breaks outside committed files.
 - Reuse fixtures before adding another harness. Tests use a fake model and a local MCP server.
-- Real Pi tests use `OMPSS_PI_BIN`, then the pinned host CLI, then `pi` on PATH.
+- Real Pi tests use `OMPS_PI_BIN`, then the pinned host CLI, then `pi` on PATH.
 - Skip CLI-dependent suites when Pi is missing. Keep independent tests enabled.
 - Run tests on macOS and Linux. Do not depend on one platform's process tree, paths or event timing.
 - Use disposable directories and synthetic credentials. Leave real settings and run files untouched.
@@ -103,7 +103,7 @@ Tooling tests live in `test/docs.test.ts`, `test/pi-bin.test.ts` and `test/setup
 ## Dos and don'ts
 
 - Enforce fresh `limits.maxConcurrentRuns` per parent session. Count starting, running and stopping direct children.
-- Count the root as depth zero. Require exact `ompss` approval and honour inherited plus fresh depth ceilings.
+- Count the root as depth zero. Require exact `omps` approval and honour inherited plus fresh depth ceilings.
 - Preserve immediate-parent ownership for status and subtree cancellation. Unconfirmed cleanup blocks launches despite spare capacity.
 - Wait at final-answer `turn_end` with its live abort signal; never block tool-use turns. Keep final `agent_settled` judgement.
 - Map the real todo extension explicitly. Seed only child-local normal mode; never copy parent tasks or OpenSpec bindings.

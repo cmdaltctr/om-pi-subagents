@@ -124,13 +124,13 @@ export async function createTodoViewerHost(modules, mode, directory) {
 		edit,
 		SessionManager,
 		card: (tool, result) => {
-			const card = new ToolExecutionComponent("ompss", "launch", {}, {}, tool, ui, directory);
+			const card = new ToolExecutionComponent("omps", "launch", {}, {}, tool, ui, directory);
 			card.updateResult(result);
 			host.chatContainer.addChild(card);
 			return card;
 		},
 		entry: (data, renderer) => {
-			const entry = new CustomEntryComponent({ customType: "ompss-tree", data }, renderer);
+			const entry = new CustomEntryComponent({ customType: "omps-tree", data }, renderer);
 			host.chatContainer.addChild(entry);
 			return entry;
 		},

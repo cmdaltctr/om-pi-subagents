@@ -17,8 +17,8 @@ export interface Installed {
 
 /** Copy the extension sources into a fresh directory, link its one dependency, and start a real parent Pi that loads it. */
 export async function installExtension(options: Pick<FixtureOptions, "env"> = {}): Promise<Installed> {
-	const scratch = await mkdtemp(join(tmpdir(), "ompss-install-"));
-	const installed = join(scratch, "ompss");
+	const scratch = await mkdtemp(join(tmpdir(), "omps-install-"));
+	const installed = join(scratch, "omps");
 	const home = join(scratch, "home");
 	await mkdir(installed);
 	await mkdir(home);

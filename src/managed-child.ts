@@ -5,9 +5,9 @@ import { readChildPolicy } from "./protocol.ts";
 /** Enable local delegation only when the launcher explicitly approves it. */
 export default function managedChild(pi: ExtensionAPI): void {
 	const policy = readChildPolicy();
-	if (process.env.OMPSS_CHILD !== "1" || typeof policy === "string")
+	if (process.env.OMPS_CHILD !== "1" || typeof policy === "string")
 		throw new Error(`Cannot load managed child: ${typeof policy === "string" ? policy : "child marker is missing"}`);
-	if (!policy.tools.includes("ompss")) throw new Error("Cannot load managed child: ompss is not approved");
+	if (!policy.tools.includes("omps")) throw new Error("Cannot load managed child: omps is not approved");
 	const currentRuntime = registerRuntime(pi, policy.lineage);
 	// Pi 0.99.1 retains its abort signal here; pre-settlement has no active turn signal.
 	pi.on("turn_end", async (event, ctx) => {

@@ -3,7 +3,7 @@ import { mkdir, writeFile, readFile, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-import { registerOmpss } from "../../src/index.ts";
+import { registerOmps } from "../../src/index.ts";
 import { ObservationStore } from "../../src/observation.ts";
 import { RunViewer, TREE_ENTRY } from "../../src/viewer.ts";
 import { createSnapshotCapture } from "./capture-snapshot.mjs";
@@ -57,7 +57,7 @@ class MemoryTerminal {
 	setTitle() {}
 	setProgress() {}
 }
-const directory = await mkdtemp(join(tmpdir(), "ompss-native-viewer-"));
+const directory = await mkdtemp(join(tmpdir(), "omps-native-viewer-"));
 const terminal = new MemoryTerminal();
 const ui = createInteractiveTui({ terminal, tuiMode: mode, logDirectory: directory });
 const keys = new KeybindingsManager();
@@ -179,7 +179,7 @@ const pi = {
 	},
 };
 let cancelled = 0;
-registerOmpss(
+registerOmps(
 	pi,
 	() => ({
 		run: async () => "Started run root (worker) in the background.",
@@ -199,7 +199,7 @@ const result = await tool.execute(
 	undefined,
 	ctx,
 );
-const card = new ToolExecutionComponent("ompss", "tool-1", {}, {}, tool, ui, directory);
+const card = new ToolExecutionComponent("omps", "tool-1", {}, {}, tool, ui, directory);
 card.updateResult(result);
 const entry = new CustomEntryComponent({ customType: TREE_ENTRY, data: result.details }, entries.get(TREE_ENTRY));
 const other = new ToolExecutionComponent("other", "other-1", {}, {}, undefined, ui, directory);
@@ -241,7 +241,7 @@ try {
 	ui.renderNow();
 	assert.equal(card.expanded, false);
 	assert(
-		card.render(100).some((line) => line.includes("OMPSS: worker started (root)")),
+		card.render(100).some((line) => line.includes("OMPS: worker started (root)")),
 		"collapsed launches show one compact acknowledgement row",
 	);
 	terminal.input("\x0f");
@@ -254,7 +254,7 @@ try {
 	assert(!expandedCard.includes("grandchild"));
 	const entryText = entry.render(100).join("\n");
 	assert(
-		entryText.includes("OMPSS: worker started (root)"),
+		entryText.includes("OMPS: worker started (root)"),
 		"slash-launch entries render the same compact acknowledgement",
 	);
 	assert(!entryText.includes("hidden agents"));
@@ -268,7 +268,7 @@ try {
 	terminal.input("\x19");
 	editor.setText("preserved prompt");
 	ui.renderNow();
-	const inspecting = commands.get("ompss").handler("inspect", ctx);
+	const inspecting = commands.get("omps").handler("inspect", ctx);
 	await flush();
 	assert.notEqual(ui.getFocusedComponent(), editor);
 	await capture("tree");
@@ -325,7 +325,7 @@ try {
 	viewer.dispose();
 	const afterDispose = card.render(100).join("\n");
 	assert(
-		afterDispose.includes("OMPSS: worker started (root)"),
+		afterDispose.includes("OMPS: worker started (root)"),
 		"the static acknowledgement stays bounded after dispose",
 	);
 	assert(!afterDispose.includes("Selected output"), "disposed viewer must not replay saved evidence");

@@ -11,12 +11,12 @@ import { installExtension, SOURCE, type Installed } from "./fixtures/install.ts"
 import type { Turn } from "./fixtures/fake-model.ts";
 
 const PERSONA = "CLEAN-ENV-PERSONA: you read files.";
-// The OMPSS preference path shares the legacy name; package references remain forbidden.
+// The OMPS preference path shares the legacy name; package references remain forbidden.
 const LEGACY_SOURCE =
 	/(^|[^\w-])pi-subagents(?!",\s*"config\.json"\))|(?:from\s*|(?:import|require)\s*\(\s*)["'][^"']*subagent/;
 
 suite("legacy package source guard", () => {
-	it("allows the approved OMPSS display preference directory", () => {
+	it("allows the approved OMPS display preference directory", () => {
 		expect('return join(configDir, "pi-subagents", "config.json");').not.toMatch(LEGACY_SOURCE);
 	});
 	it.each([
@@ -63,7 +63,7 @@ async function start() {
 
 const runDirectory = async (installed: Installed) => {
 	// nosemgrep: AIK_ts_generic_path_traversal -- The installed fixture directory is generated and appended path segments are fixed literals.
-	const root = join(installed.fixture.agentDir, "ompss", "runs");
+	const root = join(installed.fixture.agentDir, "omps", "runs");
 	const [session] = await readdir(root).catch(() => []);
 	// nosemgrep: AIK_ts_generic_path_traversal -- The fixture root is generated and readdir names cannot contain path separators.
 	const [run] = session ? await readdir(join(root, session)) : [];
@@ -113,12 +113,12 @@ describe("the environment is clean", () => {
 	});
 });
 
-describe("OMPSS in that environment", () => {
+describe("OMPS in that environment", () => {
 	it("starts, lists its agent, runs an approved tool, persists the result and leaves no process", async () => {
 		const handle = await start();
 		const fixture = handle.fixture;
 
-		await fixture.send({ type: "prompt", message: "/ompss list" });
+		await fixture.send({ type: "prompt", message: "/omps list" });
 		await waitFor(() => notices(handle).some((text) => /^reader: tools \[read\]$/.test(text)));
 
 		fixture.model.script = (body): Turn => {
@@ -128,7 +128,7 @@ describe("OMPSS in that environment", () => {
 				? { text: "I read it" }
 				: { tool: "read", args: { path: join(fixture.cwd, "note.txt") } };
 		};
-		await fixture.send({ type: "prompt", message: "/ompss run reader read the note" });
+		await fixture.send({ type: "prompt", message: "/omps run reader read the note" });
 		await waitFor(async () => (await statusOf(handle)).state === "completed");
 
 		const directory = (await runDirectory(handle))!;
@@ -143,13 +143,13 @@ describe("OMPSS in that environment", () => {
 		const handle = await start();
 		const fixture = handle.fixture;
 		fixture.model.script = (body): Turn => (isChild(body) ? { hang: true } : { text: "parent ok" });
-		await fixture.send({ type: "prompt", message: "/ompss run reader wait" });
+		await fixture.send({ type: "prompt", message: "/omps run reader wait" });
 		await waitFor(async () => (await statusOf(handle)).state === "running" && fixture.model.requests.some(isChild));
 		const { pid } = await statusOf(handle);
 		expect(groupAlive(pid)).toBe(true);
 
 		const id = (await statusOf(handle)).id as string;
-		await fixture.send({ type: "prompt", message: `/ompss cancel ${id}` });
+		await fixture.send({ type: "prompt", message: `/omps cancel ${id}` });
 		await waitFor(async () => (await statusOf(handle)).state === "cancelled");
 		expect(groupAlive(pid)).toBe(false);
 	});
@@ -158,7 +158,7 @@ describe("OMPSS in that environment", () => {
 		const handle = await start();
 		const fixture = handle.fixture;
 		await fixture.send({ type: "new_session" });
-		await fixture.send({ type: "prompt", message: "/ompss list" });
+		await fixture.send({ type: "prompt", message: "/omps list" });
 		await waitFor(() => notices(handle).some((text) => /^reader: tools \[read\]$/.test(text)));
 	});
 });

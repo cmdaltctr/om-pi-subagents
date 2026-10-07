@@ -1,4 +1,4 @@
-// OMPSS runner: how a child Pi process is launched and owned.
+// OMPS runner: how a child Pi process is launched and owned.
 
 import { spawn, type ChildProcess } from "node:child_process";
 import type { AgentSnapshot } from "./config.ts";
@@ -69,7 +69,7 @@ export function buildLaunch(input: LaunchInput): LaunchPlan {
 			...builtins,
 			input.guardPath,
 			...(tools.includes("todo") ? [fileURLToPath(new URL("./todo-bootstrap.ts", import.meta.url))] : []),
-			...(tools.includes("ompss") ? [fileURLToPath(new URL("./managed-child.ts", import.meta.url))] : []),
+			...(tools.includes("omps") ? [fileURLToPath(new URL("./managed-child.ts", import.meta.url))] : []),
 			...snapshot.extensions,
 		].flatMap((extension) => ["-e", extension]),
 		...snapshot.skills.flatMap((skill) => ["--skill", skill]),
@@ -92,10 +92,10 @@ export function buildLaunch(input: LaunchInput): LaunchPlan {
 		cwd: input.cwd,
 		env: {
 			...(input.env ?? process.env),
-			OMPSS_CHILD: "1",
-			OMPSS_RUN_TOKEN: input.runToken,
-			OMPSS_POLICY: JSON.stringify(validated),
-			OMPSS_REGISTRY: validated.lineage.registryPath,
+			OMPS_CHILD: "1",
+			OMPS_RUN_TOKEN: input.runToken,
+			OMPS_POLICY: JSON.stringify(validated),
+			OMPS_REGISTRY: validated.lineage.registryPath,
 			// A mapped memory sibling stays an ordinary agent: no web app, no history import.
 			// Ordinary recall, manual tools and configured capture remain available to it.
 			OMMS_DISABLE_WEB_AUTOSTART: "1",

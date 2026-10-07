@@ -25,7 +25,7 @@ export default function readinessGuard(pi: ExtensionAPI): void {
 					};
 					const emit = (snapshot: object) =>
 						pi.appendEntry(OBSERVATION_ENTRY, {
-							token: process.env.OMPSS_RUN_TOKEN,
+							token: process.env.OMPS_RUN_TOKEN,
 							snapshot,
 							reasons: [],
 							evidenceRevision: 1,

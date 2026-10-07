@@ -11,13 +11,13 @@ const evidence: Array<{ eval_id: number; file: string; test: string }> = JSON.pa
 	await read(`${directory}/evidence.json`),
 );
 
-describe("OMPSS skill evaluation fixtures", () => {
+describe("OMPS skill evaluation fixtures", () => {
 	it("covers fleet navigation, optional capabilities and parent-owned results with real test references", async () => {
 		expect(cases.skill_name).toBe("om-pi-subagents");
 		expect(cases.evals).toHaveLength(8);
 		expect(new Set(cases.evals.map((entry: { id: number }) => entry.id)).size).toBe(8);
 		for (const entry of cases.evals) {
-			expect(entry.prompt).toMatch(/OMPSS/);
+			expect(entry.prompt).toMatch(/OMPS/);
 			expect(entry.expected_output.length).toBeGreaterThan(40);
 			expect(entry.expectations.length).toBeGreaterThanOrEqual(3);
 			expect(evidence.some((item) => item.eval_id === entry.id)).toBe(true);

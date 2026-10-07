@@ -1,7 +1,7 @@
-// OMPSS child guard. Loaded only into OMPSS child Pi processes, never into the parent.
+// OMPS child guard. Loaded only into OMPS child Pi processes, never into the parent.
 //
 // Pi treats an unknown slash command as a model prompt. The parent therefore
-// confirms this command through `get_commands` before it sends `/ompss-child-preflight`.
+// confirms this command through `get_commands` before it sends `/omps-child-preflight`.
 // Pi handles extension commands without a model request.
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
@@ -49,7 +49,7 @@ export default function childGuard(pi: ExtensionAPI): void {
 	const record = (toolCallId: string, tool: string) => {
 		if (recorded.has(toolCallId)) return;
 		recorded.add(toolCallId);
-		const violation: Violation = { token: process.env.OMPSS_RUN_TOKEN ?? "", tool };
+		const violation: Violation = { token: process.env.OMPS_RUN_TOKEN ?? "", tool };
 		pi.appendEntry(VIOLATION_ENTRY, violation);
 	};
 
@@ -58,7 +58,7 @@ export default function childGuard(pi: ExtensionAPI): void {
 	pi.on("tool_call", (event) => {
 		if (approved(event.toolName)) return undefined;
 		record(event.toolCallId, event.toolName);
-		return { block: true, reason: `OMPSS: tool "${event.toolName}" is not approved for this agent` };
+		return { block: true, reason: `OMPS: tool "${event.toolName}" is not approved for this agent` };
 	});
 
 	// Only the parent prompts a child, over RPC. Refuse every other prompt, such as one a trusted extension
@@ -68,7 +68,7 @@ export default function childGuard(pi: ExtensionAPI): void {
 	pi.on("input", (event) => {
 		if (event.source === "rpc") return { action: "continue" };
 		refused.push(event.source);
-		const violation: Violation = { token: process.env.OMPSS_RUN_TOKEN ?? "", input: event.source };
+		const violation: Violation = { token: process.env.OMPS_RUN_TOKEN ?? "", input: event.source };
 		pi.appendEntry(VIOLATION_ENTRY, violation);
 		return { action: "handled" };
 	});
@@ -79,9 +79,9 @@ export default function childGuard(pi: ExtensionAPI): void {
 	});
 
 	pi.registerCommand(PREFLIGHT_COMMAND, {
-		description: "OMPSS private readiness check",
+		description: "OMPS private readiness check",
 		handler: async (_args, ctx) => {
-			const token = process.env.OMPSS_RUN_TOKEN ?? "";
+			const token = process.env.OMPS_RUN_TOKEN ?? "";
 			const policy = readChildPolicy();
 			const names = () => pi.getAllTools().map((tool) => tool.name);
 			const problems: string[] = [];

@@ -18,7 +18,7 @@ async function editCapability(
 	action: "Enable" | "Disable",
 ) {
 	const seen = new Set(parent.records.map((record) => record.id).filter(Boolean));
-	const pending = parent.send({ type: "prompt", message: "/ompss-settings" });
+	const pending = parent.send({ type: "prompt", message: "/omps-settings" });
 	const dialog = async (method: string) => {
 		const request = await parent.waitFor(
 			(record) => record.type === "extension_ui_request" && record.method === method && !seen.has(record.id),
@@ -84,7 +84,7 @@ async function scenario(capability: "Memory" | "Todo", entry: string, workspace:
 		mcp: false,
 		workspace,
 		args: ["-e", index, "-e", entry],
-		env: { OMPSS_PI_BIN: PI_BIN },
+		env: { OMPS_PI_BIN: PI_BIN },
 	});
 	let active: PiFixture | undefined;
 	let enabled: PiFixture | undefined;

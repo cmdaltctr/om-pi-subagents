@@ -9,7 +9,7 @@ import { createService } from "../src/service.ts";
 let dir: string;
 let context: { cwd: string; model: string; thinking: string };
 beforeEach(async () => {
-	dir = await mkdtemp(join(tmpdir(), "ompss-service-"));
+	dir = await mkdtemp(join(tmpdir(), "omps-service-"));
 	context = { cwd: dir, model: "p/parent", thinking: "high" };
 	await mkdir(join(dir, "personas"));
 	await writeFile(join(dir, "personas/reader.md"), "Read.");
@@ -54,7 +54,7 @@ function setup(deliveryOf?: (runId: string) => { delivered: boolean; error?: str
 describe("list", () => {
 	it("identifies approved delegation as capable of reaching write-enabled targets", async () => {
 		await writeYaml(
-			"version: 1\nagents:\n  delegator:\n    persona: ./personas/reader.md\n    tools: [ompss]\n    thinking: off\n",
+			"version: 1\nagents:\n  delegator:\n    persona: ./personas/reader.md\n    tools: [omps]\n    thinking: off\n",
 		);
 		const text = await setup().service.list();
 		expect(text).toMatch(/delegator.*delegation-capable.*write-capable targets/);
@@ -98,7 +98,7 @@ describe("run", () => {
 	});
 
 	it("uses an explicit absolute working directory", async () => {
-		const other = await mkdtemp(join(tmpdir(), "ompss-cwd-"));
+		const other = await mkdtemp(join(tmpdir(), "omps-cwd-"));
 		try {
 			const { service, calls } = setup();
 			await service.run("s1", { agent: "reader", task: "t", cwd: other }, context);
@@ -113,7 +113,7 @@ describe("run", () => {
 		["an empty task", { agent: "reader", task: "" }, /task is required/],
 		["a blank task", { agent: "reader", task: "  \n " }, /task is required/],
 		["a slash command", { agent: "reader", task: "/help" }, /slash command/],
-		["a slash command after spaces", { agent: "reader", task: "  /ompss-child-preflight" }, /slash command/],
+		["a slash command after spaces", { agent: "reader", task: "  /omps-child-preflight" }, /slash command/],
 		["a relative directory", { agent: "reader", task: "t", cwd: "work" }, /absolute/],
 		["a missing directory", { agent: "reader", task: "t", cwd: "/nonexistent/dir" }, /does not exist|not a directory/],
 	])("refuses %s and starts nothing", async (_label, input, message) => {
@@ -133,7 +133,7 @@ describe("run", () => {
 		const first = await service.run("s1", { agent: "reader", task: "one" }, context);
 		const id = /run ([0-9a-f-]{36})/.exec(first)![1];
 		await expect(service.run("s1", { agent: "reader", task: "two" }, context)).rejects.toThrow(
-			new RegExp(`ompss cancel ${id}`),
+			new RegExp(`omps cancel ${id}`),
 		);
 	});
 

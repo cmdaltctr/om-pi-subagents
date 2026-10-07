@@ -268,7 +268,7 @@ export class Inspector implements Component {
 	private renderView(width: number): string[] {
 		if (this.options.height() !== this.lastHeight) this.refresh();
 		this.lastRenderedWidth = width;
-		const title = truncateToWidth("OMPSS inspector", width, "");
+		const title = truncateToWidth("OMPS inspector", width, "");
 		const hint = truncateToWidth(
 			this.detailScreen
 				? "Escape back · PageUp/PageDown output"

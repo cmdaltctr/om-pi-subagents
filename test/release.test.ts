@@ -255,7 +255,7 @@ describe("the release workflow", () => {
 		expect(gate).toBeGreaterThan(-1);
 		expect(stage).toBeGreaterThan(gate);
 		expect(publishJob).toContain("bun run setup:host");
-		expect(publishJob).toContain("OMPSS_PI_BIN: ${{ github.workspace }}/.pi-host/node_modules/.bin/pi");
+		expect(publishJob).toContain("OMPS_PI_BIN: ${{ github.workspace }}/.pi-host/node_modules/.bin/pi");
 	});
 
 	it("pins every action to a commit SHA, uses the registry URL and keeps no credentials on disk", () => {

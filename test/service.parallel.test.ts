@@ -8,7 +8,7 @@ import { createService } from "../src/service.ts";
 
 let dir: string;
 beforeEach(async () => {
-	dir = await mkdtemp(join(tmpdir(), "ompss-admission-"));
+	dir = await mkdtemp(join(tmpdir(), "omps-admission-"));
 	await mkdir(join(dir, "personas"));
 	await writeFile(join(dir, "personas", "reader.md"), "Read.");
 	await revision(4);
