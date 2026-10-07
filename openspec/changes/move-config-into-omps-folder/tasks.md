@@ -32,21 +32,21 @@
 
 - [x] 4.1 Run `bun run test` with the pinned host and with `OMPS_PI_BIN=~/.pi/agent/bin/pi`.
 - [x] 4.2 Run `bun run ci`. Commit with a `feat!:` subject and a `BREAKING CHANGE:` footer.
-- [ ] 4.3 Ask the operator before running `bun run ci:clean`.
+- [x] 4.3 Ask the operator before running `bun run ci:clean`.
 
 ## 5. Operator migration (real machine, ask first)
 
-- [ ] 5.1 Ask the operator for approval before touching any file in `~/.pi/agent`. Do nothing in this section without it.
-- [ ] 5.2 Back up: `cp -p ~/.pi/agent/om-pi-subagents.yaml ~/.pi/agent/om-pi-subagents.yaml.bak-<date>` and `cp -Rp ~/.pi/agent/om-pi-subagents ~/.pi/agent/om-pi-subagents.bak-<date>`.
-- [ ] 5.3 `mkdir -p ~/.pi/agent/omps/personas`.
-- [ ] 5.4 Move `~/.pi/agent/om-pi-subagents/personas/*.md` into `~/.pi/agent/omps/personas/`. Stop if any name already exists there.
-- [ ] 5.5 Move `~/.pi/agent/om-pi-subagents.yaml` to `~/.pi/agent/omps/config.yaml`. Stop if the destination exists.
-- [ ] 5.6 Rewrite `persona:` lines from `./om-pi-subagents/personas/` to `./personas/`. Show the diff to the operator.
-- [ ] 5.7 Validate with the OMPS loader, then ask the operator to run `/omps list` in Pi and confirm every agent appears.
-- [ ] 5.8 Ask before removing the empty old persona folder and the backups.
+- [x] 5.1 Ask the operator for approval before touching any file in `~/.pi/agent`. Do nothing in this section without it.
+- [x] 5.2 Back up: `cp -p ~/.pi/agent/om-pi-subagents.yaml ~/.pi/agent/om-pi-subagents.yaml.bak-<date>` and `cp -Rp ~/.pi/agent/om-pi-subagents ~/.pi/agent/om-pi-subagents.bak-<date>`.
+- [x] 5.3 `mkdir -p ~/.pi/agent/omps/personas`.
+- [x] 5.4 Move `~/.pi/agent/om-pi-subagents/personas/*.md` into `~/.pi/agent/omps/personas/`. Stop if any name already exists there.
+- [x] 5.5 Move `~/.pi/agent/om-pi-subagents.yaml` to `~/.pi/agent/omps/config.yaml`. Stop if the destination exists.
+- [x] 5.6 Rewrite `persona:` lines from `./om-pi-subagents/personas/` to `./personas/`. Show the diff to the operator.
+- [x] 5.7 Validate with the OMPS loader, then ask the operator to run `/omps list` in Pi and confirm every agent appears.
+- [x] 5.8 Ask before removing the empty old persona folder and the backups.
 
 ## 6. Close the change
 
-- [ ] 6.1 Run `openspec validate move-config-into-omps-folder --strict`.
+- [x] 6.1 Run `openspec validate move-config-into-omps-folder --strict`.
 - [ ] 6.2 Run the `openspec-verify-change` skill and resolve its findings.
 - [ ] 6.3 Archive the change with the `openspec-archive-change` skill before opening the pull request.
