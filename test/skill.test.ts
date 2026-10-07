@@ -32,8 +32,9 @@ describe("OMPS skill resources", () => {
 		for (const instruction of [
 			"/omps fleet",
 			"/omps inspect",
-			"Alt+O",
-			"Alt+I",
+			"ui.fleetView",
+			"Press Down",
+			"default to `off`",
 			"On (configured)",
 			"Partial",
 			"whole",

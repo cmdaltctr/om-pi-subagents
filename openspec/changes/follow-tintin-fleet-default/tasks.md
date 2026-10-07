@@ -26,13 +26,13 @@ Write each test, run it, and confirm it fails for the intended reason before sec
 
 ## 3. Documentation and skill
 
-- [ ] 3.1 `README.md`: describe the expanded default, `ui.fleetView`, arrow navigation and opt-in shortcuts. Keep the `docs-test` markers intact.
-- [ ] 3.2 `docs/SETUP.md`: document `ui.fleetView` and the new defaults. Add the YAML that restores `alt+o` and `alt+i`. Explain the macOS Option-as-Alt setting for Terminal.app, iTerm2 and Ghostty. Note that `shift+ctrl+o` is a Pi 1.0 built-in.
-- [ ] 3.3 `docs/USAGE.md`: replace Alt-key instructions with arrow navigation and commands. Update the troubleshooting row "No fleet strip shows" to mention `ui.fleetView: off`.
-- [ ] 3.4 `docs/INSTALL.md`: check for shortcut text and update it if present.
-- [ ] 3.5 `skills/om-pi-subagents/SKILL.md` line 84 and `test/fixtures/skill-evals/evals.json`: describe the expanded default and arrow navigation.
+- [x] 3.1 `README.md`: describe the expanded default, `ui.fleetView`, arrow navigation and opt-in shortcuts. Keep the `docs-test` markers intact.
+- [x] 3.2 `docs/SETUP.md`: document `ui.fleetView` and the new defaults. Add the YAML that restores `alt+o` and `alt+i`. Explain the macOS Option-as-Alt setting for Terminal.app, iTerm2 and Ghostty. Note that `shift+ctrl+o` is a Pi 1.0 built-in.
+- [x] 3.3 `docs/USAGE.md`: replace Alt-key instructions with arrow navigation and commands. Update the troubleshooting row "No fleet strip shows" to mention `ui.fleetView: off`.
+- [x] 3.4 `docs/INSTALL.md`: check for shortcut text and update it if present.
+- [x] 3.5 `skills/om-pi-subagents/SKILL.md` line 84 and `test/fixtures/skill-evals/evals.json`: describe the expanded default and arrow navigation.
 - [ ] 3.6 Write `docs/adr/009-follow-the-tintin-fleet-default.md`. Add it to `docs/adr/ADR_README.md`. Mark ADR-007 as partly superseded by ADR-009.
-- [ ] 3.7 Run `bun run test test/docs.test.ts test/skill.test.ts` and fix any failure.
+- [x] 3.7 Run `bun run test test/docs.test.ts test/skill.test.ts` and fix any failure.
 
 ## 4. Visual test before any push or pull request
 

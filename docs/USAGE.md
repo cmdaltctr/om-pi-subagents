@@ -49,7 +49,7 @@ The examples below use an agent called `reader` that may only read files.
    Check it with "omps status 3f2c9b1e-8a4d-4c7e-9b2a-1d5e6f7a8b9c". The result arrives as a follow-up message.
    ```
 
-4. Watch the fleet strip below the editor. It reports active runs, and Alt+O expands the list.
+4. Watch the fleet strip below the editor. It shows the agent tree while runs are active.
 5. Read the result message when it arrives in the conversation.
 
 Pi shows full paths in its output. This guide writes `~` for your home folder.
@@ -126,31 +126,43 @@ The `run` action returns at once. It does not wait for the agent to answer.
 
 ### The fleet strip
 
-One strip below the editor reports every active direct run. It starts collapsed to a single content row, no matter how many runs are active:
+One strip below the editor shows every active direct run. By default it shows the agent tree, with no key press. Each row shows the task label, run state, elapsed time, tools in use and observed descendant count:
 
 ```text
-Agents: 5 active | 3 observed descendants | alt+o list | alt+i inspect
+Agents: 3 active | 3 observed descendants
+  reader Map the API running 12s reading
+  builder Update validation running 18s editing | 3 descendants
+  reviewer Review changes starting 1s
+↓ select
 ```
 
-| Part                           | Meaning                                                                                     |
-| ------------------------------ | ------------------------------------------------------------------------------------------- |
-| `Agents: N active`             | Direct runs that are starting, running or stopping. See [Run states](#run-states).          |
-| `M observed descendants`       | Retained nested runs across those roots. `(incomplete)` marks missing observation evidence. |
-| `alt+o list` / `alt+i inspect` | Your configured view keys. Omitted when a key is `off`; the commands still work.            |
+| Part                     | Meaning                                                                               |
+| ------------------------ | ------------------------------------------------------------------------------------- |
+| `Agents: N active`       | Direct runs starting, running or stopping. See [Run states](#run-states).             |
+| `M observed descendants` | Retained nested runs across roots. `(incomplete)` marks missing observation evidence. |
+| `↓ select`               | Press Down in an empty prompt to select an agent.                                     |
 
-Press Alt+O to expand the strip into a bounded list of direct agents. Each row shows the task label, the run state, the elapsed time, the tools in use and the observed descendant count:
+The tree uses at most `ui.maxVisibleAgents` root rows plus one summary and one navigation row: seven content rows with the default of five. A small terminal lowers the budget to one third of its height; if the rows cannot fit, the strip shows one summary row and inspection still reaches every run.
 
-```text
-Agents: 5 active | 3 observed descendants
-  reader    Map the API       running   12s   reading
-> builder   Update validation running   18s   editing | 3 descendants
-  reviewer  Review changes    starting   1s
-Arrows select | Enter inspect | Esc collapse
-```
+To navigate the fleet:
 
-Expansion uses at most the `ui.maxVisibleAgents` root rows plus one summary and one navigation row: seven content rows with the default of five. A small terminal lowers the budget to one third of its height; if the rows cannot fit, the strip stays collapsed and inspection still reaches every run.
+1. Make sure the prompt is empty.
+2. Press Down. The first agent is selected and the hint changes to `↑↓ move | Enter inspect | Esc back`.
+3. Press Up or Down to move to another agent.
+4. Press Enter to inspect the selected agent.
+5. Press Escape to return to the prompt. The runs continue.
 
-With the strip expanded, an empty editor and editor focus give the arrow keys to the fleet: Up and Down select a root, Enter inspects it and Escape collapses the strip without stopping work. Typing returns input to the editor at once. A dialog or overlay that owns focus keeps its keys.
+Outside the list, Up recalls prompt history and Escape interrupts as usual. Typing ends the selection and returns input to the editor. A dialog or overlay that owns focus keeps its keys.
+
+Set `ui.fleetView` in `/omps-settings` to change the starting view:
+
+| Value       | Effect                                                                           |
+| ----------- | -------------------------------------------------------------------------------- |
+| `expanded`  | Default. Shows the agent tree.                                                   |
+| `collapsed` | Shows one summary row, for example `Agents: 5 active \| 3 observed descendants`. |
+| `off`       | Shows no strip. `/omps`, `/omps status` and `/omps inspect` still work.          |
+
+`/omps fleet` switches between the tree and one row for the current session. A bound fleet shortcut does the same. Shortcuts are `off` by default; see [operator settings](#operator-settings).
 
 The strip shows task labels, states, times and tool names only. It never shows tool arguments, tool results, the agent's thinking, error logs or answer previews. OMPS removes terminal control characters from the text. Saved answers appear in inspection and in the result message, never in the strip.
 
@@ -162,10 +174,9 @@ Each observed run also carries two bounded pieces of display text:
 Previews contain visible assistant text only. Tool arguments, raw tool results, hidden thinking, stderr, system history and authentication fields never enter display state. Terminal control characters and direction overrides are removed without changing the saved files.
 A preview is provisional. It never proves that a run completed, and it never replaces the saved final answer: `output.md` in the run folder remains the only authoritative result. A stale preview stays labelled provisional after a run ends.
 
-The visible-agent setting bounds expanded root rows, defaulting to five. Every active root stays reachable through the arrows; hidden runs continue normally.
-This display bound does not restrict launches; `/omps status` lists every direct owned run.
-Finishing one run leaves active siblings visible. When all runs end, the strip keeps one compact
-summary of the latest finished root until another launch or the session ends. Old previews cannot replace newer work.
+The visible-agent setting bounds the root rows, defaulting to five. Every active root stays reachable through the arrows; hidden runs continue normally.
+The display bound does not restrict launches; `/omps status` lists every direct owned run.
+Finishing one run leaves active siblings visible. When all runs end, the strip shows a summary of the latest finished root for 10 seconds and then clears. A launch within those 10 seconds keeps the strip. `/omps inspect` still opens finished runs after the strip clears. Old previews cannot replace newer work.
 
 ### The status line
 
@@ -411,24 +422,28 @@ There is no machine-wide budget. Concurrent writers need separate safe working d
 Native selection, input and confirmation dialogs work in interactive Pi and supported RPC clients.
 The command starts no agent or model request. Clients without dialogs receive an error before any settings file access.
 
-| Menu item                           | Validation                                     | Save destination                        |
-| ----------------------------------- | ---------------------------------------------- | --------------------------------------- |
-| Maximum nesting depth               | Safe integer of at least 0; root depth is 0    | `limits.maxDepth` in registry YAML      |
-| Parallel direct children per parent | Safe integer of at least 1                     | `limits.maxConcurrentRuns` in that YAML |
-| Visible agents                      | Safe integer from 1 to 256; default 5          | `ui.maxVisibleAgents` in that YAML      |
-| Fleet list shortcut                 | Pi key specification or `off`; default `alt+o` | `ui.toggleKey` in that YAML             |
-| Inspection shortcut                 | Pi key specification or `off`; default `alt+i` | `ui.inspectKey` in that YAML            |
-| Agent capabilities                  | Select an agent, then Memory or Todo           | That agent's existing YAML lists        |
-| Import legacy visible agents        | Offered while a valid legacy value applies     | `ui.maxVisibleAgents` in that YAML      |
+| Menu item                           | Validation                                           | Save destination                        |
+| ----------------------------------- | ---------------------------------------------------- | --------------------------------------- |
+| Maximum nesting depth               | Safe integer of at least 0; root depth is 0          | `limits.maxDepth` in registry YAML      |
+| Parallel direct children per parent | Safe integer of at least 1                           | `limits.maxConcurrentRuns` in that YAML |
+| Visible agents                      | Safe integer from 1 to 256; default 5                | `ui.maxVisibleAgents` in that YAML      |
+| Fleet view                          | `expanded`, `collapsed` or `off`; default `expanded` | `ui.fleetView` in that YAML             |
+| Fleet list shortcut                 | Pi key specification or `off`; default `off`         | `ui.toggleKey` in that YAML             |
+| Inspection shortcut                 | Pi key specification or `off`; default `off`         | `ui.inspectKey` in that YAML            |
+| Agent capabilities                  | Select an agent, then Memory or Todo                 | That agent's existing YAML lists        |
+| Import legacy visible agents        | Offered while a valid legacy value applies           | `ui.maxVisibleAgents` in that YAML      |
 
 Parallel agents and direct children share the same per-parent limit.
 The menu shows the selected registry path, including any `OMPS_REGISTRY` override, and labels
 the source of the effective visible-agent value: YAML, the legacy display file or the default.
 OMPS does not write todo preferences or Pi's `settings.json`.
 
+A saved fleet view applies at once and replaces any session toggle. Shortcut edits need `/reload`.
+
 Shortcut keys are lowercase Pi key specifications, such as `alt+o`. Tab and Ctrl+I are refused,
 and so is a key already bound to an effective built-in action, with guidance to choose another.
 The two shortcuts must differ; either or both can be `off`.
+Shortcuts default to `off`. To restore the old `alt+o` and `alt+i` keys, and for the macOS Option setting they need, see [Restore the Alt keys](SETUP.md#restore-the-alt-keys).
 
 Shortcuts bind when an interactive session starts. A saved shortcut needs `/reload` before it
 becomes active; the menu shows the saved and the active binding until then. A visible-agent
@@ -537,32 +552,32 @@ Only your user can read these files. The folders have mode `0700` and the files 
 
 ## Troubleshooting
 
-| You see                                                            | Cause                                                                                   | Fix                                                                             |
-| ------------------------------------------------------------------ | --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| `/omps` is not a known command                                     | OMPS did not load.                                                                      | See [Install](INSTALL.md).                                                      |
-| `No personas mapped.`                                              | The mapping file has no agents, or does not exist.                                      | Map an agent. See [Set up agents](SETUP.md).                                    |
-| An `OMPS:` error about the mapping file                            | The mapping file has an error. New launches stay blocked.                               | Fix the field the error names. See [Set up agents](SETUP.md).                   |
-| `unknown agent "<name>"; mapped agents: ...`                       | The agent name is wrong.                                                                | Use a name from `/omps list`.                                                   |
-| `Usage: /omps list \| run <agent> <task> \| ...`                   | OMPS did not recognise the command, for example a run with no task.                     | Check the command against the [table](#slash-commands).                         |
-| `task is required`                                                 | The tool call had no task.                                                              | Add a task.                                                                     |
-| `the task cannot start with a slash, ...`                          | The task starts with `/`.                                                               | Reword the task.                                                                |
-| `cwd must be an absolute path: ...`                                | The tool's `cwd` is a relative path.                                                    | Give the full path.                                                             |
-| `cwd does not exist or is not a directory: ...`                    | The folder is missing.                                                                  | Check the path.                                                                 |
-| `session capacity reached ...`                                     | Configured direct-child slots are full.                                                 | Wait, cancel an owned run, or change `limits.maxConcurrentRuns` in YAML.        |
-| `no new run can start: run ... may have left processes behind`     | OMPS could not confirm that a run's processes stopped.                                  | Follow [Blocked after a failed cleanup](#blocked-after-a-failed-cleanup).       |
-| `unknown run: <run-id>`                                            | The id is wrong, or the run belongs to another session or an earlier load.              | Use an id from `/omps`. For an older run, read its run folder.                  |
-| `child is not ready: tool "<name>" is not registered`              | The name is wrong or the MCP server is missing. Pi 1.0 MCP names use `_` for `-`.       | Fix the name (`_` for `-`) and the server. See [Set up agents](SETUP.md#tools). |
-| `tool "mcp" does not exist; the obsolete MCP proxy was removed...` | The mapping lists the old `mcp` tool.                                                   | Use native names such as `mcp__<server>__<tool>`.                               |
-| `child is not ready: model ... is not in the model registry`       | The agent process does not know the model.                                              | Check the model name. For a custom provider, list its extension in the mapping. |
-| `child is not ready: model ... has no configured authentication`   | No credentials for that provider.                                                       | Set up credentials for that provider in Pi.                                     |
-| `child is not ready: no model is selected`                         | Pi has no model and the mapping names none.                                             | Select a model in Pi, or set `model` in the mapping.                            |
-| `child was not ready within 32000 ms`                              | Start-up took too long, for example a slow MCP server.                                  | Read `stderr.log`. Try again.                                                   |
-| `permission violation: <tool> is not approved`                     | The agent tried a tool that is not in its list.                                         | Add the tool to the mapping if you trust it, or change the persona or task.     |
-| `provider error: ...` or `provider failed after retries: ...`      | The model provider refused or failed, for example no credentials or no account balance. | Check your provider account and network.                                        |
-| `the response was cut off (stop reason length)`                    | The answer was too long for the model.                                                  | Ask for a shorter answer, or split the task.                                    |
-| `run exceeded the total deadline of 1800000 ms`                    | The run took more than 30 minutes.                                                      | Split the task into smaller runs.                                               |
-| `result message not delivered: the owning session has ended`       | The session ended before the run finished.                                              | Read `output.md` in the run folder.                                             |
-| No fleet strip shows                                               | Your Pi client does not show widgets.                                                   | Use `/omps` or the status line.                                                 |
+| You see                                                            | Cause                                                                                                     | Fix                                                                             |
+| ------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| `/omps` is not a known command                                     | OMPS did not load.                                                                                        | See [Install](INSTALL.md).                                                      |
+| `No personas mapped.`                                              | The mapping file has no agents, or does not exist.                                                        | Map an agent. See [Set up agents](SETUP.md).                                    |
+| An `OMPS:` error about the mapping file                            | The mapping file has an error. New launches stay blocked.                                                 | Fix the field the error names. See [Set up agents](SETUP.md).                   |
+| `unknown agent "<name>"; mapped agents: ...`                       | The agent name is wrong.                                                                                  | Use a name from `/omps list`.                                                   |
+| `Usage: /omps list \| run <agent> <task> \| ...`                   | OMPS did not recognise the command, for example a run with no task.                                       | Check the command against the [table](#slash-commands).                         |
+| `task is required`                                                 | The tool call had no task.                                                                                | Add a task.                                                                     |
+| `the task cannot start with a slash, ...`                          | The task starts with `/`.                                                                                 | Reword the task.                                                                |
+| `cwd must be an absolute path: ...`                                | The tool's `cwd` is a relative path.                                                                      | Give the full path.                                                             |
+| `cwd does not exist or is not a directory: ...`                    | The folder is missing.                                                                                    | Check the path.                                                                 |
+| `session capacity reached ...`                                     | Configured direct-child slots are full.                                                                   | Wait, cancel an owned run, or change `limits.maxConcurrentRuns` in YAML.        |
+| `no new run can start: run ... may have left processes behind`     | OMPS could not confirm that a run's processes stopped.                                                    | Follow [Blocked after a failed cleanup](#blocked-after-a-failed-cleanup).       |
+| `unknown run: <run-id>`                                            | The id is wrong, or the run belongs to another session or an earlier load.                                | Use an id from `/omps`. For an older run, read its run folder.                  |
+| `child is not ready: tool "<name>" is not registered`              | The name is wrong or the MCP server is missing. Pi 1.0 MCP names use `_` for `-`.                         | Fix the name (`_` for `-`) and the server. See [Set up agents](SETUP.md#tools). |
+| `tool "mcp" does not exist; the obsolete MCP proxy was removed...` | The mapping lists the old `mcp` tool.                                                                     | Use native names such as `mcp__<server>__<tool>`.                               |
+| `child is not ready: model ... is not in the model registry`       | The agent process does not know the model.                                                                | Check the model name. For a custom provider, list its extension in the mapping. |
+| `child is not ready: model ... has no configured authentication`   | No credentials for that provider.                                                                         | Set up credentials for that provider in Pi.                                     |
+| `child is not ready: no model is selected`                         | Pi has no model and the mapping names none.                                                               | Select a model in Pi, or set `model` in the mapping.                            |
+| `child was not ready within 32000 ms`                              | Start-up took too long, for example a slow MCP server.                                                    | Read `stderr.log`. Try again.                                                   |
+| `permission violation: <tool> is not approved`                     | The agent tried a tool that is not in its list.                                                           | Add the tool to the mapping if you trust it, or change the persona or task.     |
+| `provider error: ...` or `provider failed after retries: ...`      | The model provider refused or failed, for example no credentials or no account balance.                   | Check your provider account and network.                                        |
+| `the response was cut off (stop reason length)`                    | The answer was too long for the model.                                                                    | Ask for a shorter answer, or split the task.                                    |
+| `run exceeded the total deadline of 1800000 ms`                    | The run took more than 30 minutes.                                                                        | Split the task into smaller runs.                                               |
+| `result message not delivered: the owning session has ended`       | The session ended before the run finished.                                                                | Read `output.md` in the run folder.                                             |
+| No fleet strip shows                                               | `ui.fleetView` is `off`, the last run ended over 10 seconds ago, or your Pi client does not show widgets. | Set `ui.fleetView` in `/omps-settings`, or use `/omps` and the status line.     |
 
 Slash command errors start with `OMPS:`. Tool errors go to Pi's model without that prefix.
 

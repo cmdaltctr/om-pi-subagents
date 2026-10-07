@@ -62,11 +62,11 @@
 		{
 			"id": 6,
 			"prompt": "OMPS is running five agents. Show me their tasks without filling the editor, then inspect a grandchild while preserving my draft.",
-			"expected_output": "Keep the below-editor fleet collapsed to one row by default. Use Alt+O or /omps fleet to scroll direct agents; open the descendant modal with Alt+I or /omps inspect. Closing restores the editor draft without stopping work.",
+			"expected_output": "The below-editor fleet shows the agent tree by default. Press Down in an empty prompt to select a direct agent, then Enter to inspect it, or use /omps inspect to open the descendant modal. Closing restores the editor draft without stopping work.",
 			"files": [],
 			"expectations": [
-				"Keep five active roots to one default content row",
-				"Use the independent fleet shortcut or command, not Ctrl+O",
+				"Show five active roots in the default expanded tree within its row budget",
+				"Use empty-prompt arrows or /omps commands, not Ctrl+O",
 				"Scroll roots and inspect retained descendants by run id",
 				"Leave active runs and the editor draft unchanged"
 			]

@@ -75,7 +75,7 @@ Existing YAML with omitted `limits` keeps one direct child and maximum depth one
 4. Run `/omps` to see current-session status.
 
 Each agent must declare a supported `thinking` value. Add it to older mappings before launching.
-The `model` field stays optional. The fleet strip shows active runs; inspection shows live tools and saved results.
+The `model` field stays optional. The fleet strip shows the agent tree while runs are active; press Down in an empty prompt to select an agent. Inspection shows live tools and saved results.
 To run an agent, see [usage](USAGE.md).
 
 ## Update, pin or choose a version

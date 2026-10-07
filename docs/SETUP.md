@@ -272,24 +272,48 @@ Put blocking issues first. Keep the whole answer under 400 words.
 
 ### Top-level keys
 
-| Key       | Required | Value                                                              |
-| --------- | -------- | ------------------------------------------------------------------ |
-| `version` | yes      | The number `1`. The text `'1'` and other numbers are rejected.     |
-| `agents`  | yes      | A mapping of agent names to settings. Use `agents: {}` for none.   |
-| `limits`  | no       | `maxConcurrentRuns` and `maxDepth`. Omitted fields default to one. |
-| `ui`      | no       | `maxVisibleAgents`, `toggleKey` and `inspectKey`. See below.       |
+| Key       | Required | Value                                                                     |
+| --------- | -------- | ------------------------------------------------------------------------- |
+| `version` | yes      | The number `1`. The text `'1'` and other numbers are rejected.            |
+| `agents`  | yes      | A mapping of agent names to settings. Use `agents: {}` for none.          |
+| `limits`  | no       | `maxConcurrentRuns` and `maxDepth`. Omitted fields default to one.        |
+| `ui`      | no       | `maxVisibleAgents`, `fleetView`, `toggleKey` and `inspectKey`. See below. |
 
 Only `version`, `agents`, `limits` and `ui` are allowed at the top level.
 `maxConcurrentRuns` accepts safe integers of at least one; `maxDepth` accepts safe integers of at least zero.
 See [configured limits and nesting](USAGE.md#configured-limits-and-nesting) for the table, depth examples and branch ceilings.
 
 `ui.maxVisibleAgents` accepts safe integers from one to 256 and defaults to five.
+`ui.fleetView` sets how the fleet first appears: `expanded` (default) shows the agent tree, `collapsed` shows one
+summary row and `off` hides the strip. `/omps fleet` and a bound toggle key change the view for the current session only.
 `ui.toggleKey` and `ui.inspectKey` accept lowercase Pi key specifications, such as `alt+o`
-or `ctrl+alt+p`, or `off` to disable the shortcut. The defaults are `alt+o` and `alt+i`.
+or `ctrl+alt+p`, or `off` to disable the shortcut. Both default to `off`. Empty-prompt arrows, `/omps fleet` and
+`/omps inspect` give full access without a shortcut.
 The two keys must differ. Tab and Ctrl+I are refused because legacy terminals send one byte
 for both. A key bound to an effective built-in action is refused with guidance when the
-session starts. Edit these fields with `/omps-settings`, or by hand; see
+session starts. The check ignores modifier order, so `ctrl+shift+o` is refused because Pi 1.0 binds
+`shift+ctrl+o` to the session-tree filter. Edit these fields with `/omps-settings`, or by hand; see
 [operator settings](USAGE.md#operator-settings).
+
+#### Restore the Alt keys
+
+OMPS 0.5 and earlier bound `alt+o` and `alt+i` by default. To keep them, add these lines:
+
+```yaml
+ui:
+  toggleKey: alt+o
+  inspectKey: alt+i
+```
+
+On macOS, Option+O types `ø` unless the terminal sends Option as Alt. Change this setting first:
+
+| Terminal     | Setting                                                       |
+| ------------ | ------------------------------------------------------------- |
+| Terminal.app | Settings > Profiles > Keyboard > Use Option as Meta key       |
+| iTerm2       | Settings > Profiles > Keys > Left Option key > Esc+           |
+| Ghostty      | Add `macos-option-as-alt = true` to the Ghostty configuration |
+
+Then run `/reload` in Pi.
 
 ### Agent names
 
@@ -516,9 +540,10 @@ OMPS reports the first problem it finds. Fix it, then run `/omps list` again.
 | `version: unsupported ...; expected 1`                                   | `version` is not the number 1                                    | Write `version: 1` without quotes.                                                                       |
 | `agents: required mapping (use {} for no agents)`                        | `agents` is missing or is not a mapping                          | Add `agents:` with agents under it, or `agents: {}`.                                                     |
 | `<key>: unknown field`                                                   | A top-level key other than `version`, `agents`, `limits` or `ui` | Remove the key or correct its spelling.                                                                  |
-| `ui.<field>: unknown field`                                              | A key under `ui` other than the three supported fields           | Use `maxVisibleAgents`, `toggleKey` or `inspectKey`.                                                     |
+| `ui.<field>: unknown field`                                              | A key under `ui` other than the four supported fields            | Use `maxVisibleAgents`, `fleetView`, `toggleKey` or `inspectKey`.                                        |
 | `ui.maxVisibleAgents: must be a safe integer from 1 to 256`              | The value is zero, too large, fractional or not a number         | Write a whole number from 1 to 256.                                                                      |
 | `ui.toggleKey: must be a ... Pi key specification ... or "off"`          | A misspelt or uppercase key, for example `Alt+O`                 | Write the key in lowercase, such as `alt+o`, or `off`.                                                   |
+| `ui.fleetView: must be "expanded", "collapsed" or "off"`                 | Another word, or a capital letter                                | Write `expanded`, `collapsed` or `off`.                                                                  |
 | `ui.<key>: ... unsafe ... same as Tab`                                   | `tab` or `ctrl+i`                                                | Choose another key; legacy terminals send one byte for both.                                             |
 | `ui.inspectKey: duplicate of ui.toggleKey`                               | Both shortcuts use the same key                                  | Give each shortcut its own key, or set one to `off`.                                                     |
 | `agents.<name>.<field>: unknown field`                                   | A misspelt or unsupported agent field, such as `toolz`           | Use only the fields in [Agent fields](#agent-fields).                                                    |

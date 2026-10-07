@@ -55,13 +55,14 @@ Ask the operator to run `/omps-settings` when a setting needs changing.
 `/subagents-settings` is an alias. Native dialogs work in interactive Pi and supported RPC clients.
 The command is outside the model-callable tool. It requires UI dialogs before reading files.
 
-| Setting                             | Valid values                             | Storage                             |
-| ----------------------------------- | ---------------------------------------- | ----------------------------------- |
-| Maximum nesting depth               | Safe integer of at least 0; root depth 0 | Registry `limits.maxDepth`          |
-| Parallel direct children per parent | Safe integer of at least 1               | Registry `limits.maxConcurrentRuns` |
-| Visible agents                      | Safe integer from 1 to 256; default 5    | Registry `ui.maxVisibleAgents`      |
-| Fleet list / inspection shortcut    | Pi key specification or `off`            | Registry `ui.toggleKey/inspectKey`  |
-| Agent capabilities                  | Select agent, then Memory or Todo        | That agent's existing YAML lists    |
+| Setting                             | Valid values                                 | Storage                             |
+| ----------------------------------- | -------------------------------------------- | ----------------------------------- |
+| Maximum nesting depth               | Safe integer of at least 0; root depth 0     | Registry `limits.maxDepth`          |
+| Parallel direct children per parent | Safe integer of at least 1                   | Registry `limits.maxConcurrentRuns` |
+| Visible agents                      | Safe integer from 1 to 256; default 5        | Registry `ui.maxVisibleAgents`      |
+| Fleet view                          | `expanded`, `collapsed` or `off`             | Registry `ui.fleetView`             |
+| Fleet list / inspection shortcut    | Pi key specification or `off`; default `off` | Registry `ui.toggleKey/inspectKey`  |
+| Agent capabilities                  | Select agent, then Memory or Todo            | That agent's existing YAML lists    |
 
 The menu shows the resolved registry destination, including `OMPS_REGISTRY` overrides.
 YAML owns limits and UI fields. A valid legacy visible-row value remains read-only fallback
@@ -80,10 +81,10 @@ Depth zero disables new launches. Explain that per-parent branching can multiply
 
 ## Navigate the fleet and inspect saved evidence
 
-The below-editor fleet starts collapsed to one content row regardless of active-run count.
-Alt+O expands a bounded list of direct agents; Alt+I opens the descendant modal.
-Use `/omps fleet` or `/omps inspect` when shortcuts are unavailable. The defaults can be changed or set to `off`.
-With an empty editor, arrows select and scroll every active root, Enter inspects, and Escape collapses.
+The below-editor fleet shows the agent tree by default while runs are active (`ui.fleetView: expanded`).
+Set `ui.fleetView` to `collapsed` for one summary row, or `off` to hide it. `/omps fleet` switches the view for the session.
+Press Down in an empty prompt to select an agent. Up and Down move, Enter inspects and Escape returns to the prompt.
+Outside that selection, Up and Escape keep their Pi actions. The view shortcuts default to `off`; use `/omps inspect` or set keys.
 The default expansion shows at most five root rows, a summary and one navigation row.
 Incomplete descendant observations stay labelled. A hidden row is still reachable by scrolling.
 

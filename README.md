@@ -9,7 +9,7 @@ one YAML file and plain Markdown files. OMPS ships no agents of its own.
 - The parent gets the `omps` tool, `/omps` commands and an operator-only `/omps-settings` menu.
 - Each run is one child Pi process in the background.
 - YAML limits set each parent's direct-child capacity and maximum nesting depth. Both default to one.
-- YAML `ui` settings set visible rows, default 5, and the Alt+O fleet and Alt+I inspection shortcuts.
+- YAML `ui` settings set visible rows (default 5), the fleet view (default `expanded`) and optional view shortcuts.
 - The result arrives as a follow-up message when the child finishes.
 
 OMPS does not use `pi-subagents`. It does not import it, copy it, or need it.
@@ -115,8 +115,9 @@ then confirm the shown value and save destination:
 | Maximum nesting depth               | Safe integers of at least 0; root depth 0                       | `limits.maxDepth` in the registry YAML  |
 | Parallel direct children per parent | Safe integers of at least 1                                     | `limits.maxConcurrentRuns` in that YAML |
 | Visible agents                      | Safe integers from 1 to 256; default 5                          | `ui.maxVisibleAgents` in that YAML      |
-| Fleet list shortcut                 | A Pi key specification such as `alt+o`, or `off`; default Alt+O | `ui.toggleKey` in that YAML             |
-| Inspection shortcut                 | A Pi key specification such as `alt+i`, or `off`; default Alt+I | `ui.inspectKey` in that YAML            |
+| Fleet view                          | `expanded`, `collapsed` or `off`; default `expanded`            | `ui.fleetView` in that YAML             |
+| Fleet list shortcut                 | A Pi key specification such as `alt+o`, or `off`; default `off` | `ui.toggleKey` in that YAML             |
+| Inspection shortcut                 | A Pi key specification such as `alt+i`, or `off`; default `off` | `ui.inspectKey` in that YAML            |
 
 `OMPS_REGISTRY` selects the registry when set. The menu shows its resolved path.
 Execution limits and UI settings stay in that one YAML file. OMPS leaves todo preferences
@@ -155,18 +156,29 @@ what they started with. See [optional child capabilities](docs/USAGE.md#optional
 
 ### Compact fleet and inspection
 
-One fleet strip below the editor reports every active direct run. It starts collapsed to a single
-content row; Alt+O or `/omps fleet` expands it into a bounded root list with task labels, states, elapsed times and
-tool names. The default budget is five root rows, so expansion uses at most seven content rows and
-never more than one third of a small terminal:
+One fleet strip below the editor shows every active direct run. By default it shows the agent tree
+with no key press: task labels, states, elapsed times and tool names. The default budget is five root
+rows, so the tree uses at most seven content rows and never more than one third of a small terminal:
 
 ```text
-Agents: 5 active | 3 observed descendants | alt+o list | alt+i inspect
+Agents: 2 active | 0 observed descendants
+  Map the API running 4s read
+  Review the tests running 2s
+↓ select
 ```
 
-With the strip expanded and the editor empty, arrows select a root, Enter inspects it and Escape
-collapses without stopping work. Every active root stays reachable; hidden runs continue normally.
-When all work ends, the strip keeps one compact summary of the latest finished root.
+Navigate from an empty prompt:
+
+1. Press Down to select the first agent.
+2. Press Up or Down to move. Press Enter to inspect the selected agent.
+3. Press Escape to return to the prompt. The runs continue.
+
+Outside the list, Up and Escape keep their normal Pi actions. Every active root stays reachable;
+hidden runs continue normally. When all work ends, the strip shows a summary of the latest finished
+root for 10 seconds and then clears. `/omps inspect` still opens those runs.
+
+Set `ui.fleetView` to `collapsed` for one summary row, or to `off` to hide the strip. `/omps fleet`
+switches between the tree and one row for the current session.
 
 Each launch leaves one compact acknowledgement row in the transcript. Pi's native expansion action,
 `app.tools.expand` with Ctrl+O by default, reveals the acknowledgement text only. It never creates a
@@ -275,10 +287,10 @@ Run `/omps` without arguments to see current-session status. Whitespace-only
 arguments also show status. A fresh session answers `No runs in this session.`
 Use `/omps status <run-id>` for one run, or `/omps cancel <run-id>` to stop it.
 
-The fleet strip appears below the editor. Collapsed, it is one content row with the active count
-and observed descendants. Alt+O expands it into at most `ui.maxVisibleAgents` root rows plus a
-summary and a navigation row. When all work ends, it retains one compact summary of the latest
-finished root. Cancellation sends no automatic result message.
+The fleet strip appears below the editor. By default it shows at most `ui.maxVisibleAgents` root
+rows plus a summary and a navigation row. With `ui.fleetView: collapsed`, it is one content row with
+the active count and observed descendants. When all work ends, it shows a summary of the latest
+finished root for 10 seconds and then clears. Cancellation sends no automatic result message.
 
 The strip excludes tool arguments, raw tool results, thinking, stderr and answer previews.
 Terminal controls are removed from displayed text. The full saved answer and
