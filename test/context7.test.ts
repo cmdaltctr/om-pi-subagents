@@ -1,5 +1,6 @@
 // A Context7-shaped research agent on native MCP, using the local MCP fixture.
-// Names follow `mcp__<server>__<tool>`, with hyphens as real Context7 tool names have.
+// Names follow `mcp__<server>__<tool>`. Pi 0.99 keeps hyphens and Pi 1.0 turns them into
+// underscores (TDR-006), so these tool names use underscores to mean the same on both.
 import { createHash } from "node:crypto";
 import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -11,13 +12,13 @@ import { childHarness } from "./fixtures/child.ts";
 const harness = childHarness();
 afterEach(() => harness.cleanup());
 
-const RESOLVE = "mcp__context7__resolve-library-id";
-const QUERY = "mcp__context7__query-docs";
-const DENIED = "mcp__context7__delete-library";
+const RESOLVE = "mcp__context7__resolve_library_id";
+const QUERY = "mcp__context7__query_docs";
+const DENIED = "mcp__context7__delete_library";
 const APPROVED = ["tool_search", RESOLVE, QUERY];
 
 const mcpServers = {
-	context7: { tools: ["resolve-library-id", "query-docs", "delete-library"] },
+	context7: { tools: ["resolve_library_id", "query_docs", "delete_library"] },
 	fixture: { tools: ["lookup", "delete", "peek"] },
 };
 
@@ -71,9 +72,9 @@ describe("Context7-shaped research agent", () => {
 			],
 		});
 
-		expect(outcome.mcpCalls).toEqual(["resolve-library-id", "query-docs"]);
-		expect(outcome.toolResults.join(" ")).toContain("ok:resolve-library-id");
-		expect(outcome.toolResults.join(" ")).toContain("ok:query-docs");
+		expect(outcome.mcpCalls).toEqual(["resolve_library_id", "query_docs"]);
+		expect(outcome.toolResults.join(" ")).toContain("ok:resolve_library_id");
+		expect(outcome.toolResults.join(" ")).toContain("ok:query_docs");
 		expect(outcome.violations.map((violation) => violation.tool)).toEqual([DENIED, "mcp__fixture__delete"]);
 		expect(await checksums(outcome.workspace.agentDir)).toEqual(before);
 		expect(Object.keys(before)).toEqual(PROTECTED);
