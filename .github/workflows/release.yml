@@ -4,8 +4,8 @@ name: Release
 #   1. You merge work to main with Conventional Commit messages (feat:, fix:, ...).
 #   2. Release Please opens or updates a release pull request. It bumps the version
 #      in package.json and writes CHANGELOG.md.
-#   3. You review and merge that pull request. Release Please tags the commit and
-#      creates a GitHub release.
+#   3. Release auto-merge checks the App's signed output after CI passes and merges
+#      it. Release Please tags the commit and creates a GitHub release.
 #   4. The publish job tests that exact commit, then STAGES the version on npm.
 #      Nothing is installable yet.
 #   5. The release note records the captured stage UUID. The human approves with 2FA:
@@ -72,9 +72,12 @@ jobs:
     timeout-minutes: 20
     # The environment is limited to the main branch. npm trusts it by name.
     environment: npm-publish
+    outputs:
+      staged: ${{ steps.stage.outputs.staged }}
     permissions:
       contents: write # add the approval note to the GitHub release
       id-token: write # npm trusted publishing (OIDC)
+      pull-requests: write # mention the maintainer on the release pull request
     env:
       # Host setup installs the pinned Pi CLI alongside its packages, as in CI.
       OMPS_PI_BIN: ${{ github.workspace }}/.pi-host/node_modules/.bin/pi
@@ -131,6 +134,7 @@ jobs:
           set -euo pipefail
           output="$(mktemp "${RUNNER_TEMP}/npm-stage.XXXXXX")"
           npm stage publish --access public 2>&1 | tee "$output"
+          echo "staged=true" >> "$GITHUB_OUTPUT"
           uuid='[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}'
           stage_id="$(grep -Eo "staged with id[[:space:]]+$uuid" "$output" | grep -Eo "$uuid" | tail -1 || true)"
           printf 'stage_id=%s\n' "$stage_id" >> "$GITHUB_OUTPUT"
@@ -161,3 +165,66 @@ jobs:
             fi
           } >> notes.md
           gh release edit "${TAG_NAME}" --repo "${GITHUB_REPOSITORY}" --notes-file notes.md
+
+      - name: Tell the maintainer to approve
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_SHA: ${{ needs.release-please.outputs.sha }}
+          RELEASE_VERSION: ${{ needs.release-please.outputs.version }}
+          STAGE_ID: ${{ steps.stage.outputs.stage_id }}
+          OWNER: ${{ github.repository_owner }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          pr=$(gh api "repos/$GITHUB_REPOSITORY/commits/$RELEASE_SHA/pulls" --jq '.[0].number // empty')
+          if [ -z "$pr" ]; then
+            echo "No release pull request found; the GitHub release note has the approval steps."
+            exit 0
+          fi
+          {
+            echo "@$OWNER \`om-pi-subagents@$RELEASE_VERSION\` passed the full gate and is staged on npm."
+            echo
+            echo "Approve it with 2FA from the repository: \`bun run release:approve\` (in Pi: \`! bun run release:approve\`)."
+            echo "Stage ID: \`${STAGE_ID:-not found; run npm stage list om-pi-subagents}\`"
+          } > comment.md
+          gh pr comment "$pr" --repo "$GITHUB_REPOSITORY" --body-file comment.md
+
+  report-failure:
+    name: Report release failure
+    needs: [release-please, publish]
+    if: >-
+      always() &&
+      needs.release-please.outputs.release_created == 'true' &&
+      needs.publish.outputs.staged != 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Mark the GitHub release and tell the maintainer
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG_NAME: ${{ needs.release-please.outputs.tag_name }}
+          RELEASE_SHA: ${{ needs.release-please.outputs.sha }}
+          OWNER: ${{ github.repository_owner }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release view "$TAG_NAME" --repo "$GITHUB_REPOSITORY" --json body --jq .body > notes.md
+          {
+            echo
+            echo "---"
+            echo
+            echo "**npm:** This version was not published to npm. The release run failed before staging: $RUN_URL"
+          } >> notes.md
+          gh release edit "$TAG_NAME" --repo "$GITHUB_REPOSITORY" --notes-file notes.md
+          pr=$(gh api "repos/$GITHUB_REPOSITORY/commits/$RELEASE_SHA/pulls" --jq '.[0].number // empty')
+          [ -n "$pr" ] || exit 0
+          {
+            echo "@$OWNER The Release run for \`$TAG_NAME\` failed before npm staged the version."
+            echo "Read the failed job: $RUN_URL"
+            echo "Fix the failed step, then rerun the Release workflow."
+          } > comment.md
+          gh pr comment "$pr" --repo "$GITHUB_REPOSITORY" --body-file comment.md

@@ -21,8 +21,9 @@ describe("executable release workflow", () => {
 		const f = fixture();
 		expect(f.runStage().status).toBe(0);
 		expect(f.stage.id).toBe("stage");
+		expect(f.outputs()).toContain("staged=true\n");
 		expect(f.outputs()).toContain(`stage_id=${STAGE}`);
-		const id = f.outputs().trim().split("=")[1];
+		const id = /^stage_id=(.*)$/m.exec(f.outputs())![1];
 		expect(f.note.env?.STAGE_ID).toBe("${{ steps.stage.outputs.stage_id }}");
 		expect(f.runNote(id).status).toBe(0);
 		expect(f.body()).toContain(`npm stage approve ${STAGE}`);
@@ -38,6 +39,7 @@ describe("executable release workflow", () => {
 	it("retains manual list and explicit-ID guidance when npm reports no UUID", () => {
 		const f = fixture("Staged, but output format changed\n");
 		expect(f.runStage().status).toBe(0);
+		expect(f.outputs()).toContain("staged=true\n");
 		expect(f.outputs()).toContain("stage_id=\n");
 		expect(f.runNote("").status).toBe(0);
 		expect(f.body()).toContain("npm stage list om-pi-subagents");

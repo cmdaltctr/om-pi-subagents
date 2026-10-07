@@ -16,6 +16,7 @@ This directory records significant architectural decisions made during developme
 | [008](./008-use-the-omps-runtime-namespace.md)                               | Use the OMPS runtime namespace                                | 2026-10-07 | Accepted (partly superseded by 010) |
 | [009](./009-port-the-tintin-agent-tree-and-show-it-by-default.md)            | Port the tintin agent tree and show it by default             | 2026-10-07 | Accepted                            |
 | [010](./010-keep-operator-files-in-the-omps-folder.md)                       | Keep operator files in the OMPS folder                        | 2026-10-07 | Accepted                            |
+| [011](./011-adopt-guarded-app-merges-for-release-pull-requests.md)           | Adopt guarded App merges for release pull requests            | 2026-10-07 | Accepted                            |
 
 ## Convention
 
