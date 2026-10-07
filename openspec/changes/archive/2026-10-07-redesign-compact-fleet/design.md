@@ -248,4 +248,8 @@ The proposed implementation must prove:
 - UI failures, stale callbacks, previews and memory failures cannot manufacture a completed run.
 - Public guides and ADR-007/index match the implementation, and a packed installation discovers the updated skill with working guide links and unchanged child permission boundaries.
 
+### Accepted cross-platform coverage gap
+
+The macOS full suite passed 1,031 tests with OMMS 4.8.0 available; interactive coverage used Pi 0.99.1 and 1.0.4. [Linux CI on committed HEAD `05dbb48`](https://github.com/cmdaltctr/om-pi-subagents/actions/runs/37581688870) passed 990 tests and skipped 41: 28 require the optional Pi 1.0.4 host, and 13 require OMMS, which was absent from that runner. The pinned Pi host and available Linux suites passed. Record these skip reasons and mutation evidence locally. Accept Linux OMMS integration as unverified for this change; a future Linux run with real OMMS is required before claiming Linux memory compatibility. A later correction to the OMMS child maintenance flag names passed the macOS suite, but the Linux run predates that correction. The corrected revision has no Linux result; the operator chose macOS-only final checks.
+
 Use the existing disposable Pi, fake-model, todo and interactive-viewer fixtures. Add failing tests for changed safeguards and prove them by deliberate breaks in a scratch copy. Run focused tests first. Full CI needs explicit permission because it runs the entire suite; clean-clone CI additionally needs a requested commit. Do not claim either gate passed while it remains unrun.

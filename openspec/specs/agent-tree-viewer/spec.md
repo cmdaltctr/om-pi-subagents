@@ -8,155 +8,151 @@ Let operators expand an OMPSS run tree and inspect an agent's work from the main
 
 ### Requirement: Render a current-session hierarchy
 
-The interactive transcript SHALL provide live tree cards for current-session direct runs, with observed descendants indented beneath their immediate parents. Each node SHALL show its agent, run identity and current state. Both tool-launched and command-launched runs MUST be represented. The existing compact widget and status indicator SHALL retain their specified behaviour.
+The system SHALL represent tool-launched and command-launched runs in one current-session fleet and a retained descendant modal. Each modal node SHALL show its agent, run identity and authoritative or observed state beneath its immediate parent. Per-launch transcript entries SHALL remain compact acknowledgements rather than separate live trees. Historical tree entries MUST retain bounded rendering without recreating active work. The status count SHALL remain complete for direct active runs.
 
 #### Scenario: Parallel roots and nested children coexist
 
 - **WHEN** two direct runs are active and one has a grandchild
-- **THEN** each direct run has a separate tree root
-- **AND** the grandchild appears beneath the correct parent in the expanded view
+- **THEN** both roots appear in the session modal
+- **AND** the grandchild appears beneath its actual immediate parent
 
 #### Scenario: A run starts through the slash command
 
 - **WHEN** an operator starts a run with `/ompss run`
-- **THEN** it receives the same tree presentation as a tool-launched run
+- **THEN** it receives a compact transcript acknowledgement and the same fleet/modal representation as a tool launch
 - **AND** no synthetic user prompt or model-visible progress message is needed
 
 #### Scenario: A short run completes before its card is drawn
 
-- **WHEN** a run ends before initial UI rendering
-- **THEN** its card shows the retained terminal state without recreating active work
+- **WHEN** a run ends before its first UI render
+- **THEN** retained evidence shows its terminal state in inspection without recreating active work
+
+#### Scenario: An older session contains tree entries
+
+- **WHEN** a historical `ompss-tree` entry is rendered
+- **THEN** it stays bounded and labels unavailable evidence
+- **AND** it creates no live tree, process or model request
 
 ### Requirement: Honour the host expansion action
 
-Tree cards SHALL use the host's tool-output expansion action, whose default shortcut is Ctrl+O. The collapsed view SHALL remain compact; expansion SHALL reveal observed child branches and bounded activity. Shortcut hints MUST follow configured bindings. OMPSS MUST NOT replace the host action or change unrelated tool expansion behaviour.
+OMPSS SHALL preserve the host's tool-output expansion action, including Ctrl+O and configured replacements. That action SHALL keep its normal effect on transcript tool output without controlling the session fleet or modal. OMPSS MUST NOT replace the host action or silently edit host keybindings. Compact launch acknowledgements MUST NOT become live per-run trees through host expansion.
 
 #### Scenario: The operator presses Ctrl+O
 
-- **WHEN** the default tool expansion shortcut is pressed with a tree card present
-- **THEN** the card changes between collapsed and expanded views
-- **AND** observed descendants are visible in the expanded tree
+- **WHEN** the default host expansion shortcut is pressed
+- **THEN** Pi performs its normal tool-output expansion
+- **AND** the OMPSS fleet keeps its own expansion state
 
 #### Scenario: The expansion key is remapped
 
-- **WHEN** the operator assigns another key to tool-output expansion
-- **THEN** that key controls the tree's expansion
-- **AND** its hint shows the active binding
+- **WHEN** the operator changes the host expansion binding
+- **THEN** that key retains its host-defined behaviour
+- **AND** OMPSS does not rewrite the binding
 
 #### Scenario: Other tool output shares the transcript
 
-- **WHEN** OMPSS cards coexist with unrelated tool calls
-- **THEN** the host expansion action keeps its existing behaviour for those calls
+- **WHEN** OMPSS acknowledgements coexist with unrelated tool calls
+- **THEN** host expansion keeps its existing effect on those calls
 
 ### Requirement: Inspect agents without leaving the main session
 
-An interactive detail viewer SHALL open for an owned root or validated observed descendant. Clicking an agent row in fullscreen mode SHALL open its details. Keyboard access SHALL work in fullscreen and regular modes, with arrow-key selection, Enter to inspect and Escape to close. Opening or closing the viewer MUST NOT pause, cancel or restart runs.
+One read-only modal SHALL inspect owned roots and validated observed descendants. Keyboard navigation SHALL work in fullscreen and regular modes; fullscreen row clicks SHALL select details. Branches SHALL fold/unfold without discarding retained nodes. Enter SHALL open details and Escape SHALL return or close. Opening, navigating, resizing or closing MUST NOT pause, cancel or restart runs. The editor draft and prior fleet view state SHALL survive closure.
 
 #### Scenario: A fullscreen row is clicked
 
-- **WHEN** the operator clicks an observed grandchild in an expanded tree
-- **THEN** a modal shows that grandchild's details over the main conversation
-- **AND** the parent and its other children continue running
+- **WHEN** the operator clicks an observed grandchild in the modal
+- **THEN** its details appear with the correct lineage
+- **AND** its parent and siblings continue running
 
 #### Scenario: Keyboard navigation is used
 
-- **WHEN** the operator opens `/ompss inspect` in either interactive mode
-- **THEN** arrow keys select an agent and Enter opens its details
-- **AND** Escape returns to the main session without cancelling work
+- **WHEN** the operator opens `/ompss inspect` in either terminal mode
+- **THEN** arrows select nodes, branch keys fold/unfold, and Enter opens selected details
+- **AND** Escape returns to Pi without cancelling work
 
 #### Scenario: The terminal uses regular mode
 
-- **WHEN** the viewer is used without application-owned mouse input
-- **THEN** keyboard inspection remains available
-- **AND** the UI does not promise a working mouse action
+- **WHEN** application-owned mouse input is unavailable
+- **THEN** all retained descendants remain keyboard-accessible
+- **AND** the modal makes no working-click promise
+
+#### Scenario: A selected child finishes
+
+- **WHEN** the selected child becomes terminal while the modal is open
+- **THEN** its status and available saved output update
+- **AND** the modal remains open
+
+#### Scenario: The terminal becomes narrow
+
+- **WHEN** a resize makes side-by-side panes unusable
+- **THEN** tree and details use a sequential layout
+- **AND** selection remains attached to the same run identity
+
+#### Scenario: A draft exists before inspection
+
+- **WHEN** the operator closes the modal after typing a draft in Pi's editor
+- **THEN** the draft and previous fleet expansion state are restored unchanged
 
 ### Requirement: Show selected details from saved evidence
 
-Details SHALL show the selected run's task, state, model when known, active tool names and available saved output. Missing information MUST be labelled unavailable. Failed output MUST be labelled partial. Reads MUST be bounded and limited to validated files of an owned or observed run. Selecting another node or ending the session MUST invalidate pending reads.
+Details SHALL show the submitted task, state, known model, elapsed time, active tool names, bounded provisional assistant preview and available saved output. Missing information MUST be labelled unavailable; failed or cancelled output MUST be partial. Saved reads MUST remain bounded and limited to validated files. Selection changes and session end MUST invalidate pending reads. A live preview MUST NOT be presented as a saved final answer or evidence of completion.
 
 #### Scenario: A completed descendant is inspected
 
-- **WHEN** its final output exists
-- **THEN** the viewer shows that run's saved output and correct lineage
+- **WHEN** its saved final output exists
+- **THEN** the modal shows that output and correct lineage
 - **AND** the operator can scroll the bounded detail view
 
 #### Scenario: A run is still active or its output cannot be read
 
-- **WHEN** final output does not exist or a saved file is unavailable
-- **THEN** the viewer shows the known state and labels output unavailable
-- **AND** it does not invent or borrow a sibling's answer
+- **WHEN** final output is absent or unreadable
+- **THEN** details show known live activity and any provisional assistant preview
+- **AND** saved output remains labelled unavailable
+- **AND** no sibling answer is substituted
 
 #### Scenario: Output arrives after selection changes
 
-- **WHEN** a delayed read finishes after the operator selects another run
-- **THEN** it does not replace the newly selected run's details
+- **WHEN** a delayed read finishes after another run is selected
+- **THEN** it cannot replace the new selection's details
 
 #### Scenario: The requested run or file path is untrusted
 
-- **WHEN** a supplied identity is foreign, invalid or resolves outside the allowed run directory
-- **THEN** inspection is rejected before reading the file
+- **WHEN** an identity is foreign or a selected file resolves outside the allowed run directory
+- **THEN** inspection rejects it before reading that file
+
+#### Scenario: A live preview is truncated
+
+- **WHEN** more than 4 KiB of visible assistant text is produced
+- **THEN** the retained preview stays within 4 KiB and identifies truncation
+- **AND** the saved final result remains unchanged
 
 ### Requirement: Configure visible agents without limiting their work
 
-`/subagents-settings` SHALL expose a persisted `maxVisibleAgents` display preference, with default four and valid safe integers from one to 256. The compact widget SHALL apply it to direct-run summaries; each expanded tree card SHALL apply it to node rows, including the card's root. Retained hidden agents MUST remain available through the scrollable inspector. Hidden counts SHALL be accurate and distinct from incomplete observations. Applying the preference MUST NOT discard observation state, change execution limits, cancel runs or affect result delivery.
+`/ompss-settings` SHALL expose registry `ui.maxVisibleAgents`, default five and safe integers from one to 256. It SHALL bound expanded fleet roots; the modal SHALL independently scroll all retained nodes within terminal space. Hidden counts MUST differ from incomplete observations. Applying the value MUST NOT discard evidence, change execution limits, cancel runs or affect delivery. The legacy command alias SHALL use the same settings.
 
 #### Scenario: The widget exceeds the visible-agent preference
 
 - **WHEN** six direct children are active and the saved visible-agent limit is two
-- **THEN** the widget shows two direct-run summaries and reports four additional active runs
-- **AND** its status count and run controls still include all six children
+- **THEN** expanded fleet content shows at most two root rows with accurate additional-row information
+- **AND** scrolling, status and run controls still reach all six roots
 
 #### Scenario: An expanded tree hides descendants
 
-- **WHEN** a tree card contains more retained nodes than its visible-agent limit
-- **THEN** it shows bounded rows with parents before their children and identifies the hidden count
-- **AND** hidden retained descendants remain selectable through `/ompss inspect`
+- **WHEN** a modal branch is folded or some rows are outside its viewport
+- **THEN** every retained descendant remains available through unfolding and scrolling
+- **AND** no descendant observation is discarded
 
 #### Scenario: The visible-agent preference changes during work
 
 - **WHEN** a valid display change is saved successfully
-- **THEN** the current widget and cards repaint from the retained observation state
-- **AND** active work and pending result delivery continue unchanged
+- **THEN** the current fleet repaints from retained evidence
+- **AND** work and result delivery continue unchanged
 
 #### Scenario: The observation safety bound is exceeded
 
-- **WHEN** some descendant observations cannot be retained within the fixed safety bound
-- **THEN** the viewer labels that missing evidence separately from retained hidden rows
-- **AND** increasing the visible-agent preference does not remove the safety bound
-
-### Requirement: Persist display preferences independently
-
-The visible-agent preference SHALL be saved in `<config-dir>/pi-subagents/config.json`, using absolute `XDG_CONFIG_HOME` when set and otherwise `~/.config`, following todo's preference pattern. Execution limits SHALL remain in registry YAML. Preference loading MUST be asynchronous and lazy; rendering MUST read only the cache. Successful local saves SHALL update the cache and repaint. Reopening settings SHALL refresh saved preferences from disk.
-
-#### Scenario: No display file exists
-
-- **WHEN** the viewer first needs display preferences and the file is absent
-- **THEN** it uses four visible agents
-- **AND** it does not create a file merely to render
-
-#### Scenario: A valid preference is saved and loaded again
-
-- **WHEN** the operator confirms a valid visible-agent value and later starts another session
-- **THEN** that session loads the saved value from the OMPSS display config
-- **AND** unrelated JSON keys and todo's separate preferences are preserved
-
-#### Scenario: Another session updates display preferences
-
-- **WHEN** the operator reopens settings after another session saved a display preference
-- **THEN** settings refreshes the displayed value from disk
-- **AND** later local rendering uses the refreshed preference
-
-#### Scenario: Display preferences are malformed or invalid
-
-- **WHEN** the display file is malformed or its visible-agent value is invalid
-- **THEN** rendering uses the default and reports a diagnostic
-- **AND** settings requires the file to be corrected before saving over it
-
-#### Scenario: Rendering requests display preferences
-
-- **WHEN** a widget or tree card renders
-- **THEN** it reads the cached preference without filesystem access
-- **AND** registration has performed no preference read or write
+- **WHEN** descendant observations cannot fit the fixed retention bound
+- **THEN** the modal labels missing evidence separately from retained hidden rows
+- **AND** a larger visible-agent preference does not remove the retention bound
 
 ### Requirement: Keep rendering bounded and safe
 
@@ -194,3 +190,99 @@ RPC inspection SHALL provide bounded plain text through supported output instead
 - **WHEN** real `om-pi-todo` and OMPSS load in either order
 - **THEN** both widgets and their task ownership remain independent
 - **AND** opening, expanding and closing the viewer leave todo preferences and linked checkboxes unchanged
+
+### Requirement: Provide independent fleet and inspection shortcuts
+
+The fleet toggle SHALL default to Alt+O and inspection to Alt+I. Both SHALL be configurable or disabled through YAML/settings. Unsafe built-in conflicts, duplicate keys and Ctrl+I's Tab alias MUST be rejected with guidance. Shortcuts SHALL act only in their live owning terminal session and MUST NOT consume keys owned by another dialog. Shortcut edits SHALL state that reload is required.
+
+#### Scenario: The fleet key is used
+
+- **WHEN** the default fleet key is pressed while the editor owns input
+- **THEN** the fleet changes between one-row and expanded views without changing run state
+
+#### Scenario: The inspection key is used
+
+- **WHEN** the default inspection key is pressed with retained work
+- **THEN** the current-session modal opens directly
+- **AND** it starts no model request or process
+
+#### Scenario: Tab or an occupied native key is configured
+
+- **WHEN** an operator chooses Ctrl+I, duplicate view keys or a key occupied by an effective built-in action
+- **THEN** settings explains the conflict and refuses the edit
+- **AND** existing input bindings remain unchanged
+
+#### Scenario: Another dialog owns input
+
+- **WHEN** a selector, settings dialog or unrelated overlay has focus
+- **THEN** fleet input handling leaves its navigation and submission keys untouched
+
+#### Scenario: Key release follows key press
+
+- **WHEN** the terminal reports both press and release for one tap
+- **THEN** a fleet action or selection movement happens once
+
+#### Scenario: Shortcuts are disabled
+
+- **WHEN** both OMPSS view keys are `off`
+- **THEN** `/ompss fleet` and `/ompss inspect` still provide view access
+
+### Requirement: Update public operator guidance
+
+`README.md` and the public setup, installation, usage and removal guides SHALL describe the implemented fleet/modal, supported shortcuts, YAML/settings authority, migration and optional per-agent capabilities. Their examples SHALL match real extension behaviour and preserve private operator data. These guide updates SHALL ship in the same change as the supported behaviour.
+
+#### Scenario: An operator follows the updated guides
+
+- **WHEN** the documented fleet, inspection, settings and optional-capability examples are exercised
+- **THEN** their commands and YAML produce the documented behaviour
+- **AND** unsupported steering, queueing or automatic parent task completion is not promised
+
+#### Scenario: Installation or removal is followed
+
+- **WHEN** the public install or uninstall procedure is checked against the package
+- **THEN** it correctly describes extension/skill discovery and operator-owned configuration
+- **AND** it requires no manual copy of the bundled skill
+
+### Requirement: Keep the fleet decision record current
+
+ADR-007 and `docs/adr/ADR_README.md` SHALL record the chosen fleet/modal, shortcut, YAML and sibling boundaries. ADR-007 SHALL remain Proposed until implementation verification passes, then become Accepted with an accurate index entry. Existing accepted ADR text MUST remain intact except permitted status/supersession metadata.
+
+#### Scenario: Implementation is still unverified
+
+- **WHEN** the design or implementation is being revised
+- **THEN** ADR-007 records the current proposed decisions and keeps Proposed status
+- **AND** the index links to that record
+
+#### Scenario: Verification is complete
+
+- **WHEN** implementation checks pass and verification findings are resolved
+- **THEN** ADR-007 describes the implemented choices and is marked Accepted
+- **AND** its index status agrees
+
+### Requirement: Ship the updated operational skill
+
+The package SHALL ship the revised `skills/om-pi-subagents/SKILL.md` through `files` and `pi.skills`. A normal installation with skills enabled SHALL discover `/skill:om-pi-subagents`. Instructions SHALL cover the fleet/modal, settings, default-off capabilities and ownership boundaries, with portable references inside the package. Skill loading MUST NOT grant tools or load ambient child resources.
+
+#### Scenario: The packed extension is installed
+
+- **WHEN** a disposable normal package installation enables its skill resources
+- **THEN** `/skill:om-pi-subagents` is available with the revised instructions
+- **AND** its relative public-guide links resolve within that installation
+
+#### Scenario: Skill command expansion is checked
+
+- **WHEN** the installed skill command is invoked using the fake-model fixture
+- **THEN** its revised fleet/settings guidance reaches the model
+- **AND** no manually copied skill is needed
+
+#### Scenario: A child maps only the skill
+
+- **WHEN** a child explicitly loads this skill without approval for ompss, memory or todo
+- **THEN** its instructions cannot enable those tools or bypass the guard
+- **AND** unrelated ambient skills remain excluded
+
+#### Scenario: Evaluation evidence is reported
+
+- **WHEN** the skill's updated evaluation fixtures are checked
+- **THEN** fleet and optional-capability cases cite real test evidence
+- **AND** unrun model-driven trials are labelled unverified rather than reported as measured accuracy

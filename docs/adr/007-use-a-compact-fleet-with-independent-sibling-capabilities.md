@@ -1,7 +1,7 @@
 # ADR-007: Use a compact fleet with independent sibling capabilities
 
 - **Date:** 2026-10-06
-- **Status:** Proposed
+- **Status:** Accepted
 - **Deciders:** Project maintainer
 
 ## Context
@@ -19,7 +19,7 @@ The reference's top-level fleet hides descendants and uses in-process sessions; 
 
 ## Decision
 
-Propose one below-editor fleet strip, collapsed to one content row by default.
+Use one below-editor fleet strip, collapsed to one content row by default.
 Expansion shows bounded direct-agent rows. A single read-only modal contains retained descendants and selected details.
 Keep compact transcript acknowledgements and move live hierarchy out of per-run cards.
 
@@ -57,7 +57,7 @@ Use OMMS's existing child-process maintenance opt-outs without changing parent c
 No runtime dependency on sibling internals is introduced.
 Real-package compatibility checks cover the small session-mode, tool, lifecycle and maintenance-flag contracts.
 
-If accepted after implementation, this decision replaces the presentation and display-storage choices in ADR-004 and ADR-006.
+This decision replaces the presentation and display-storage choices in ADR-004 and ADR-006.
 Their result-delivery, permission, observation and ownership constraints remain in force.
 
 ## Consequences
@@ -83,6 +83,7 @@ Their result-delivery, permission, observation and ownership constraints remain 
 - Per-parent capacity still rejects excess launches; queueing remains outside this change.
 - Observed descendants remain read-only to ancestors.
 - Automatic memory capture remains OMMS evidence rather than proof of verified subagent completion.
+- Linux OMMS integration remains unverified; macOS real-package tests passed and the Linux runner lacked optional OMMS.
 
 ## Alternatives Considered
 
@@ -97,9 +98,9 @@ Their result-delivery, permission, observation and ownership constraints remain 
 
 ## References
 
-- [Proposal](../../openspec/changes/redesign-compact-fleet/proposal.md)
-- [Design and evidence](../../openspec/changes/redesign-compact-fleet/design.md)
-- [Tasks](../../openspec/changes/redesign-compact-fleet/tasks.md)
+- [Proposal](../../openspec/changes/archive/2026-10-07-redesign-compact-fleet/proposal.md)
+- [Design and evidence](../../openspec/changes/archive/2026-10-07-redesign-compact-fleet/design.md)
+- [Tasks](../../openspec/changes/archive/2026-10-07-redesign-compact-fleet/tasks.md)
 - [ADR-005: Concurrency and nesting](005-configure-per-session-concurrency-and-nesting.md)
 - [ADR-006: Native agent trees](006-add-read-only-native-agent-trees.md)
 - [Reference extension](https://github.com/tintinweb/pi-subagents/tree/e955e29c51b7a6cce37e1108cd2d6c57a77e151c)
