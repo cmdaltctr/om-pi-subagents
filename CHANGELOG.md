@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.6.0](https://github.com/cmdaltctr/om-pi-subagents/compare/v0.5.0...v0.6.0) (2026-10-07)
+
+
+### ⚠ BREAKING CHANGES
+
+* The default registry is now <agent-dir>/omps/config.yaml. Move existing settings and personas using the migration guide, and update persona paths to ./personas/<name>.md. The fleet starts expanded, view shortcuts default to off, and operator /omps list output is compact.
+
+### Features
+
+* port the Tintin agent tree and move operator settings into omps ([ced13e8](https://github.com/cmdaltctr/om-pi-subagents/commit/ced13e86df02c6f4d2af04f7854239c08648a6ab))
+
 ## [0.5.0](https://github.com/cmdaltctr/om-pi-subagents/compare/v0.4.0...v0.5.0) (2026-10-07)
 
 
