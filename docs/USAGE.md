@@ -60,7 +60,7 @@ You can type a slash command. You can also ask Pi in plain words, for example "A
 
 ### Slash commands
 
-| Command                     | What it does                                                         | Example                                        |
+| Command                    | What it does                                                         | Example                                       |
 | -------------------------- | -------------------------------------------------------------------- | --------------------------------------------- |
 | `/omps list`               | Reads the mapping file again and lists agents and their tools.       | `/omps list`                                  |
 | `/omps run <agent> <task>` | Starts one background run in Pi's current working folder.            | `/omps run reader Summarise the README`       |
@@ -340,14 +340,14 @@ A provisional preview or a child's capture does not prove a completed run.
 
 ## Run states
 
-| State       | What it means                                                                                             | What to do                                                                                |
+| State       | What it means                                                                                            | What to do                                                                               |
 | ----------- | -------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
 | `starting`  | OMPS starts the agent process. It checks the guard, the tools, the model and the working folder first.   | Wait. Start-up has 30 seconds.                                                           |
-| `running`   | The agent accepted the task and works on it.                                                              | Wait, or cancel it.                                                                       |
+| `running`   | The agent accepted the task and works on it.                                                             | Wait, or cancel it.                                                                      |
 | `stopping`  | The run has an outcome. OMPS stops the agent process and everything it started.                          | Wait.                                                                                    |
 | `completed` | The answer is saved, the agent process exited cleanly and OMPS confirmed that all its processes stopped. | Read the result message or `output.md`.                                                  |
 | `failed`    | Something went wrong. Output that exists after an error does not make a run pass.                        | Run `/omps status <run-id>` and read the error. See [Troubleshooting](#troubleshooting). |
-| `cancelled` | You cancelled the run, or Pi quit, reloaded or changed session.                                           | Nothing. If the agent wrote any text, it is in `output.md`, labelled partial.             |
+| `cancelled` | You cancelled the run, or Pi quit, reloaded or changed session.                                          | Nothing. If the agent wrote any text, it is in `output.md`, labelled partial.            |
 
 ## Cancelling, quitting and reloading
 

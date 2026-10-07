@@ -438,20 +438,20 @@ production installs do not require it.
 > Other advisories still fail the audit. Run `bun audit` to see the accepted finding.
 > Remove the exception when a patched dependency becomes available.
 
-| Purpose                               | Command                |
+| Purpose                               | Command                   |
 | ------------------------------------- | ------------------------- |
-| Fetch pinned host packages and Pi CLI | `bun run setup:host`   |
+| Fetch pinned host packages and Pi CLI | `bun run setup:host`      |
 | Human approval of a staged release    | `bun run release:approve` |
-| Format files                          | `bun run format`       |
-| Check formatting                      | `bun run format:check` |
-| Lint with warnings denied             | `bun run lint`         |
-| Apply lint fixes for review           | `bun run lint:fix`     |
-| Check types                           | `bun run typecheck`    |
-| Run tests                             | `bun run test`         |
-| Check dependency vulnerabilities      | `bun run audit`        |
-| Format check, lint, types, then tests | `bun run ci`           |
-| Check a fresh clone of committed HEAD | `bun run ci:clean`     |
-| Install the Husky hooks               | `bun run prepare`      |
+| Format files                          | `bun run format`          |
+| Check formatting                      | `bun run format:check`    |
+| Lint with warnings denied             | `bun run lint`            |
+| Apply lint fixes for review           | `bun run lint:fix`        |
+| Check types                           | `bun run typecheck`       |
+| Run tests                             | `bun run test`            |
+| Check dependency vulnerabilities      | `bun run audit`           |
+| Format check, lint, types, then tests | `bun run ci`              |
+| Check a fresh clone of committed HEAD | `bun run ci:clean`        |
+| Install the Husky hooks               | `bun run prepare`         |
 
 `bun run ci:clean` needs a git commit. It installs from the lockfile with
 `HUSKY=0` in a temporary clone and runs `bun run ci`. Uncommitted changes are

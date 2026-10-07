@@ -48,11 +48,11 @@ Several names look alike. Each one is a different thing.
 
 | Name                                    | What it is                                                           | Who creates it         | How OMPS uses it                                                                                                              |
 | --------------------------------------- | -------------------------------------------------------------------- | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| `~/.pi/agent/om-pi-subagents.yaml`      | The mapping file. A file. It lists every agent.                      | You                     | Reads it to learn the agent names and their settings.                                                                           |
-| `~/.pi/agent/om-pi-subagents/`          | A folder for your files for this extension. It holds `personas/`.    | You, with `mkdir`       | Never reads the folder itself.                                                                                                  |
-| `~/.pi/agent/om-pi-subagents/personas/` | The persona folder. It holds your persona files.                     | You, with `mkdir`       | Never reads the folder itself. It reads only the files that `persona:` lines name.                                              |
+| `~/.pi/agent/om-pi-subagents.yaml`      | The mapping file. A file. It lists every agent.                      | You                    | Reads it to learn the agent names and their settings.                                                                         |
+| `~/.pi/agent/om-pi-subagents/`          | A folder for your files for this extension. It holds `personas/`.    | You, with `mkdir`      | Never reads the folder itself.                                                                                                |
+| `~/.pi/agent/om-pi-subagents/personas/` | The persona folder. It holds your persona files.                     | You, with `mkdir`      | Never reads the folder itself. It reads only the files that `persona:` lines name.                                            |
 | Persona                                 | One Markdown file with the instructions for one agent.               | You                    | Reads it on `/omps list` and `/omps run`. Saves a copy as `persona.md`. Gives the copy to the child Pi as system prompt text. |
-| `persona:` field                        | One line under an agent in the YAML. It holds the path to a persona. | You                     | Joins the path to the YAML's folder. Reads that one file.                                                                       |
+| `persona:` field                        | One line under an agent in the YAML. It holds the path to a persona. | You                    | Joins the path to the YAML's folder. Reads that one file.                                                                     |
 | `~/.pi/agent/omps/`                     | The run folder.                                                      | OMPS, on the first run | Writes each run's files here. See [USAGE.md](USAGE.md).                                                                       |
 
 The mapping file and the `om-pi-subagents/` folder sit side by side and have almost the same name.
@@ -81,7 +81,7 @@ The folder where you start Pi has no effect.
 
 Two environment variables change these locations:
 
-| Variable              | Effect                                                                                                             |
+| Variable              | Effect                                                                                                            |
 | --------------------- | ----------------------------------------------------------------------------------------------------------------- |
 | `OMPS_REGISTRY`       | Full path of the mapping file to use instead. Persona paths then resolve from that file's folder.                 |
 | `PI_CODING_AGENT_DIR` | Replaces `~/.pi/agent` as the agent directory. The default mapping file and the `omps/runs/` folder move with it. |
@@ -317,11 +317,11 @@ Any other field is rejected. The child loads nothing else from your Pi set-up: n
 
 ### If a field is missing
 
-| Missing field                   | What happens                                                                                         | What to do                                                   |
+| Missing field                   | What happens                                                                                       | What to do                                                   |
 | ------------------------------- | -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
-| `model` only                    | The child uses the parent's current model. It keeps its own `thinking` value.                        | Add `model: provider/id` if this agent needs a fixed model.  |
+| `model` only                    | The child uses the parent's current model. It keeps its own `thinking` value.                      | Add `model: provider/id` if this agent needs a fixed model.  |
 | `thinking` only                 | `/omps list` and `/omps run` reject the mapping. The child does not start, even if `model` is set. | Add a valid `thinking` level.                                |
-| Both `model` and `thinking`     | The missing `thinking` level blocks the mapping. No model is chosen and no child starts.             | Add `thinking`; leave `model` out to use the parent's model. |
+| Both `model` and `thinking`     | The missing `thinking` level blocks the mapping. No model is chosen and no child starts.           | Add `thinking`; leave `model` out to use the parent's model. |
 | `persona`                       | `/omps list` and `/omps run` report `agents.<name>.persona: required path`.                        | Add a path to a persona file.                                |
 | Persona file named by `persona` | `/omps list` and `/omps run` report `agents.<name>.persona: cannot read <path>`.                   | Create the file or correct its path.                         |
 
