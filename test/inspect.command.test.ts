@@ -2,8 +2,10 @@ import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-c
 import * as fs from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { stripVTControlCharacters } from "node:util";
 import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import { registerRuntime } from "../src/index.ts";
+import { syntheticTheme } from "./fixtures/inspector-synthetic.ts";
 
 vi.mock("node:fs/promises", async (importOriginal) => {
 	const original = await importOriginal<typeof import("node:fs/promises")>();
@@ -111,6 +113,28 @@ describe("operator inspect command", () => {
 		expect(fixture.ui.notify).toHaveBeenCalledWith(expect.stringMatching(/unknown|unowned/i), "error");
 		expect(fs.open).not.toHaveBeenCalled();
 		expect(fs.readFile).not.toHaveBeenCalled();
+	});
+	it.each([30, 120])("opens an owned run directly at %i columns without changing work", async (width) => {
+		const fixture = setup("tui");
+		await fixture.run("");
+		fixture.runtime()!.observations.updateRoot(root());
+		const done = vi.fn();
+		let shown = "";
+		fixture.ui.custom.mockImplementation(async (factory) => {
+			const component = factory({ terminal: { rows: 40 }, requestRender: vi.fn() }, syntheticTheme(), undefined, done);
+			for (let index = 0; index < 8; index++) await Promise.resolve();
+			shown = stripVTControlCharacters(component.render(width).join("\n"));
+			component.handleInput("\x1b");
+		});
+		await fixture.run("inspect owned");
+		// Command errors become notifications; keep render assertions outside that error boundary.
+		expect(shown.split("\n").find((line) => line.includes("Run: owned"))).toBe("Run: owned");
+		expect(shown).toContain("Saved output");
+		expect(done).toHaveBeenCalledOnce();
+		expect(fixture.ui.custom).toHaveBeenCalledOnce();
+		expect(fixture.runtime()!.observations.node("session", "owned", "owned")?.state).toBe("running");
+		for (const spy of Object.values(processes)) expect(spy).not.toHaveBeenCalled();
+		expect(fixture.pi.sendMessage).not.toHaveBeenCalled();
 	});
 	it("keeps inspect outside the model-callable action schema", () => {
 		const fixture = setup();

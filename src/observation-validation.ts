@@ -1,5 +1,5 @@
 import type { ChildLineage } from "./protocol.ts";
-import { plain } from "./plain.ts";
+import { plain, previewText } from "./plain.ts";
 import { isTerminal, type RunState } from "./runs.ts";
 
 export const OBSERVATION_LIMITS = Object.freeze({
@@ -44,8 +44,8 @@ const states: readonly string[] = ["starting", "running", "stopping", "completed
 function displayText(value: unknown, kind: "summary" | "preview"): { ok: true; value?: string } | { ok: false } {
 	if (value === undefined) return { ok: true };
 	if (typeof value !== "string") return { ok: false };
-	const sanitised = plain(value, value.length);
-	if (!sanitised) return { ok: false };
+	const sanitised = kind === "summary" ? plain(value, value.length) : previewText(value);
+	if (!sanitised.trim()) return { ok: false };
 	const within =
 		kind === "summary"
 			? sanitised.length <= OBSERVATION_LIMITS.summaryChars

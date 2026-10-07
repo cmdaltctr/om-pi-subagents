@@ -2,7 +2,7 @@ import {
 	ScrollView,
 	matchesKey,
 	truncateToWidth,
-	wrapTextWithAnsi,
+	type MarkdownTheme,
 	type Component,
 	type TuiMouseEvent,
 	type TuiMouseEventResult,
@@ -11,6 +11,8 @@ import { DetailSelection, type DetailReader, type RunDetails } from "./details.t
 import type { ObservationStore, ObservedNode, ObservedTree } from "./observation.ts";
 import { plain } from "./plain.ts";
 import { isTerminal } from "./runs.ts";
+import type { Theme } from "@earendil-works/pi-coding-agent";
+import { InspectorPresentation, inspectorElapsed } from "./inspector-presentation.ts";
 
 /** One visible tree row: a retained node plus its fold state. */
 interface ModalRow {
@@ -33,15 +35,13 @@ export interface InspectorOptions {
 	readonly close: () => void;
 	readonly live?: () => boolean;
 	readonly selectedRunId?: string;
+	readonly theme?: Theme;
+	readonly markdownTheme?: MarkdownTheme;
 }
-
-/** Below this width the modal shows the tree and details sequentially instead of side by side. */
-const SEQUENTIAL_WIDTH = 80;
-const TREE_PANE_MIN = 24;
 
 /**
  * Read-only session modal. One parent-first tree with foldable branches; Enter reads the selected
- * node's saved evidence. Navigation never starts a read, a process or a model request.
+ * node's saved evidence. Navigation starts no process or model request.
  */
 export class Inspector implements Component {
 	private rows = new Map<string, ModalRow>();
@@ -55,17 +55,23 @@ export class Inspector implements Component {
 	private loading = false;
 	private requested = false;
 	private disposed = false;
-	private renderedTreeRows = 0;
-	private lastRenderedWidth = 0;
+	private renderedPickerKeys: string[] = [];
 	private lastHeight = 0;
-	private readonly stop: () => void;
+	private bodyStart = 1;
+	private readonly direct: boolean;
+	private readonly stop: (() => void) | undefined;
 	private readonly scroll: ScrollView;
+	private readonly presentation: InspectorPresentation;
+	private elapsedTimer: ReturnType<typeof setInterval> | undefined;
 
 	constructor(private readonly options: InspectorOptions) {
+		this.direct = !!options.selectedRunId;
+		this.presentation = new InspectorPresentation(options.theme, options.markdownTheme);
 		this.scroll = new ScrollView(
-			{ render: (width) => this.detailLines(width), invalidate() {} },
-			{ scrollbar: "hidden", overscroll: "contain" },
+			{ render: (width) => this.detailLines(width), invalidate: () => this.presentation.invalidate() },
+			{ scrollbar: "hidden", overscroll: "contain", follow: "end" },
 		);
+		this.scroll.scrollTo(0, { disableFollow: true });
 		this.rebuild(options.selectedRunId);
 		this.stop = this.disposed
 			? () => {}
@@ -78,7 +84,25 @@ export class Inspector implements Component {
 						this.close();
 					}
 				});
-		if (options.selectedRunId && this.key) void this.load(this.key);
+		if (options.selectedRunId && this.key) this.open(this.key);
+		this.refreshElapsed();
+	}
+
+	private refreshElapsed(): void {
+		// Failed construction leaves no accessible instance to dispose, so subscribe before starting the timer.
+		if (!this.stop) return;
+		const node = this.key ? this.rows.get(this.key)?.node : undefined;
+		if (!this.live() || !node || isTerminal(node.state)) {
+			if (this.elapsedTimer) clearInterval(this.elapsedTimer);
+			this.elapsedTimer = undefined;
+			return;
+		}
+		if (this.elapsedTimer) return;
+		this.elapsedTimer = setInterval(() => {
+			if (!this.live()) return this.dispose();
+			this.redraw();
+		}, 1000);
+		this.elapsedTimer.unref?.();
 	}
 
 	private live(): boolean {
@@ -145,6 +169,7 @@ export class Inspector implements Component {
 		const current = this.visible[index]?.key;
 		if (current !== this.key) this.choose(current);
 		const state = current ? this.rows.get(current)?.node.state : undefined;
+		this.refreshElapsed();
 		if (current && state && state !== previousState && isTerminal(state) && this.requested && !this.loading)
 			void this.load(current);
 	}
@@ -163,9 +188,16 @@ export class Inspector implements Component {
 		this.error = undefined;
 		this.loading = false;
 		this.requested = false;
-		this.detailScreen = false;
-		this.scroll.scrollToStart();
+		this.scroll.scrollTo(0, { disableFollow: true });
+		this.presentation.invalidate();
+		this.refreshElapsed();
 		this.redraw();
+	}
+
+	private open(key: string): void {
+		this.choose(key);
+		this.detailScreen = true;
+		void this.load(key);
 	}
 
 	private async load(key: string): Promise<void> {
@@ -178,6 +210,7 @@ export class Inspector implements Component {
 		this.requested = true;
 		this.error = undefined;
 		this.redraw();
+		if (!this.live()) return;
 		try {
 			const details = await selection.select(row.root, row.node.runId);
 			if (!details || !this.live() || this.selection !== selection) return;
@@ -185,8 +218,7 @@ export class Inspector implements Component {
 			this.loading = false;
 			this.redraw();
 			const latest = this.rows.get(key)?.node;
-			if (!details.output && latest && latest.state !== details.node.state && isTerminal(latest.state))
-				void this.load(key);
+			if (latest && latest.state !== row.node.state && isTerminal(latest.state)) void this.load(key);
 		} catch (error) {
 			if (!this.live() || this.selection !== selection) return;
 			this.loading = false;
@@ -196,16 +228,52 @@ export class Inspector implements Component {
 	}
 
 	private treeLines(width: number, budget: number): string[] {
-		const selectedIndex = this.visible.findIndex((row) => row.key === this.key);
-		const windowed = this.visible.slice(
-			Math.max(0, Math.min(selectedIndex - budget + 1, this.visible.length - budget)),
-			Math.max(0, Math.min(selectedIndex - budget + 1, this.visible.length - budget)) + budget,
-		);
-		return windowed.map((row) => {
+		this.renderedPickerKeys = [];
+		const rendered = this.visible.map((row) => {
 			const marker = row.key === this.key ? "> " : "  ";
-			const label = `${plain(row.node.agent, 64)} ${row.node.state} (${row.node.runId})${row.node.incomplete ? " [observation incomplete]" : ""}${row.node.runId === row.root && row.tree.incomplete ? " [tree observation incomplete]" : ""}${row.folded ? ` [+${row.hidden} folded]` : ""}`;
-			return truncateToWidth(`${marker}${"  ".repeat(row.indent)}${label}`, width, "");
+			const indent = "  ".repeat(row.indent);
+			const label = `${plain(row.node.agent, 64)} ${row.node.state} · ${inspectorElapsed(row.node)} (${row.node.runId.slice(0, 12)})${row.node.incomplete || row.tree.incomplete ? " [observation incomplete]" : ""}${row.folded ? ` [+${row.hidden} folded]` : ""}`;
+			const first = truncateToWidth(`${marker}${indent}${label}`, width, "");
+			const lines = [
+				row.key === this.key ? this.presentation.colour("accent", first) : this.presentation.colour("text", first),
+			];
+			if (width >= 30 && budget > 1 && row.node.taskSummary)
+				lines.push(
+					this.presentation.colour(
+						"muted",
+						truncateToWidth(`  ${indent}${plain(row.node.taskSummary, 512)}`, width, ""),
+					),
+				);
+			if (row.node.runId === row.root && row.tree.incomplete)
+				lines.push(
+					this.presentation.colour(
+						"warning",
+						truncateToWidth(
+							`Tree observation incomplete: ${row.tree.reasons.join(", ") || "missing evidence"}`,
+							width,
+							"",
+						),
+					),
+				);
+			return { row, lines };
 		});
+		const selectedIndex = Math.max(
+			0,
+			this.visible.findIndex((row) => row.key === this.key),
+		);
+		let start = selectedIndex;
+		let used = rendered[start]?.lines.length ?? 0;
+		while (start > 0 && used + rendered[start - 1].lines.length <= budget) used += rendered[--start].lines.length;
+		const lines: string[] = [];
+		for (const entry of rendered.slice(start)) {
+			const available = budget - lines.length;
+			if (available <= 0) break;
+			if (entry.lines.length > available && lines.length) break;
+			const shown = entry.lines.slice(0, available);
+			lines.push(...shown);
+			this.renderedPickerKeys.push(...shown.map(() => entry.row.key));
+		}
+		return lines;
 	}
 
 	private detailLines(width: number): string[] {
@@ -219,40 +287,10 @@ export class Inspector implements Component {
 			const parentId: string | undefined = ancestor.parentRunId;
 			ancestor = parentId ? this.options.observations.node(this.options.owner, selected.root, parentId) : undefined;
 		}
-		const header = [
-			...(selected.tree.incomplete
-				? [`Tree observation incomplete: ${selected.tree.reasons.join(", ") || "missing evidence"}`]
-				: []),
-			...(node.incomplete
-				? [
-						`Selected observation incomplete: ${node.reasons.join(", ") || "missing evidence"}${node.reasons.includes("ancestor-terminal") ? " (terminal evidence missing)" : ""}`,
-					]
-				: []),
-			lineage.join(" > "),
-			`Run: ${node.runId}`,
-			`State: ${node.state}`,
-			`Model: ${node.model ? plain(node.model, 512) : "unavailable"}`,
-			`Tools: ${node.activeTools.map((tool) => plain(tool.name, 128)).join(", ") || "none observed"}`,
-			// The live preview is display text only; the saved output below stays authoritative.
-			...(node.assistantPreview ? [`Preview (provisional): ${plain(node.assistantPreview, 2048)}`] : []),
-		];
-		let body: string[];
-		if (this.error) body = [`Details unavailable: ${this.error}`];
-		else if (this.loading) body = ["Reading selected saved files..."];
-		else if (!this.details) body = ["Press Enter to read this agent's task and saved output."];
-		else
-			body = [
-				"Task:",
-				this.details.task ?? "Unavailable",
-				...(this.details.taskTruncated
-					? ["[Task configuration truncated at 64 KiB; read config.json in the saved run folder]"]
-					: []),
-				this.details.partial ? "Partial output:" : "Output:",
-				this.details.output ?? "Unavailable",
-				...(this.details.outputTruncated ? ["[Output truncated at 64 KiB]"] : []),
-				`Saved output: ${plain(this.details.outputPath, 4096)}`,
-			];
-		return [...header, ...body].flatMap((line) => wrapTextWithAnsi(line, Math.max(1, width)));
+		return this.presentation.body(
+			{ node, tree: selected.tree, lineage, details: this.details, loading: this.loading, error: this.error },
+			Math.max(1, width),
+		);
 	}
 
 	render(width: number): string[] {
@@ -266,68 +304,78 @@ export class Inspector implements Component {
 	}
 
 	private renderView(width: number): string[] {
-		if (this.options.height() !== this.lastHeight) this.refresh();
-		this.lastRenderedWidth = width;
-		const title = truncateToWidth("OMPS inspector", width, "");
-		const hint = truncateToWidth(
-			this.detailScreen
-				? "Escape back · PageUp/PageDown output"
-				: "Arrows select · Left/Right fold · Enter details · Escape close",
+		this.lastHeight = Math.max(1, this.options.height());
+		const headerRows = this.lastHeight > 2 ? (this.detailScreen && width < 80 && this.lastHeight > 4 ? 2 : 1) : 0;
+		const footerRows = this.lastHeight > 1 ? 1 : 0;
+		const bodyBudget = this.lastHeight - headerRows - footerRows;
+		this.bodyStart = headerRows;
+		const selected = this.key ? this.rows.get(this.key)?.node : undefined;
+		const title = truncateToWidth(
+			this.presentation.header(headerRows === 2 ? undefined : this.detailScreen ? selected : undefined),
 			width,
 			"",
 		);
-		const bodyBudget = Math.max(1, this.lastHeight - 2);
-		if (width < SEQUENTIAL_WIDTH) {
-			// Sequential layout: the tree screen, or the opened detail screen after Enter.
-			if (!this.detailScreen) {
-				const tree = this.treeLines(width, bodyBudget);
-				this.renderedTreeRows = tree.length;
-				return [title, ...tree, hint];
-			}
-			this.renderedTreeRows = 0;
-			const body = this.scroll.render(width);
-			const height = Math.max(0, bodyBudget - 1);
-			this.scroll.updateLayout(body.length, height, () => this.redraw());
-			return [title, ...body.slice(this.scroll.scrollTop, this.scroll.scrollTop + height), hint];
+		const identity = selected
+			? truncateToWidth(
+					`${this.presentation.colour("accent", plain(selected.agent, 256))} · ${this.presentation.status(selected)} · ${inspectorElapsed(selected)}`,
+					width,
+					"",
+				)
+			: "";
+		let body: string[];
+		let hint: string;
+		if (!this.detailScreen) {
+			body = this.treeLines(width, bodyBudget);
+			hint = "↑↓ select · ←→ fold · Enter details · Esc close";
+		} else {
+			this.renderedPickerKeys = [];
+			const content = this.scroll.render(width);
+			this.scroll.updateLayout(content.length, bodyBudget, () => this.redraw());
+			body = content.slice(this.scroll.scrollTop, this.scroll.scrollTop + bodyBudget);
+			const range = `Lines ${Math.min(content.length, this.scroll.scrollTop + 1)}–${Math.min(content.length, this.scroll.scrollTop + bodyBudget)}/${content.length}`;
+			const controls = width >= 90 ? "↑↓ scroll · PgUp/PgDn page · Home/End · ←→ agent" : "↑↓ PgUp/PgDn ←→";
+			const back = this.direct ? "Esc close" : "Esc back";
+			const prefix = truncateToWidth(`${controls} · ${back} · `, Math.max(0, width - range.length), "");
+			hint = `${prefix}${range}`;
 		}
-		// Wide layout: the tree pane keeps every visible row reachable; details sit beside it.
-		const treeWidth = Math.max(TREE_PANE_MIN, Math.floor(width * 0.4));
-		const detailWidth = Math.max(1, width - treeWidth - 1);
-		const tree = this.treeLines(treeWidth, bodyBudget);
-		this.renderedTreeRows = tree.length;
-		const body = this.scroll.render(detailWidth);
-		const height = bodyBudget;
-		this.scroll.updateLayout(body.length, height, () => this.redraw());
-		const detail = body.slice(this.scroll.scrollTop, this.scroll.scrollTop + height);
-		const lines: string[] = [];
-		for (let index = 0; index < Math.max(tree.length, detail.length); index++) {
-			const left = tree[index] ? truncateToWidth(tree[index].padEnd(treeWidth), treeWidth, "") : " ".repeat(treeWidth);
-			lines.push(`${left} ${detail[index] ?? ""}`.trimEnd());
-		}
-		return [title, ...lines.slice(0, bodyBudget), hint].slice(0, this.lastHeight);
+		while (body.length < bodyBudget) body.push("");
+		return [
+			...(headerRows ? [title, ...(headerRows === 2 ? [identity] : [])] : []),
+			...body,
+			...(footerRows ? [this.presentation.colour("muted", truncateToWidth(hint, width, ""))] : []),
+		];
 	}
 
 	handleInput(data: string): void {
 		if (!this.live()) return;
 		if (matchesKey(data, "escape")) {
-			if (this.detailScreen) {
+			if (this.detailScreen && !this.direct) {
 				this.detailScreen = false;
-				this.scroll.scrollToStart();
 				this.redraw();
 				return;
 			}
 			return this.close();
 		}
-		if (this.details && (matchesKey(data, "pageUp") || matchesKey(data, "pageDown"))) {
-			this.scroll.scrollBy((matchesKey(data, "pageUp") ? -1 : 1) * Math.max(1, this.scroll.viewportHeight - 1));
-			this.redraw();
-			return;
-		}
 		try {
-			this.navigate(data);
+			if (this.detailScreen) this.navigateDetails(data);
+			else this.navigate(data);
 			this.redraw();
 		} catch {
 			this.close();
+		}
+	}
+
+	private navigateDetails(data: string): void {
+		if (matchesKey(data, "up")) this.scroll.scrollBy(-1);
+		else if (matchesKey(data, "down")) this.scroll.scrollBy(1);
+		else if (matchesKey(data, "pageUp")) this.scroll.scrollBy(-Math.max(1, this.scroll.viewportHeight - 1));
+		else if (matchesKey(data, "pageDown")) this.scroll.scrollBy(Math.max(1, this.scroll.viewportHeight - 1));
+		else if (matchesKey(data, "home")) this.scroll.scrollTo(0, { disableFollow: true });
+		else if (matchesKey(data, "end")) this.scroll.scrollToEnd();
+		else if (matchesKey(data, "left") || matchesKey(data, "right")) {
+			const index = this.visible.findIndex((row) => row.key === this.key);
+			const row = this.visible[index + (matchesKey(data, "left") ? -1 : 1)];
+			if (row) this.open(row.key);
 		}
 	}
 
@@ -339,8 +387,7 @@ export class Inspector implements Component {
 		if (matchesKey(data, "down") && index < this.visible.length - 1) this.choose(this.visible[index + 1].key);
 		else if (matchesKey(data, "up") && index > 0) this.choose(this.visible[index - 1].key);
 		else if (matchesKey(data, "enter")) {
-			if (this.key) void this.load(this.key);
-			if (this.lastRenderedWidth < SEQUENTIAL_WIDTH) this.detailScreen = true;
+			if (this.key) this.open(this.key);
 		} else if (matchesKey(data, "left")) {
 			const row = this.visible[index];
 			if (row) {
@@ -364,13 +411,21 @@ export class Inspector implements Component {
 	handleMouse(event: TuiMouseEvent): TuiMouseEventResult | undefined {
 		if (!this.live()) return undefined;
 		try {
-			if (event.type === "click" && event.button === "left" && event.y >= 1 && event.y <= this.renderedTreeRows) {
-				const row = this.visible[event.y - 1];
-				if (row) void this.load(row.key);
+			if (!this.detailScreen && event.type === "click" && event.button === "left") {
+				const key = this.renderedPickerKeys[event.y - this.bodyStart];
+				if (!key) return undefined;
+				this.open(key);
+				this.redraw();
 				return { handled: true };
 			}
-			if (event.type === "wheel" && event.y > this.renderedTreeRows) {
+			if (
+				this.detailScreen &&
+				event.type === "wheel" &&
+				event.y >= this.bodyStart &&
+				event.y < this.bodyStart + this.scroll.viewportHeight
+			) {
 				this.scroll.scrollBy(event.wheelDelta ?? 0);
+				this.redraw();
 				return { handled: true };
 			}
 			return undefined;
@@ -397,10 +452,14 @@ export class Inspector implements Component {
 	dispose(): void {
 		if (this.disposed) return;
 		this.disposed = true;
+		if (this.elapsedTimer) clearInterval(this.elapsedTimer);
+		this.elapsedTimer = undefined;
 		this.stop?.();
 		this.selection?.close();
 		this.details = undefined;
 		this.rows.clear();
 		this.visible = [];
+		this.renderedPickerKeys = [];
+		this.presentation.invalidate();
 	}
 }

@@ -15,14 +15,13 @@ export function createSnapshotCapture({ ui, terminal, directory, version, mode, 
 		let afterSavedPath = false;
 		const visible = lines.map((line) => {
 			const text = stripVTControlCharacters(line);
-			if (!stage.endsWith("detail")) return text;
 			if (text.includes("Saved output:")) {
 				afterSavedPath = true;
 				return text.replace(/Saved output:.*/, "Saved output: <disposable>");
 			}
-			if (!afterSavedPath || /Escape back|Arrows select/.test(text)) return text;
-			// In the wide modal, retain the tree pane while hiding wrapped output-path fragments.
-			return terminal.columns < 80 ? "" : text.slice(0, Math.floor(terminal.columns * 0.4) + 1).trimEnd();
+			if (!afterSavedPath || /Escape back|Arrows select|↑↓ scroll|PgUp\/PgDn|Lines \d/.test(text)) return text;
+			// A single-column detail screen has only wrapped path fragments before its fixed footer.
+			return "";
 		});
 		const safe = visible
 			.join("\n")

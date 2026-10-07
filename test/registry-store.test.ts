@@ -136,7 +136,15 @@ ${ui}agents:
 		await write(join(dir, "omps"), "config.yaml", uiYaml("ui:\n  maxVisibleAgents: 6\n"));
 		const store = createRegistryStore(join(dir, "omps", "config.yaml"));
 		const snapshot = await store.refresh();
-		expect(snapshot.ui).toEqual({ maxVisibleAgents: 6, fleetView: "expanded", toggleKey: "off", inspectKey: "off" });
+		expect(snapshot.ui).toEqual({
+			maxVisibleAgents: 6,
+			fleetView: "expanded",
+			toggleKey: "off",
+			inspectKey: "off",
+			showManagementList: true,
+			navigationDownKey: "down",
+			navigationUpKey: "up",
+		});
 	});
 
 	it("blocks refresh on invalid ui values and serves no stale configuration", async () => {

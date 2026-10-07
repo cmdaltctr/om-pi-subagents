@@ -4,6 +4,7 @@ import { ObservationStore } from "../src/observation.ts";
 import type { RunDetails } from "../src/details.ts";
 import type { VisibleAgentsInput } from "../src/viewer.ts";
 import { RunViewer } from "../src/viewer.ts";
+import { syntheticTheme } from "./fixtures/inspector-synthetic.ts";
 const mocks = vi.hoisted(() => ({ read: vi.fn() }));
 vi.mock("../src/details.ts", async (original) => ({
 	...(await original<typeof import("../src/details.ts")>()),
@@ -64,6 +65,90 @@ function setup() {
 	};
 }
 describe("viewer lifecycle", () => {
+	it("uses the host-supplied modal theme for both semantic text and Markdown", async () => {
+		const fixture = setup();
+		const theme = syntheticTheme(true);
+		mocks.read.mockResolvedValue({ ...fixture.details, output: "# Supplied heading\n\n- item\n\n```\ncode\n```" });
+		const ctx = { ...fixture.context, mode: "tui" as const };
+		vi.mocked(ctx.ui.custom).mockImplementation(async (factory) => {
+			const component = await factory(
+				{ terminal: { rows: 80 }, requestRender: vi.fn() } as never,
+				theme,
+				undefined as never,
+				vi.fn(),
+			);
+			for (let index = 0; index < 8; index++) await Promise.resolve();
+			const lines = component.render(100).join("\n");
+			expect(lines).toContain("Selected task");
+			expect(lines).toContain("Supplied heading");
+			for (const role of ["accent", "text", "muted", "mdHeading", "mdListBullet", "mdCodeBlock"])
+				expect(theme.fg).toHaveBeenCalledWith(role, expect.any(String));
+			component.handleInput?.("\x1b");
+		});
+		await fixture.viewer.inspect("owned", ctx);
+		fixture.viewer.dispose();
+	});
+	it("closes active modal timers and reads on session replacement", async () => {
+		vi.useFakeTimers();
+		const fixture = setup();
+		mocks.read.mockImplementation(async () => new Promise(() => {}));
+		let done!: () => void;
+		const ctx = { ...fixture.context, mode: "tui" as const };
+		vi.mocked(ctx.ui.custom).mockImplementation(
+			async (factory) =>
+				new Promise<void>((resolve) => {
+					done = resolve;
+					void factory(
+						{ terminal: { rows: 40 }, requestRender: vi.fn() } as never,
+						syntheticTheme(),
+						undefined as never,
+						done,
+					);
+				}),
+		);
+		try {
+			const inspecting = fixture.viewer.inspect("owned", ctx);
+			expect(vi.getTimerCount()).toBe(1);
+			const signal = mocks.read.mock.calls[0][2] as AbortSignal;
+			fixture.replace();
+			fixture.viewer.activate({ ...ctx, sessionManager: { getSessionId: () => "new-session" } } as never);
+			await inspecting;
+			expect(signal.aborted).toBe(true);
+			expect(vi.getTimerCount()).toBe(0);
+			const calls = fixture.redraw.mock.calls.length;
+			vi.advanceTimersByTime(5000);
+			expect(fixture.redraw).toHaveBeenCalledTimes(calls);
+		} finally {
+			done?.();
+			fixture.viewer.dispose();
+			vi.useRealTimers();
+		}
+	});
+	it.each(["running", "failed"] as const)(
+		"includes observed elapsed and provisional detail in %s RPC replies",
+		async (state) => {
+			vi.useFakeTimers();
+			vi.setSystemTime(9000);
+			const fixture = setup();
+			try {
+				fixture.observations.updateRoot(
+					{ ...fixture.root, state, ...(state === "failed" ? { endedAt: 9000 } : {}) },
+					{ model: "fake/model", assistantPreview: "# Live heading\n- item" },
+				);
+				mocks.read.mockResolvedValue({ ...fixture.details, partial: false });
+				await fixture.viewer.inspect("owned", fixture.context);
+				const reply = fixture.notify.mock.calls.find((call) => call[1] === "info")?.[0] as string;
+				expect(reply).toContain("Elapsed: 8s");
+				expect(reply).toContain("Live answer · provisional:\n# Live heading\n- item");
+				expect(reply).toContain("Model: fake/model");
+				if (state === "failed") expect(reply).toContain("Partial output:");
+				expect(fixture.context.ui.custom).not.toHaveBeenCalled();
+			} finally {
+				fixture.viewer.dispose();
+				vi.useRealTimers();
+			}
+		},
+	);
 	it("renders compact launch acknowledgements that never become live trees", () => {
 		const fixture = setup();
 		const launchText = "Started run owned (worker) in the background.";

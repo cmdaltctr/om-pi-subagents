@@ -26,6 +26,8 @@ async function write(relativePath: string, text: string): Promise<void> {
 	await writeFile(target, text);
 }
 
+const managementDefaults = { showManagementList: true, navigationDownKey: "down", navigationUpKey: "up" };
+
 const reader = `version: 1
 agents:
   reader:
@@ -120,19 +122,32 @@ ${ui}agents: {}
 	it("applies five visible agents, the expanded fleet and no shortcuts when ui is omitted", async () => {
 		await write("config.yaml", uiYaml(""));
 		const registry = await loadRegistry(yamlPath());
-		expect(registry.ui).toEqual({ maxVisibleAgents: 5, fleetView: "expanded", toggleKey: "off", inspectKey: "off" });
+		expect(registry.ui).toEqual({
+			...managementDefaults,
+			maxVisibleAgents: 5,
+			fleetView: "expanded",
+			toggleKey: "off",
+			inspectKey: "off",
+		});
 	});
 
 	it("accepts an empty ui mapping", async () => {
 		await write("config.yaml", uiYaml("ui: {}\n"));
 		const registry = await loadRegistry(yamlPath());
-		expect(registry.ui).toEqual({ maxVisibleAgents: 5, fleetView: "expanded", toggleKey: "off", inspectKey: "off" });
+		expect(registry.ui).toEqual({
+			...managementDefaults,
+			maxVisibleAgents: 5,
+			fleetView: "expanded",
+			toggleKey: "off",
+			inspectKey: "off",
+		});
 	});
 
 	it("carries declared ui values", async () => {
 		await write("config.yaml", uiYaml('ui:\n  maxVisibleAgents: 9\n  toggleKey: "ctrl+alt+p"\n  inspectKey: "off"\n'));
 		const registry = await loadRegistry(yamlPath());
 		expect(registry.ui).toEqual({
+			...managementDefaults,
 			maxVisibleAgents: 9,
 			fleetView: "expanded",
 			toggleKey: "ctrl+alt+p",
@@ -154,9 +169,16 @@ ${ui}agents: {}
 	it("applies only the matching default for each omitted ui field", async () => {
 		await write("config.yaml", uiYaml("ui:\n  maxVisibleAgents: 8\n"));
 		const registry = await loadRegistry(yamlPath());
-		expect(registry.ui).toEqual({ maxVisibleAgents: 8, fleetView: "expanded", toggleKey: "off", inspectKey: "off" });
+		expect(registry.ui).toEqual({
+			...managementDefaults,
+			maxVisibleAgents: 8,
+			fleetView: "expanded",
+			toggleKey: "off",
+			inspectKey: "off",
+		});
 		await write("config.yaml", uiYaml('ui:\n  inspectKey: "alt+i"\n'));
 		expect((await loadRegistry(yamlPath())).ui).toEqual({
+			...managementDefaults,
 			maxVisibleAgents: 5,
 			fleetView: "expanded",
 			toggleKey: "off",
@@ -184,7 +206,13 @@ agents:
 		const registry = await loadRegistry(yamlPath());
 		expect([...registry.agents.keys()]).toEqual(["reader"]);
 		expect(registry.limits).toEqual({ maxConcurrentRuns: 4, maxDepth: 3 });
-		expect(registry.ui).toEqual({ maxVisibleAgents: 2, fleetView: "expanded", toggleKey: "off", inspectKey: "off" });
+		expect(registry.ui).toEqual({
+			...managementDefaults,
+			maxVisibleAgents: 2,
+			fleetView: "expanded",
+			toggleKey: "off",
+			inspectKey: "off",
+		});
 	});
 
 	it("freezes the resolved ui settings", async () => {

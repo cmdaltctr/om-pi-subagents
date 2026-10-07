@@ -298,8 +298,8 @@ try {
 	await edit(1, "2");
 	await edit(2, "1");
 	await edit(0, "0", false);
-	// Done follows the fleet view, the two shortcut fields and the per-agent capabilities menu.
-	await choose(7);
+	// The three management controls precede capabilities and Done in the refreshed menu.
+	await choose(10);
 	await settings;
 	assert.equal(ui.getFocusedComponent(), editor);
 	assert.equal(editor.getText(), "Preserved parent prompt");

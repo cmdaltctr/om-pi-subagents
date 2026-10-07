@@ -9,7 +9,7 @@ one YAML file and plain Markdown files. OMPS ships no agents of its own.
 - The parent gets the `omps` tool, `/omps` commands and an operator-only `/omps-settings` menu.
 - Each run is one child Pi process in the background.
 - YAML limits set each parent's direct-child capacity and maximum nesting depth. Both default to one.
-- YAML `ui` settings set visible rows (default 5), the fleet view (default `expanded`) and optional view shortcuts.
+- YAML `ui` settings set visible rows (default 5), the fleet view (default `expanded`), list visibility and navigation keys.
 - The result arrives as a follow-up message when the child finishes.
 
 The `● Agents` tree and the navigation list are adapted from
@@ -28,10 +28,10 @@ the agents, so the task names and answers are synthetic. `scripts/readme-demo.ta
   its tool-use count, the elapsed time and what it does now. Finished agents show `✓`, `✗` or `■` for a
   short time. The tree is adapted from [tintinweb/pi-subagents](https://github.com/tintinweb/pi-subagents)
   under its MIT licence.
-- **Arrow-key list.** From an empty prompt, press Down to select an agent in the list below the editor.
-  Press Enter to inspect it and Escape to go back. No modifier keys are needed.
-- **Inspector.** `/omps inspect` opens the whole run tree, including nested agents, with live tools and
-  saved output.
+- **Management list.** From an empty focused prompt, press Down to select an agent below the editor.
+  Its navigation keys can be remapped or disabled. Hide the list while keeping the expanded tree.
+- **Inspector.** `/omps inspect` opens an agent picker, including nested agents. Enter opens full-width
+  details with themed answers, current activity and saved output.
 - **Isolated children.** Each agent runs as its own Pi process. Before the task is sent, OMPS checks that
   the child loaded its tool guard, its tools, its model and its working directory. The guard refuses
   any tool the mapping does not approve.
@@ -187,18 +187,27 @@ then confirm the shown value and save destination:
 | Parallel direct children per parent | Safe integers of at least 1                                     | `limits.maxConcurrentRuns` in that YAML |
 | Visible agents                      | Safe integers from 1 to 256; default 5                          | `ui.maxVisibleAgents` in that YAML      |
 | Fleet view                          | `expanded`, `collapsed` or `off`; default `expanded`            | `ui.fleetView` in that YAML             |
-| Fleet list shortcut                 | A Pi key specification such as `alt+o`, or `off`; default `off` | `ui.toggleKey` in that YAML             |
+| Management list                     | Show/Hide; default Show                                         | `ui.showManagementList` in that YAML    |
+| Management next / enter key         | Pi key specification or `off`; default `down`                   | `ui.navigationDownKey` in that YAML     |
+| Management previous key             | Pi key specification or `off`; default `up`                     | `ui.navigationUpKey` in that YAML       |
+| Fleet view shortcut                 | A Pi key specification such as `alt+o`, or `off`; default `off` | `ui.toggleKey` in that YAML             |
 | Inspection shortcut                 | A Pi key specification such as `alt+i`, or `off`; default `off` | `ui.inspectKey` in that YAML            |
 
 `OMPS_REGISTRY` selects the registry when set. The menu shows its resolved path.
 Execution limits and UI settings stay in that one YAML file. OMPS leaves todo preferences
 and Pi's `settings.json` untouched. Shortcut values are lowercase Pi key specifications.
 Ctrl+I and Tab are refused because legacy terminals send one byte for both, and a key already
-bound to an effective built-in action is refused with guidance. Both shortcuts can be `off`.
+bound to an effective built-in action is refused with guidance. All keys can be `off`. Enabled OMPS keys must differ after modifier normalisation.
+
+Management navigation defaults to Down/Up and requires an empty, focused editor and visible list.
+Custom navigation keys occupied by Pi stay inactive, with the owning action named. There is no fallback.
+See [modified-arrow setup](docs/SETUP.md#management-navigation-keys) for manual fullscreen-key remapping.
+OMPS never rewrites Pi keybindings.
 
 Shortcuts bind when an interactive session starts. A saved shortcut needs `/reload` before it
 becomes active; the menu shows the saved and the active binding until then. Visible-agent and
-limit changes take effect without a reload, and the display repaints at once.
+limit changes take effect without a reload, and the display repaints at once. Management-list visibility
+also repaints immediately; hiding it ends selection. Navigation-key edits need `/reload`.
 
 Older OMPS versions kept visible agents in `<config-dir>/pi-subagents/config.json`. That file
 is now a read-only fallback: when YAML omits `ui.maxVisibleAgents`, its valid value still applies
@@ -243,7 +252,7 @@ now. The tree uses at most 12 lines, running agents first:
 └─ ✓ explorer  List TypeScript files · 2 tool uses · 3.1s
 ```
 
-A list below the editor shows the same runs for navigation. From an empty prompt:
+The optional Management list below the editor shows the same runs for navigation. From an empty focused prompt:
 
 1. Press Down to select the first agent.
 2. Press Up or Down to move. Press Enter to inspect the selected agent.
@@ -255,17 +264,24 @@ reachable; the list shows `ui.maxVisibleAgents` rows (default 5) with `↑ N mor
 
 Set `ui.fleetView` to `collapsed` for the tree heading only, or `off` to hide both widgets.
 `/omps fleet` switches between expanded and collapsed for the current session.
+Choose **Management list: Hide** in `/omps-settings`, or set `ui.showManagementList: false`, for tree-only use.
+The tree remains expanded and `/omps inspect` stays available. Session toggles preserve the saved list preference.
+Hints show active navigation keys; saved key edits apply after `/reload`.
 
 Each launch leaves one compact acknowledgement row in the transcript. Pi's native expansion action,
 `app.tools.expand` with Ctrl+O by default, reveals the acknowledgement text only. It never creates a
 second live tree. The complete retained hierarchy lives in the inspection modal:
 
-1. Run `/omps inspect` to select any retained node in this session.
-2. Use arrows, then Enter, to read its saved task and output.
-3. Press Escape to close the viewer while the run continues.
+1. Run `/omps inspect` to open the picker of retained nodes.
+2. Use Up/Down to select; Left/Right fold branches. Enter opens full-width details.
+3. Scroll details with Up/Down, PageUp/PageDown or Home/End. Left/Right switches agents.
+4. Press Escape to return to the picker, then Escape again to close.
 
-`/omps inspect <run-id>` opens a selected node directly. Fullscreen Pi also supports row clicks.
-Regular mode uses the keyboard. Supported RPC clients receive bounded text without terminal components.
+`/omps inspect <run-id>` and management-list inspection open details directly; Escape closes them.
+Fullscreen Pi supports picker row clicks and mouse-wheel scrolling over the detail body.
+Regular mode uses the keyboard because the terminal owns mouse scrollback.
+Reading position stays stable during updates; reaching the bottom follows new content until you scroll upwards.
+Live answers remain provisional, capped at 4 KiB. Live and saved Markdown answers keep their readable structure. Supported RPC clients receive bounded text without terminal components.
 Only an immediate parent can use status or cancellation for a descendant.
 
 Tasks and outputs can contain sensitive text. Reads are limited to 64 KiB per selected evidence file;

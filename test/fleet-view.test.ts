@@ -1,3 +1,4 @@
+import { CustomEditor } from "@earendil-works/pi-coding-agent";
 import { describe, expect, it, vi } from "vitest";
 import type { FleetView } from "../src/config.ts";
 import { FleetStrip } from "../src/fleet.ts";
@@ -140,10 +141,84 @@ describe("inside selection", () => {
 	});
 });
 
+describe("active navigation keys", () => {
+	const down = "\x1b[1;6B";
+	const up = "\x1b[1;6A";
+	it("uses modified legacy and Kitty arrows without capturing plain arrows", () => {
+		const h = host({
+			navigationKeys: () => ({ navigationDownKey: "ctrl+shift+down", navigationUpKey: "ctrl+shift+up" }),
+		});
+		expect(handleFleetInput(h.host, DOWN)).toBe(false);
+		expect(handleFleetInput(h.host, up)).toBe(false);
+		expect(handleFleetInput(h.host, down)).toBe(true);
+		expect(handleFleetInput(h.host, DOWN)).toBe(false);
+		expect(handleFleetInput(h.host, "\x1b[1;6B")).toBe(true);
+		expect(h.strip.selection()).toBe("run-b");
+		expect(handleFleetInput(h.host, "\x1b[1;6:3B")).toBe(false);
+		expect(h.strip.selection()).toBe("run-b");
+		expect(handleFleetInput(h.host, "\x1b[1;6:1A")).toBe(true);
+		expect(h.strip.selection()).toBe("run-a");
+	});
+	it("cannot enter selection with navigation Down off", () => {
+		const h = host({ navigationKeys: () => ({ navigationDownKey: "off", navigationUpKey: "up" }) });
+		expect(handleFleetInput(h.host, DOWN)).toBe(false);
+		expect(handleFleetInput(h.host, ENTER)).toBe(false);
+	});
+	it("passes disabled Up through during selection", () => {
+		const h = host({ navigationKeys: () => ({ navigationDownKey: "down", navigationUpKey: "off" }) });
+		handleFleetInput(h.host, DOWN);
+		expect(handleFleetInput(h.host, UP)).toBe(false);
+		expect(handleFleetInput(h.host, ESCAPE)).toBe(true);
+	});
+	it("ends selection when visibility is saved hidden", () => {
+		let shown = true;
+		const strip = new FleetStrip(
+			() => "expanded",
+			() => shown,
+		);
+		const h = host({ strip });
+		handleFleetInput(h.host, DOWN);
+		shown = false;
+		expect(handleFleetInput(h.host, DOWN)).toBe(false);
+		expect(strip.isSelecting).toBe(false);
+		expect(strip.isExpanded).toBe(true);
+	});
+});
+
 describe("focus check", () => {
-	it("requires a focused component and no overlay", () => {
-		expect(editorOwnsFocus({ getFocusedComponent: () => ({}), hasOverlay: () => false })).toBe(true);
+	it.each(["settings", "model selector", "extension selector", "input", "unsupported custom editor"])(
+		"passes through %s with non-null focus and no overlay",
+		() => {
+			const focused = { getText: () => "", handleInput() {}, render: () => [] };
+			expect(editorOwnsFocus({ getFocusedComponent: () => focused, hasOverlay: () => false })).toBe(false);
+		},
+	);
+
+	it("passes through when public accessors fail", () => {
+		expect(
+			editorOwnsFocus({
+				getFocusedComponent: () => {
+					throw new Error("unsupported");
+				},
+				hasOverlay: () => false,
+			}),
+		).toBe(false);
+	});
+
+	it("accepts CustomEditor subclasses", () => {
+		class SupportedEditor extends CustomEditor {}
+		expect(
+			editorOwnsFocus({ getFocusedComponent: () => Object.create(SupportedEditor.prototype), hasOverlay: () => false }),
+		).toBe(true);
+	});
+	it("requires the public host editor and no overlay", () => {
+		expect(
+			editorOwnsFocus({ getFocusedComponent: () => Object.create(CustomEditor.prototype), hasOverlay: () => false }),
+		).toBe(true);
 		expect(editorOwnsFocus({ getFocusedComponent: () => null, hasOverlay: () => false })).toBe(false);
 		expect(editorOwnsFocus({ getFocusedComponent: () => ({}), hasOverlay: () => true })).toBe(false);
+		expect(
+			editorOwnsFocus({ getFocusedComponent: () => Object.create(CustomEditor.prototype), hasOverlay: () => true }),
+		).toBe(false);
 	});
 });

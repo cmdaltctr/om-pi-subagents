@@ -2,7 +2,7 @@ import { OBSERVATION_LIMITS, parseObservation } from "./observation-validation.t
 import type { ObservationConnection, ObservationStore } from "./observation.ts";
 import { parseObservationEnvelope, type ObservationEnvelope } from "./observation-transport.ts";
 import { OBSERVATION_ENTRY } from "./protocol.ts";
-import { plain } from "./plain.ts";
+import { plain, previewText } from "./plain.ts";
 import type { RpcChannel, RpcRecord } from "./rpc.ts";
 import { isTerminal, type RunView } from "./runs.ts";
 
@@ -371,7 +371,7 @@ const PREVIEW_MARKER = " [preview truncated]";
 
 /** Sanitise visible assistant text and bound it to the preview byte budget, marking any cut. */
 function boundedPreview(text: string): string {
-	const sanitised = plain(text, text.length);
+	const sanitised = previewText(text);
 	if (Buffer.byteLength(sanitised, "utf8") <= OBSERVATION_LIMITS.previewBytes) return sanitised;
 	const budget = OBSERVATION_LIMITS.previewBytes - Buffer.byteLength(PREVIEW_MARKER, "utf8");
 	const cut = Buffer.from(sanitised, "utf8")

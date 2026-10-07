@@ -4,7 +4,15 @@ import { homedir } from "node:os";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { parseDocument } from "yaml";
-import { checkFleetView, checkUiKey, loadRegistry, type Registry, type RunLimits } from "./config.ts";
+import {
+	checkFleetView,
+	checkManagementList,
+	checkUiKey,
+	loadRegistry,
+	type Registry,
+	type RunLimits,
+	type UiSettings,
+} from "./config.ts";
 import type { CapabilityMapping } from "./capabilities.ts";
 
 const MAX_SETTINGS_BYTES = 256 * 1024;
@@ -19,7 +27,7 @@ export interface LimitSettings extends Revision {
 }
 
 /** One editable `ui` field in the registry. */
-export type UiField = "maxVisibleAgents" | "fleetView" | "toggleKey" | "inspectKey";
+export type UiField = keyof UiSettings;
 
 /** Resolve only OMPS display preferences; relative XDG paths use the home fallback. */
 export function displayPreferencesPath(env: NodeJS.ProcessEnv = process.env, home = homedir()): string {
@@ -170,11 +178,12 @@ export async function saveLimitSetting(
 export async function saveUiSetting(
 	displayed: LimitSettings,
 	field: UiField,
-	value: number | string,
+	value: number | string | boolean,
 	confirmCreation = false,
 ): Promise<void> {
 	if (field === "maxVisibleAgents") checkVisible(value);
 	else if (field === "fleetView") checkFleetView(value);
+	else if (field === "showManagementList") checkManagementList(value);
 	else checkUiKey(field, value);
 	if (displayed.missing && !confirmCreation) throw new Error("Confirm registry creation before saving this setting.");
 	const document = parseDocument(displayed.text ?? CREATION_TEMPLATE, {

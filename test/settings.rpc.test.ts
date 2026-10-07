@@ -52,6 +52,31 @@ describe.skipIf(!PI_AVAILABLE)("native RPC settings dialogs", () => {
 		}
 	});
 
+	it("confirms management visibility and navigation keys through native dialogs without model work", async () => {
+		const fixture = await startPi({ mcp: false, args: ["-e", index] });
+		try {
+			const registry = join(fixture.agentDir, "omps/config.yaml");
+			await editRpcSettings(fixture, 6, "Hide", false);
+			await expect(stat(registry)).rejects.toMatchObject({ code: "ENOENT" });
+			await editRpcSettings(fixture, 6, "Hide");
+			await editRpcSettings(fixture, 7, "ctrl+shift+down");
+			await editRpcSettings(fixture, 8, "off", true, "/subagents-settings");
+			expect((await loadRegistry(registry)).ui).toMatchObject({
+				fleetView: "expanded",
+				showManagementList: false,
+				navigationDownKey: "ctrl+shift+down",
+				navigationUpKey: "off",
+			});
+			await editRpcSettings(fixture, 6, "Show");
+			expect((await loadRegistry(registry)).ui.showManagementList).toBe(true);
+			expect(fixture.model.requests).toHaveLength(0);
+			expect(fixture.records.filter((record) => record.type === "tool_execution_start")).toEqual([]);
+			expect(await fixture.exit()).toBe(0);
+		} finally {
+			await fixture.dispose();
+		}
+	});
+
 	it("leaves missing files absent after declined confirmations", async () => {
 		const fixture = await startPi({ mcp: false, args: ["-e", index] });
 		try {

@@ -31,8 +31,11 @@ export type FleetView = "expanded" | "collapsed" | "off";
 export interface UiSettings {
 	readonly maxVisibleAgents: number;
 	readonly fleetView: FleetView;
+	readonly showManagementList: boolean;
 	readonly toggleKey: string;
 	readonly inspectKey: string;
+	readonly navigationDownKey: string;
+	readonly navigationUpKey: string;
 }
 
 /** Which `ui` fields this YAML declares. Undeclared fields use defaults; only visible rows have a legacy fallback. */
@@ -65,13 +68,24 @@ export const DEFAULT_FLEET_VIEW: FleetView = "expanded";
 // macOS terminals type "ø" for Option+O unless Option sends Alt, so no modifier key ships enabled.
 export const DEFAULT_TOGGLE_KEY = "off";
 export const DEFAULT_INSPECT_KEY = "off";
+export const DEFAULT_SHOW_MANAGEMENT_LIST = true;
+export const DEFAULT_NAVIGATION_DOWN_KEY = "down";
+export const DEFAULT_NAVIGATION_UP_KEY = "up";
+export const UI_KEY_FIELDS = ["toggleKey", "inspectKey", "navigationDownKey", "navigationUpKey"] as const;
+export type UiKeyField = (typeof UI_KEY_FIELDS)[number];
+export type NavigationKeys = Pick<UiSettings, "navigationDownKey" | "navigationUpKey">;
 export const FLEET_VIEWS: readonly FleetView[] = ["expanded", "collapsed", "off"];
 const MAX_FILE_BYTES = 256 * 1024;
 const NAME_PATTERN = /^[a-z][a-z0-9-]{0,63}$/;
 const TOOL_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_.-]*$/;
 const THINKING_LEVELS = ["off", "minimal", "low", "medium", "high", "xhigh", "max"];
 const AGENT_FIELDS = ["persona", "tools", "model", "thinking", "skills", "extensions"];
-const UI_FIELDS: readonly (keyof UiSettings)[] = ["maxVisibleAgents", "fleetView", "toggleKey", "inspectKey"];
+const UI_FIELDS: readonly (keyof UiSettings)[] = [
+	"maxVisibleAgents",
+	"fleetView",
+	"showManagementList",
+	...UI_KEY_FIELDS,
+];
 /** Pi key specifications are lowercase `modifier+base` pairs; `pageUp` and `pageDown` keep their capitals. */
 const SPECIAL_KEYS = [
 	"escape",
@@ -174,23 +188,34 @@ function validateUi(value: unknown): { settings: UiSettings; declarations: UiDec
 	const view = raw.fleetView === undefined ? undefined : checkFleetView(raw.fleetView);
 	const toggle = raw.toggleKey === undefined ? undefined : checkUiKey("toggleKey", raw.toggleKey);
 	const inspect = raw.inspectKey === undefined ? undefined : checkUiKey("inspectKey", raw.inspectKey);
-	// Compare effective values: one declared key can also collide with the other key's default.
-	const effectiveToggle = toggle ?? DEFAULT_TOGGLE_KEY;
-	const effectiveInspect = inspect ?? DEFAULT_INSPECT_KEY;
-	if (normaliseKey(effectiveToggle) === normaliseKey(effectiveInspect) && effectiveToggle !== "off")
-		throw new RegistryError("ui.inspectKey", `duplicate of ui.toggleKey (${effectiveInspect}); choose distinct keys`);
+	const show =
+		raw.showManagementList === undefined ? DEFAULT_SHOW_MANAGEMENT_LIST : checkManagementList(raw.showManagementList);
+	const down =
+		raw.navigationDownKey === undefined
+			? DEFAULT_NAVIGATION_DOWN_KEY
+			: checkUiKey("navigationDownKey", raw.navigationDownKey);
+	const up =
+		raw.navigationUpKey === undefined ? DEFAULT_NAVIGATION_UP_KEY : checkUiKey("navigationUpKey", raw.navigationUpKey);
+	const settings: UiSettings = Object.freeze({
+		maxVisibleAgents: visible ?? DEFAULT_MAX_VISIBLE_AGENTS,
+		fleetView: view ?? DEFAULT_FLEET_VIEW,
+		toggleKey: toggle ?? DEFAULT_TOGGLE_KEY,
+		inspectKey: inspect ?? DEFAULT_INSPECT_KEY,
+		showManagementList: show,
+		navigationDownKey: down,
+		navigationUpKey: up,
+	});
+	checkDistinctUiKeys(settings);
 	return {
-		settings: Object.freeze({
-			maxVisibleAgents: visible ?? DEFAULT_MAX_VISIBLE_AGENTS,
-			fleetView: view ?? DEFAULT_FLEET_VIEW,
-			toggleKey: toggle ?? DEFAULT_TOGGLE_KEY,
-			inspectKey: inspect ?? DEFAULT_INSPECT_KEY,
-		}),
+		settings,
 		declarations: Object.freeze({
 			maxVisibleAgents: visible !== undefined,
 			fleetView: view !== undefined,
 			toggleKey: toggle !== undefined,
 			inspectKey: inspect !== undefined,
+			showManagementList: raw.showManagementList !== undefined,
+			navigationDownKey: raw.navigationDownKey !== undefined,
+			navigationUpKey: raw.navigationUpKey !== undefined,
 		}),
 	};
 }
@@ -217,7 +242,7 @@ export function checkFleetView(value: unknown): FleetView {
 }
 
 /** Validate one shortcut value outside a full registry load. Throws a RegistryError naming `ui.<field>`. */
-export function checkUiKey(field: "toggleKey" | "inspectKey", value: unknown): string {
+export function checkUiKey(field: UiKeyField, value: unknown): string {
 	const key = (name: string, setting: unknown): string => {
 		if (typeof setting !== "string" || setting === "")
 			throw new RegistryError(`ui.${name}`, 'must be a Pi key specification (for example alt+o) or "off"');
@@ -226,7 +251,8 @@ export function checkUiKey(field: "toggleKey" | "inspectKey", value: unknown): s
 				`ui.${name}`,
 				`${setting} is unsafe: legacy terminals read it the same as Tab; choose another key`,
 			);
-		if (setting !== "off" && !KEY_SPEC_PATTERN.test(setting))
+		const modifiers = setting.split("+").slice(0, -1);
+		if (setting !== "off" && (!KEY_SPEC_PATTERN.test(setting) || new Set(modifiers).size !== modifiers.length))
 			throw new RegistryError(
 				`ui.${name}`,
 				'must be a lowercase Pi key specification (for example alt+o, ctrl+alt+p) or "off"',
@@ -234,6 +260,25 @@ export function checkUiKey(field: "toggleKey" | "inspectKey", value: unknown): s
 		return setting;
 	};
 	return key(field, value);
+}
+
+/** Validate visibility in registry loads and confirmed settings saves. */
+export function checkManagementList(value: unknown): boolean {
+	if (typeof value !== "boolean") throw new RegistryError("ui.showManagementList", "must be a boolean (true or false)");
+	return value;
+}
+
+/** Reject equivalent keys across all OMPS actions, including omitted defaults. */
+export function checkDistinctUiKeys(settings: Pick<UiSettings, UiKeyField>): void {
+	const seen = new Map<string, UiKeyField>();
+	for (const field of UI_KEY_FIELDS) {
+		const value = settings[field];
+		if (value === "off") continue;
+		const key = normaliseKey(value);
+		const other = seen.get(key);
+		if (other) throw new RegistryError(`ui.${field}`, `duplicate of ui.${other} (${value}); choose distinct keys`);
+		seen.set(key, field);
+	}
 }
 
 function configurationSnapshot(

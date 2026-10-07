@@ -7,6 +7,7 @@ import { stripVTControlCharacters } from "node:util";
 import { FleetStrip } from "../../src/fleet.ts";
 import { FleetWidget, LIST_KEY, TREE_KEY } from "../../src/fleet-widget.ts";
 import { editorOwnsFocus, handleFleetInput } from "../../src/fleet-view.ts";
+import { registerViewShortcuts } from "../../src/shortcuts.ts";
 import { createSnapshotCapture } from "./capture-snapshot.mjs";
 
 const [hostModules, mode = "regular", theme = "dark"] = process.argv.slice(2);
@@ -17,9 +18,9 @@ const { createInteractiveTui } = await load(
 	"@earendil-works/pi-coding-agent",
 	"dist/modes/interactive/tui-renderer.js",
 );
-const { CustomEditor } = await load(
+const { CustomEditor, ExtensionSelectorComponent, SettingsSelectorComponent, ModelSelectorComponent } = await load(
 	"@earendil-works/pi-coding-agent",
-	"dist/modes/interactive/components/custom-editor.js",
+	"dist/index.js",
 );
 const { KeybindingsManager } = await load("@earendil-works/pi-coding-agent", "dist/core/keybindings.js");
 const {
@@ -64,7 +65,13 @@ ui.setFocus(editor);
 ui.start();
 
 let savedView = "expanded";
-const strip = new FleetStrip(() => savedView);
+let savedManagementList = true;
+let activeKeys = { navigationDownKey: "down", navigationUpKey: "up" };
+const strip = new FleetStrip(
+	() => savedView,
+	() => savedManagementList,
+	() => activeKeys,
+);
 const OWNER = "session";
 let now = 1_000_000;
 const runs = [];
@@ -255,6 +262,135 @@ try {
 	handle.unfocus();
 	ui.hideOverlay();
 	ui.renderNow();
+
+	// Pi replaces the editor with selectors without an overlay. Their keys must reach them.
+	const settingsConfig = {
+		autoCompact: true,
+		defaultModel: "fake/one",
+		availableDefaultModels: [],
+		showImages: true,
+		availableThinkingLevels: ["off"],
+		modelThinkingLevels: {},
+		availableThemes: ["dark", "light"],
+		warnings: {},
+		currentTheme: "dark",
+		terminalTheme: "dark",
+		thinkingLevel: "off",
+	};
+	const settingsCallbacks = new Proxy({}, { get: () => () => {} });
+	const modelRuntime = {
+		getAvailable: () => [],
+		getAvailableSnapshot: () => [],
+		getAll: () => [],
+		getSnapshot: () => ({ models: [], available: [] }),
+		getApiKey: async () => undefined,
+		refresh: async () => {},
+	};
+	const selectors = [
+		["settings", new SettingsSelectorComponent(settingsConfig, settingsCallbacks)],
+		[
+			"model",
+			new ModelSelectorComponent(
+				ui,
+				undefined,
+				modelRuntime,
+				[],
+				() => {},
+				() => {},
+			),
+		],
+		[
+			"extension",
+			new ExtensionSelectorComponent(
+				"Extension selection",
+				["one", "two"],
+				() => {},
+				() => {},
+			),
+		],
+		["input", new tui.Input()],
+		["unsupported editor", { getText: () => "", render: () => ["custom editor"], handleInput() {} }],
+	];
+	for (const [label, selector] of selectors) {
+		input(DOWN);
+		assert.equal(strip.isSelecting, true, "editor owns selection before selector opens");
+		ui.removeChild(editor);
+		ui.addChild(selector);
+		ui.setFocus(selector);
+		assert.equal(ui.hasOverlay(), false);
+		assert.notEqual(ui.getFocusedComponent(), null);
+		for (const data of [DOWN, UP, "\r", ESCAPE]) {
+			const count = passed.length;
+			input(data);
+			assert.equal(strip.isSelecting, false, `${label} must own input without overlay`);
+			assert.equal(passed.length, count + 1, `${label} receives ${JSON.stringify(data)}`);
+		}
+		ui.removeChild(selector);
+		selector.dispose?.();
+		ui.addChild(editor);
+		ui.setFocus(editor);
+	}
+
+	// Hiding management ends selection while leaving the expanded tree and saved preference intact.
+	input(DOWN);
+	assert.equal(strip.isSelecting, true);
+	savedManagementList = false;
+	assert.deepEqual(lines(LIST_KEY), []);
+	assert.equal(strip.isSelecting, false);
+	assert.equal(lines(TREE_KEY).length, 9);
+	input(DOWN);
+	assert.equal(strip.isSelecting, false);
+	strip.toggle();
+	strip.toggle();
+	assert.equal(savedManagementList, false);
+	assert.deepEqual(lines(LIST_KEY), []);
+	savedManagementList = true;
+
+	// Effective Pi fullscreen actions block modified arrows, without a plain-arrow fallback.
+	const requested = {
+		maxVisibleAgents: 5,
+		fleetView: "expanded",
+		showManagementList: true,
+		toggleKey: "off",
+		inspectKey: "off",
+		navigationDownKey: "ctrl+shift+down",
+		navigationUpKey: "ctrl+shift+up",
+	};
+	const resolveKeys = () =>
+		registerViewShortcuts({ registerShortcut() {} }, requested, { toggleFleet() {}, openInspection() {} });
+	const blocked = resolveKeys();
+	assert.equal(blocked.keys.navigationDownKey, "off");
+	assert.equal(blocked.keys.navigationUpKey, "off");
+	assert(blocked.diagnostics.some((text) => text.includes("tui.altScreen.nextPrompt")));
+	activeKeys = blocked.keys;
+	input(DOWN);
+	input("\x1b[1;6B");
+	assert.equal(strip.isSelecting, false);
+	assert(!plainLines(LIST_KEY, 100)[0].includes("to manage"));
+
+	// A synthetic manual remap and reload frees both keys. Saved key edits alone stay inactive.
+	keys.setUserBindings({ "tui.altScreen.nextPrompt": ["ctrl+down"], "tui.altScreen.previousPrompt": ["ctrl+up"] });
+	const bound = resolveKeys();
+	assert.equal(bound.diagnostics.length, 0);
+	activeKeys = bound.keys;
+	assert(plainLines(LIST_KEY, 100)[0].includes("ctrl+shift+down to manage"));
+	input(DOWN);
+	assert.equal(strip.isSelecting, false);
+	input("\x1b[1;6B");
+	assert.equal(strip.selection(), "run-a");
+	input("\x1b[1;6:1B");
+	assert.equal(strip.selection(), "run-b");
+	input("\x1b[1;6:3B");
+	assert.equal(strip.selection(), "run-b");
+	input("\x1b[1;6A");
+	assert.equal(strip.selection(), "run-a");
+	const plainPasses = passed.length;
+	input(UP);
+	input(DOWN);
+	assert.equal(passed.length, plainPasses + 2);
+	input(ESCAPE);
+	activeKeys = { navigationDownKey: "down", navigationUpKey: "up" };
+	keys.setUserBindings({});
 
 	// A narrow terminal truncates every line without wrapping.
 	for (const line of [...lines(TREE_KEY, 60), ...lines(LIST_KEY, 60)]) assert(tui.visibleWidth(line) <= 60);

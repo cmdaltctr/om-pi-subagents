@@ -152,7 +152,7 @@ Finished agents stay in the tree for a short time:
 - A completed run stays until the next parent turn starts and at least 4 seconds have passed.
 - A failed or cancelled run stays until the second parent turn starts.
 
-A list below the editor shows the same runs for navigation:
+An optional Management list below the editor shows the same runs for navigation:
 
 ```text
   ↓ to manage
@@ -160,9 +160,9 @@ A list below the editor shows the same runs for navigation:
   ○ builder  Update validation                         18s
 ```
 
-To navigate the list:
+To navigate the list with the default keys:
 
-1. Make sure the prompt is empty.
+1. Make sure the editor owns focus and the prompt is empty.
 2. Press Down. The first agent is selected with `●` and the hint changes to `↑↓ select · enter inspect · esc back`.
 3. Press Up or Down to move to another agent.
 4. Press Enter to inspect the selected agent.
@@ -172,25 +172,41 @@ Outside the list, Up recalls prompt history and Escape interrupts as usual. Typi
 
 Set `ui.fleetView` in `/omps-settings` to change the starting view:
 
-| Value       | Effect                                                                        |
-| ----------- | ----------------------------------------------------------------------------- |
-| `expanded`  | Default. Shows the tree and the list.                                         |
-| `collapsed` | Shows only the tree heading, for example `● Agents · 5 running`. No list.     |
-| `off`       | Shows neither widget. `/omps`, `/omps status` and `/omps inspect` still work. |
+| Value       | Effect                                                                          |
+| ----------- | ------------------------------------------------------------------------------- |
+| `expanded`  | Default. Shows the tree; the list appears when `ui.showManagementList` is true. |
+| `collapsed` | Shows only the tree heading, for example `● Agents · 5 running`. No list.       |
+| `off`       | Shows neither widget. `/omps`, `/omps status` and `/omps inspect` still work.   |
 
-`/omps fleet` switches between expanded and collapsed for the current session. A bound fleet shortcut does the same. Shortcuts are `off` by default; see [operator settings](#operator-settings).
+`/omps fleet` switches between expanded and collapsed for the current session. A bound **Fleet view shortcut** does the same.
+Choose **Management list: Hide** in `/omps-settings`, or set `ui.showManagementList: false`, to keep the expanded tree alone.
+The preference defaults to true. Hiding the list ends selection, removes its hint and releases its navigation keys immediately.
+Showing it restores rows from retained evidence. Session fleet toggles preserve that saved preference.
+Every retained agent stays reachable through `/omps inspect` while the list is hidden.
+
+`ui.navigationDownKey` and `ui.navigationUpKey` default to `down` and `up`. Either can be `off`.
+Hints use the active pair. Key edits apply after `/reload`; settings shows saved values alongside active keys until then.
+With the Down action off or inactive, keys cannot enter selection. Plain arrows pass through when you configure another pair.
+A focused Pi selector, settings screen or overlay keeps its keys. If editor focus cannot be verified, input passes through.
+
+Custom bindings that Pi owns remain inactive, with the owning action named and no plain-arrow fallback.
+In Pi 1.0.4, Ctrl+Shift+Up/Down belong to `tui.altScreen.previousPrompt` and `tui.altScreen.nextPrompt`.
+OMPS never rewrites Pi keybindings. Follow the [manual remapping example](SETUP.md#management-navigation-keys),
+keep other entries, check `/hotkeys`, then run `/reload`. Some terminals consume modified arrows;
+test your pair locally or choose other keys. View shortcuts default to `off`; see [operator settings](#operator-settings).
 
 The widgets never show tool arguments, tool results, the agent's thinking or error logs. OMPS removes terminal control characters from the text. Saved answers appear in inspection and in the result message.
 
 Each observed run also carries two bounded pieces of display text:
 
 - A one-line task label: the submitted task, sanitised to a single line of at most 160 characters.
-- A provisional assistant preview: the most recent visible assistant text, sanitised and capped at 4 KiB of UTF-8. Oversized text is cut and marked `[preview truncated]`. Rapid updates are coalesced to at most five preview refreshes per second per run.
+- A provisional assistant preview: the most recent visible assistant text, sanitised with Markdown line breaks and indentation preserved, capped at 4 KiB of UTF-8. Oversized text is cut and marked `[preview truncated]`. Rapid updates are coalesced to at most five preview refreshes per second per run.
 
 Previews contain visible assistant text only. Tool arguments, raw tool results, hidden thinking, stderr, system history and authentication fields never enter display state. Terminal control characters and direction overrides are removed without changing the saved files.
 A preview is provisional. It never proves that a run completed, and it never replaces the saved final answer: `output.md` in the run folder remains the only authoritative result. A stale preview stays labelled provisional after a run ends.
 
-The visible-agent setting bounds the list rows, defaulting to five. Every active root stays reachable through the arrows; hidden runs continue normally.
+The visible-agent setting bounds the list rows, defaulting to five. Every active root stays reachable through a visible list
+or `/omps inspect`; hidden runs continue normally.
 The display bounds do not restrict launches; `/omps status` lists every direct owned run.
 Finishing one run leaves active siblings visible. Finished runs leave the tree and the list as described above. `/omps inspect` still opens finished runs after they leave. Old previews cannot replace newer work.
 
@@ -223,16 +239,26 @@ The hierarchy lives in the agent tree, the list and the inspection modal. Identi
 List rows are bounded by the visible-agent setting and the tree by 12 lines; the modal lists every retained node without that bound.
 Status counts still include all active direct children.
 
-1. Run `/omps inspect` to open the current session's retained nodes.
-2. Move with Up and Down. Rows sit beneath their immediate parent, indented by depth.
-3. Fold a branch with Left; unfold it with Right. Folded rows show `+N folded`; nothing is discarded.
-4. Press Enter to read the selected node's saved task and output.
-5. Use PageUp or PageDown to scroll the detail area.
-6. Press Escape to return to Pi's editor.
+1. Run `/omps inspect` to open the picker of retained nodes.
+2. Move with Up/Down. Rows sit beneath their immediate parent, indented by depth.
+3. Fold with Left or unfold with Right. Folded rows stay retained.
+4. Press Enter to open full-width details.
+5. Scroll with Up/Down, PageUp/PageDown or Home/End.
+6. Switch agents with Left/Right while details are open.
+7. Press Escape to return to the picker with its selection and folds intact.
+8. Press Escape again to return to Pi's editor.
 
-You can also run `/omps inspect <run-id>` to open a selected node directly, or press Enter on a fleet row to inspect that root.
-Fullscreen mode supports clicks on tree rows. Regular mode uses keyboard input; a narrow terminal shows the tree and details
-one after the other, and Escape steps back from the detail screen before closing the modal.
+Every width uses one column. A header identifies the selected agent, state and elapsed time.
+The scrollable body separates task, current activity, **Live answer · provisional** and **Saved output**.
+Answers use Pi's themed Markdown. The footer shows controls and the visible line range when content exceeds the viewport.
+Scrolling works while saved reads load or fail, including provisional-only answers.
+New content preserves your reading position. Reaching the bottom follows updates until you scroll upwards.
+Terminal duration freezes at the retained end time. With no observed tool, details say **No active tool observed**.
+Tool names and concurrent counts describe current activity; they provide no complete tool history.
+
+`/omps inspect <run-id>` and Enter on a management row open details directly; Escape closes without a picker step.
+Fullscreen mode supports picker-row clicks and mouse-wheel scrolling over the detail body.
+Regular mode uses keyboard input because the terminal owns mouse scrollback.
 The modal includes retained hidden descendants and completed short runs, and it updates while agents run.
 Resizing keeps the selected run. Closing the modal restores your editor draft and releases its pending reads; the run continues.
 An empty session answers `No runs to inspect in this session.` without reading the mapping or display preferences.
@@ -444,7 +470,10 @@ The command starts no agent or model request. Clients without dialogs receive an
 | Parallel direct children per parent | Safe integer of at least 1                           | `limits.maxConcurrentRuns` in that YAML |
 | Visible agents                      | Safe integer from 1 to 256; default 5                | `ui.maxVisibleAgents` in that YAML      |
 | Fleet view                          | `expanded`, `collapsed` or `off`; default `expanded` | `ui.fleetView` in that YAML             |
-| Fleet list shortcut                 | Pi key specification or `off`; default `off`         | `ui.toggleKey` in that YAML             |
+| Management list                     | Show/Hide; default Show                              | `ui.showManagementList` in that YAML    |
+| Management next / enter key         | Pi key specification or `off`; default `down`        | `ui.navigationDownKey` in that YAML     |
+| Management previous key             | Pi key specification or `off`; default `up`          | `ui.navigationUpKey` in that YAML       |
+| Fleet view shortcut                 | Pi key specification or `off`; default `off`         | `ui.toggleKey` in that YAML             |
 | Inspection shortcut                 | Pi key specification or `off`; default `off`         | `ui.inspectKey` in that YAML            |
 | Agent capabilities                  | Select an agent, then Memory or Todo                 | That agent's existing YAML lists        |
 | Import legacy visible agents        | Offered while a valid legacy value applies           | `ui.maxVisibleAgents` in that YAML      |
@@ -454,11 +483,13 @@ The menu shows the selected registry path, including any `OMPS_REGISTRY` overrid
 the source of the effective visible-agent value: YAML, the legacy display file or the default.
 OMPS does not write todo preferences or Pi's `settings.json`.
 
-A saved fleet view applies at once and replaces any session toggle. Shortcut edits need `/reload`.
+A saved fleet view applies at once and replaces any session toggle. Management-list visibility also repaints immediately.
+Navigation-key and view-shortcut edits need `/reload`.
 
 Shortcut keys are lowercase Pi key specifications, such as `alt+o`. Tab and Ctrl+I are refused,
 and so is a key already bound to an effective built-in action, with guidance to choose another.
-The two shortcuts must differ; either or both can be `off`.
+All enabled OMPS keys must differ after modifier normalisation. Each key can be `off`.
+Default Down/Up retain their scoped editor/list use; custom navigation keys must be free of effective Pi actions.
 Shortcuts default to `off`. To restore the old `alt+o` and `alt+i` keys, and for the macOS Option setting they need, see [Restore the Alt keys](SETUP.md#restore-the-alt-keys).
 
 Shortcuts bind when an interactive session starts. A saved shortcut needs `/reload` before it

@@ -224,6 +224,9 @@ describe("ui settings persistence", () => {
 		expect((await loadRegistry(registry)).ui).toEqual({
 			maxVisibleAgents: 5,
 			fleetView: "expanded",
+			showManagementList: true,
+			navigationDownKey: "down",
+			navigationUpKey: "up",
 			toggleKey: "off",
 			inspectKey: "off",
 		});

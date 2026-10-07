@@ -7,7 +7,7 @@
 
 import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import { PLAIN_THEME, type TreeTheme } from "./agent-tree-widget.ts";
-import type { FleetView } from "./config.ts";
+import type { FleetView, NavigationKeys } from "./config.ts";
 import { isTerminal, type RunState } from "./runs.ts";
 
 /** One direct root as seen by the widgets: manager state plus retained observation evidence. */
@@ -103,9 +103,17 @@ export function formatFleetElapsed(ms: number): string {
 	return `${Math.max(0, Math.round(ms / 1000))}s`;
 }
 
-function renderRow(row: FleetRow, width: number, now: number, theme: TreeTheme): string {
+function renderRow(row: FleetRow, width: number, now: number, theme: TreeTheme, keys: NavigationKeys): string {
 	if (row.kind === "hint") {
-		const hint = row.selecting ? "↑↓ select · enter inspect · esc back" : "↓ to manage";
+		const down = keys.navigationDownKey === "down" ? "↓" : keys.navigationDownKey;
+		const up = keys.navigationUpKey === "up" ? "↑" : keys.navigationUpKey;
+		const directions = [up, down].filter((key) => key !== "off");
+		const pair = up === "↑" && down === "↓" ? "↑↓" : directions.join("/");
+		const hint = row.selecting
+			? `${pair ? `${pair} select · ` : ""}enter inspect · esc back`
+			: down === "off"
+				? "/omps inspect"
+				: `${down} to manage`;
 		return truncateToWidth("  " + theme.fg("dim", hint), width);
 	}
 	if (row.kind === "above") return rightAlign("", theme.fg("dim", `↑ ${row.count} more`), width);
@@ -135,7 +143,20 @@ export class FleetStrip {
 	private selectedRunId: string | undefined;
 	private selecting = false;
 
-	constructor(private readonly view: () => FleetView = () => "expanded") {}
+	constructor(
+		private readonly view: () => FleetView = () => "expanded",
+		private readonly showManagementList: () => boolean = () => true,
+		private readonly keys: () => NavigationKeys = () => ({ navigationDownKey: "down", navigationUpKey: "up" }),
+	) {}
+
+	get navigationKeys(): NavigationKeys {
+		return this.keys();
+	}
+
+	/** Management visibility is independent of the above-editor tree. */
+	get isListVisible(): boolean {
+		return this.isExpanded && !this.isHidden && this.showManagementList();
+	}
 
 	/** Flip between the expanded view and the collapsed tree heading for this session. */
 	toggle(): void {
@@ -166,7 +187,7 @@ export class FleetStrip {
 
 	/** Enter selection mode at a run; only an expanded list can select. */
 	startSelection(runId: string): void {
-		if (!this.isExpanded) return;
+		if (!this.isListVisible) return;
 		this.selecting = true;
 		this.selectedRunId = runId;
 	}
@@ -184,11 +205,15 @@ export class FleetStrip {
 		return this.selectedRunId;
 	}
 
-	/** Render the list. Only the expanded view has one; collapsed and off render none. */
+	/** Render management rows only when their independent visibility preference allows them. */
 	render(input: Omit<FleetInput, "selectedRunId" | "selecting">, width: number, theme = PLAIN_THEME): string[] {
-		if (this.isHidden || !this.isExpanded) return [];
+		if (!this.isListVisible) {
+			this.endSelection();
+			return [];
+		}
 		const projection = projectFleet({ ...input, selectedRunId: this.selectedRunId, selecting: this.selecting });
 		this.selectedRunId = projection.selectedRunId;
-		return projection.rows.map((row) => renderRow(row, width, input.now, theme));
+		if (!projection.runIds.length) this.endSelection();
+		return projection.rows.map((row) => renderRow(row, width, input.now, theme, this.navigationKeys));
 	}
 }
