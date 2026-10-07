@@ -114,16 +114,16 @@ describe("ui settings", () => {
 ${ui}agents: {}
 `;
 
-	it("applies the default five visible agents and Alt+O/Alt+I when ui is omitted", async () => {
+	it("applies five visible agents, the expanded fleet and no shortcuts when ui is omitted", async () => {
 		await write("om-pi-subagents.yaml", uiYaml(""));
 		const registry = await loadRegistry(yamlPath());
-		expect(registry.ui).toEqual({ maxVisibleAgents: 5, toggleKey: "alt+o", inspectKey: "alt+i" });
+		expect(registry.ui).toEqual({ maxVisibleAgents: 5, fleetView: "expanded", toggleKey: "off", inspectKey: "off" });
 	});
 
 	it("accepts an empty ui mapping", async () => {
 		await write("om-pi-subagents.yaml", uiYaml("ui: {}\n"));
 		const registry = await loadRegistry(yamlPath());
-		expect(registry.ui).toEqual({ maxVisibleAgents: 5, toggleKey: "alt+o", inspectKey: "alt+i" });
+		expect(registry.ui).toEqual({ maxVisibleAgents: 5, fleetView: "expanded", toggleKey: "off", inspectKey: "off" });
 	});
 
 	it("carries declared ui values", async () => {
@@ -132,18 +132,35 @@ ${ui}agents: {}
 			uiYaml('ui:\n  maxVisibleAgents: 9\n  toggleKey: "ctrl+alt+p"\n  inspectKey: "off"\n'),
 		);
 		const registry = await loadRegistry(yamlPath());
-		expect(registry.ui).toEqual({ maxVisibleAgents: 9, toggleKey: "ctrl+alt+p", inspectKey: "off" });
+		expect(registry.ui).toEqual({
+			maxVisibleAgents: 9,
+			fleetView: "expanded",
+			toggleKey: "ctrl+alt+p",
+			inspectKey: "off",
+		});
+	});
+
+	it.each(["expanded", "collapsed", "off"])("carries fleetView %s", async (view) => {
+		await write("om-pi-subagents.yaml", uiYaml(`ui:\n  fleetView: "${view}"\n`));
+		expect((await loadRegistry(yamlPath())).ui.fleetView).toBe(view);
+	});
+
+	it("keeps explicit Alt keys after the defaults change", async () => {
+		await write("om-pi-subagents.yaml", uiYaml('ui:\n  toggleKey: "alt+o"\n  inspectKey: "alt+i"\n'));
+		const registry = await loadRegistry(yamlPath());
+		expect(registry.ui).toMatchObject({ toggleKey: "alt+o", inspectKey: "alt+i" });
 	});
 
 	it("applies only the matching default for each omitted ui field", async () => {
 		await write("om-pi-subagents.yaml", uiYaml("ui:\n  maxVisibleAgents: 8\n"));
 		const registry = await loadRegistry(yamlPath());
-		expect(registry.ui).toEqual({ maxVisibleAgents: 8, toggleKey: "alt+o", inspectKey: "alt+i" });
-		await write("om-pi-subagents.yaml", uiYaml('ui:\n  inspectKey: "off"\n'));
+		expect(registry.ui).toEqual({ maxVisibleAgents: 8, fleetView: "expanded", toggleKey: "off", inspectKey: "off" });
+		await write("om-pi-subagents.yaml", uiYaml('ui:\n  inspectKey: "alt+i"\n'));
 		expect((await loadRegistry(yamlPath())).ui).toEqual({
 			maxVisibleAgents: 5,
-			toggleKey: "alt+o",
-			inspectKey: "off",
+			fleetView: "expanded",
+			toggleKey: "off",
+			inspectKey: "alt+i",
 		});
 	});
 
@@ -167,7 +184,7 @@ agents:
 		const registry = await loadRegistry(yamlPath());
 		expect([...registry.agents.keys()]).toEqual(["reader"]);
 		expect(registry.limits).toEqual({ maxConcurrentRuns: 4, maxDepth: 3 });
-		expect(registry.ui).toEqual({ maxVisibleAgents: 2, toggleKey: "alt+o", inspectKey: "alt+i" });
+		expect(registry.ui).toEqual({ maxVisibleAgents: 2, fleetView: "expanded", toggleKey: "off", inspectKey: "off" });
 	});
 
 	it("freezes the resolved ui settings", async () => {

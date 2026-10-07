@@ -1,5 +1,5 @@
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
-import { checkUiKey, RegistryError, type UiSettings } from "./config.ts";
+import { checkUiKey, FLEET_VIEWS, normaliseKey, RegistryError, type UiSettings } from "./config.ts";
 import { capabilityEdit, inspectCapability, selectPublishedPackage, type Capability } from "./capabilities.ts";
 import {
 	readLimitSettings,
@@ -16,6 +16,8 @@ export interface SettingsResources {
 	/** Keys actually bound in this session; undefined until shortcut registration runs. */
 	activeKeys?(): UiSettings | undefined;
 	onDisplayChanged?(ctx: ExtensionCommandContext): void;
+	/** Drop the session fleet toggle after a saved `ui.fleetView` change. */
+	onFleetViewSaved?(): void;
 }
 
 const sourceLabel: Record<UiSettingsState["maxVisibleAgentsSource"], string> = {
@@ -52,6 +54,7 @@ function menuItems(limits: LimitSettings, ui: UiSettingsState, active: UiSetting
 		`Maximum nesting depth: ${limits.limits.maxDepth} (root depth 0)`,
 		`Parallel direct children per parent: ${limits.limits.maxConcurrentRuns}`,
 		`Visible agents: ${ui.value.maxVisibleAgents} (${sourceLabel[ui.maxVisibleAgentsSource]})`,
+		`Fleet view: ${ui.value.fleetView}`,
 		shortcutItem("Fleet list shortcut", ui.value.toggleKey, active, "toggleKey"),
 		shortcutItem("Inspection shortcut", ui.value.inspectKey, active, "inspectKey"),
 	];
@@ -99,8 +102,18 @@ async function showSettings(ctx: ExtensionCommandContext, resources: SettingsRes
 			ui = await resources.ui.refresh();
 			continue;
 		}
-		if (index === 3 || index === 4) {
-			await editShortcut(ctx, resources, limits, ui, index === 3 ? "toggleKey" : "inspectKey", choice);
+		if (index === 3) {
+			const saved = await editFleetView(ctx, limits, ui);
+			limits = await readLimitSettings(resources.registryPath);
+			ui = await resources.ui.refresh();
+			if (saved) {
+				resources.onFleetViewSaved?.();
+				await repaint(resources, ctx);
+			}
+			continue;
+		}
+		if (index === 4 || index === 5) {
+			await editShortcut(ctx, resources, limits, ui, index === 4 ? "toggleKey" : "inspectKey", choice);
 			limits = await readLimitSettings(resources.registryPath);
 			ui = await resources.ui.refresh();
 			continue;
@@ -178,6 +191,26 @@ async function editVisibleAgents(
 	ctx.ui.notify(`Subagent setting saved to ${limits.path}.`, "info");
 }
 
+async function editFleetView(
+	ctx: ExtensionCommandContext,
+	limits: LimitSettings,
+	ui: UiSettingsState,
+): Promise<boolean> {
+	const value = await ctx.ui.select(`Fleet view (now ${ui.value.fleetView})`, [...FLEET_VIEWS]);
+	if (value === undefined || !FLEET_VIEWS.includes(value as UiSettings["fleetView"])) return false;
+	const creation = limits.missing ? "Create the missing version-one registry with no mapped agents.\n" : "";
+	if (
+		!(await ctx.ui.confirm(
+			"Save this subagent setting?",
+			`${creation}Fleet view → ${value}\nSave to: ${limits.path}\nThe fleet repaints immediately.`,
+		))
+	)
+		return false;
+	await saveUiSetting(limits, "fleetView", value, limits.missing);
+	ctx.ui.notify(`Subagent setting saved to ${limits.path}.`, "info");
+	return true;
+}
+
 async function editShortcut(
 	ctx: ExtensionCommandContext,
 	resources: SettingsResources,
@@ -193,7 +226,7 @@ async function editShortcut(
 		checkUiKey(field, value);
 		const other: "toggleKey" | "inspectKey" = field === "toggleKey" ? "inspectKey" : "toggleKey";
 		const otherKey = ui.value[other];
-		if (value !== "off" && value === otherKey)
+		if (value !== "off" && normaliseKey(value) === normaliseKey(otherKey))
 			throw new RegistryError(`ui.${field}`, `duplicate of ui.${other} (${value}); choose distinct keys`);
 	} catch (error) {
 		ctx.ui.notify((error as RegistryError).message, "error");

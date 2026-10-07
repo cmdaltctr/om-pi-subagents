@@ -411,8 +411,8 @@ export function registerRuntime(pi: ExtensionAPI, branch?: ChildLineage): () => 
 		},
 		ensureLoaded: () => getUi().ensureLoaded(),
 	};
-	// Session-local strip state: expansion and selection never persist and never touch a file.
-	const strip = new FleetStrip();
+	// The saved view comes from the cached registry; session toggles and selection never touch a file.
+	const strip = new FleetStrip(() => getUi().value.fleetView);
 	const fleetKeys = (): FleetKeys => {
 		const value = activeKeys ?? getUi().value;
 		const label = (key: string) => (key === "off" ? "" : key);
@@ -429,6 +429,8 @@ export function registerRuntime(pi: ExtensionAPI, branch?: ChildLineage): () => 
 		registryPath: branch?.registryPath ?? resolveRegistryPath(agentDir()),
 		ui: getUi(),
 		activeKeys: () => activeKeys,
+		// A saved view replaces any session toggle, so the operator sees the new setting at once.
+		onFleetViewSaved: () => strip.resetView(),
 		onDisplayChanged: (ctx) => {
 			runtime?.viewer.activate(ctx);
 			runtime?.viewer.redraw();
@@ -457,7 +459,7 @@ export function registerRuntime(pi: ExtensionAPI, branch?: ChildLineage): () => 
 		});
 		activeKeys = registration.keys;
 		for (const diagnostic of registration.diagnostics) ctx.ui.notify(`OMPS shortcuts: ${diagnostic}`, "warning");
-		// Fleet arrows work only while the strip is expanded, the draft is empty and the editor owns focus.
+		// Down enters fleet selection only from an empty, focused editor while the expanded strip shows runs.
 		stopInput?.();
 		stopInput = ctx.ui.onTerminalInput((data) => {
 			const owner = binding.owner;

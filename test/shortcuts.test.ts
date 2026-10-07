@@ -1,9 +1,12 @@
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { occupiedByBuiltin, registerViewShortcuts } from "../src/shortcuts.ts";
-import type { UiSettings } from "../src/config.ts";
+import { loadRegistry, normaliseKey, type UiSettings } from "../src/config.ts";
 
-const defaults: UiSettings = { maxVisibleAgents: 5, toggleKey: "alt+o", inspectKey: "alt+i" };
+const defaults: UiSettings = { maxVisibleAgents: 5, fleetView: "expanded", toggleKey: "alt+o", inspectKey: "alt+i" };
 
 function harness(resolved: Record<string, unknown> = {}) {
 	const registrations = new Map<string, { description?: string; handler: (ctx: ExtensionContext) => void }>();
@@ -67,6 +70,43 @@ describe("registerViewShortcuts", () => {
 		expect(occupiedByBuiltin("up", { "tui.editor.cursorUp": ["up", "ctrl+p"] })).toBe(true);
 		expect(occupiedByBuiltin("ctrl+p", { "tui.editor.cursorUp": ["up", "ctrl+p"] })).toBe(true);
 		expect(occupiedByBuiltin("alt+o", { "tui.editor.cursorUp": ["up", "ctrl+p"] })).toBe(false);
+	});
+});
+
+describe("modifier order", () => {
+	it("refuses ctrl+shift+o when Pi binds shift+ctrl+o", () => {
+		const { pi, registrations, actions } = harness();
+		const resolved = { "app.tree.filter.cycleBackward": "shift+ctrl+o" };
+		const registration = registerViewShortcuts(pi, { ...defaults, toggleKey: "ctrl+shift+o" }, actions, resolved);
+		expect(registrations.has("ctrl+shift+o")).toBe(false);
+		expect(registration.keys.toggleKey).toBe("off");
+		expect(registration.diagnostics[0]).toMatch(/ctrl\+shift\+o.*built-in/i);
+	});
+
+	it("finds a reordered key inside array bindings", () => {
+		expect(occupiedByBuiltin("alt+ctrl+p", { "app.x": ["f1", "ctrl+alt+p"] })).toBe(true);
+		expect(occupiedByBuiltin("ctrl+alt+q", { "app.x": ["ctrl+alt+p"] })).toBe(false);
+	});
+
+	it("keeps the base key last and sorts modifiers", () => {
+		expect(normaliseKey("shift+ctrl+o")).toBe(normaliseKey("ctrl+shift+o"));
+		expect(normaliseKey("super+alt+shift+ctrl+-")).toBe("ctrl+shift+alt+super+-");
+		expect(normaliseKey("f2")).toBe("f2");
+	});
+});
+
+describe("shipped defaults", () => {
+	it("registers no shortcut for YAML without ui", async () => {
+		const dir = await mkdtemp(join(tmpdir(), "omps-shortcuts-"));
+		try {
+			const path = join(dir, "om-pi-subagents.yaml");
+			await writeFile(path, "version: 1\nagents: {}\n");
+			const { pi, registrations, actions } = harness();
+			registerViewShortcuts(pi, (await loadRegistry(path)).ui, actions, {});
+			expect(registrations.size).toBe(0);
+		} finally {
+			await rm(dir, { recursive: true, force: true });
+		}
 	});
 });
 

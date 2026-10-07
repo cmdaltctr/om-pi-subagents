@@ -1,4 +1,5 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { FleetView } from "../src/config.ts";
 import { FleetStrip } from "../src/fleet.ts";
 import { FleetWidget, type TerminalFacts, type WidgetComponent } from "../src/fleet-widget.ts";
 import type { Messenger } from "../src/notify.ts";
@@ -40,7 +41,7 @@ const tree = (nodes: ObservedNode[], incomplete = false): ObservedTree => ({
 	reasons: incomplete ? ["nodes-omitted" as const] : [],
 });
 
-function setup(options: { mode?: "tui" | "rpc"; trees?: ObservedTree[] } = {}) {
+function setup(options: { mode?: "tui" | "rpc"; trees?: ObservedTree[]; view?: FleetView } = {}) {
 	const runs: RunView[] = [];
 	const trees = options.trees ?? [];
 	const setWidget = vi.fn();
@@ -54,7 +55,7 @@ function setup(options: { mode?: "tui" | "rpc"; trees?: ObservedTree[] } = {}) {
 		trees: (owner) => trees.filter((entry) => entry.owner === owner),
 		visibleAgents: () => 5,
 		keys: () => ({ toggle: "alt+o", inspect: "alt+i" }),
-		strip: new FleetStrip(),
+		strip: new FleetStrip(() => options.view ?? "collapsed"),
 		mode: () => options.mode ?? "tui",
 		now: () => 61_000,
 	});
@@ -153,7 +154,7 @@ describe("fleet widget", () => {
 			trees: () => [],
 			visibleAgents: () => 5,
 			keys: () => ({ toggle: "", inspect: "" }),
-			strip: new FleetStrip(),
+			strip: new FleetStrip(() => "collapsed"),
 			mode: () => "tui",
 			now: () => 61_000,
 		});
@@ -183,6 +184,78 @@ describe("fleet widget", () => {
 		expect(h.setWidget).not.toHaveBeenCalled();
 		h.widget.onChange(run("run-1", "running"));
 		expect(h.requestRender).not.toHaveBeenCalled();
+	});
+
+	describe("linger after the last run", () => {
+		beforeEach(() => vi.useFakeTimers());
+		afterEach(() => vi.useRealTimers());
+
+		const finish = (h: ReturnType<typeof setup>, id: string) => {
+			h.runs.splice(0, h.runs.length, ...h.runs.map((entry) => (entry.id === id ? run(id, "completed") : entry)));
+			h.widget.onChange(run(id, "completed"));
+		};
+
+		it("shows the expanded tree by default and clears 10 seconds after the last run ends", () => {
+			const h = setup({ view: "expanded" });
+			h.runs.push(run("run-1", "running"));
+			h.widget.attach("session");
+			expect(h.linesOf(h.setWidget.mock.calls[0][0]).length).toBeGreaterThan(1);
+			finish(h, "run-1");
+			expect(h.linesOf(h.setWidget.mock.calls[0][0])).toEqual([
+				"Agents: idle | last agent-run-1 completed | alt+o list | alt+i inspect",
+			]);
+			vi.advanceTimersByTime(9_999);
+			expect(h.linesOf(h.setWidget.mock.calls[0][0])).toHaveLength(1);
+			const renders = h.requestRender.mock.calls.length;
+			vi.advanceTimersByTime(1);
+			expect(h.linesOf(h.setWidget.mock.calls[0][0])).toEqual([]);
+			expect(h.requestRender.mock.calls.length).toBe(renders + 1);
+		});
+
+		it("cancels the clear when a run starts inside the linger", () => {
+			const h = setup();
+			h.runs.push(run("run-1", "running"));
+			h.widget.attach("session");
+			finish(h, "run-1");
+			vi.advanceTimersByTime(5_000);
+			h.runs.push(run("run-2", "running", 2));
+			h.widget.onChange(run("run-2", "running", 2));
+			vi.advanceTimersByTime(10_000);
+			expect(h.linesOf(h.setWidget.mock.calls[0][0])[0]).toContain("1 active");
+		});
+
+		it("shows a later run after the widget has cleared", () => {
+			const h = setup();
+			h.runs.push(run("run-1", "running"));
+			h.widget.attach("session");
+			finish(h, "run-1");
+			vi.advanceTimersByTime(10_000);
+			h.runs.push(run("run-2", "starting", 2));
+			h.widget.onChange(run("run-2", "starting", 2));
+			expect(h.linesOf(h.setWidget.mock.calls[0][0])[0]).toContain("1 active");
+		});
+
+		it("cancels the timer when the session clears the strip", () => {
+			const h = setup();
+			h.runs.push(run("run-1", "running"));
+			h.widget.attach("session");
+			finish(h, "run-1");
+			h.widget.clear("session");
+			expect(vi.getTimerCount()).toBe(0);
+			const renders = h.requestRender.mock.calls.length;
+			vi.advanceTimersByTime(10_000);
+			expect(h.requestRender.mock.calls.length).toBe(renders);
+		});
+
+		it("keeps retained runs for inspection after the widget clears", () => {
+			const h = setup();
+			h.runs.push(run("run-1", "running"));
+			h.widget.attach("session");
+			finish(h, "run-1");
+			vi.advanceTimersByTime(10_000);
+			expect(h.runs.map((entry) => entry.id)).toEqual(["run-1"]);
+			expect(h.widget.renderLines("session", 100, 40)).toEqual([]);
+		});
 	});
 
 	it("clears the strip on demand", () => {

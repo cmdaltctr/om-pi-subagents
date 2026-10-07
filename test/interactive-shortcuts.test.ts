@@ -8,7 +8,7 @@ const hosts = [
 	{ version: "0.99.1", modules: process.env.PI_HOST_MODULES ?? resolve(".pi-host/node_modules") },
 	{ version: "1.0.4", modules: process.env.OMPS_CURRENT_HOST_MODULES },
 ];
-const scenarios = ["defaults", "off", "conflict", "tab", "custom", "reload"];
+const scenarios = ["defaults", "off", "conflict", "reorder", "tab", "custom", "reload"];
 for (const host of hosts)
 	describe.skipIf(!host.modules)(`OMPS view shortcuts ${host.version}`, () => {
 		for (const scenario of scenarios)

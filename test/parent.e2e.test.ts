@@ -109,8 +109,11 @@ describe("live fleet strip on real Pi", () => {
 			(record) =>
 				record.type === "extension_ui_request" && record.method === "setWidget" && record.widgetKey === "omps",
 		);
+		// The default view shows the run row without a key press.
+		expect(active.widgetLines.length).toBeGreaterThan(1);
+		expect(active.widgetLines.join("\n")).toMatch(/reader|start/);
 		// The strip keeps one compact idle summary; previews belong to inspection, not the strip.
-		expect(widgets.at(-1)!.widgetLines).toEqual(["Agents: idle | last reader completed | alt+o list | alt+i inspect"]);
+		expect(widgets.at(-1)!.widgetLines).toEqual(["Agents: idle | last reader completed"]);
 		for (const record of widgets) {
 			expect(record.widgetLines.join("\n")).not.toMatch(/PRIVATE TOOL RESULT|sleep 2|printf|Tools:/);
 		}

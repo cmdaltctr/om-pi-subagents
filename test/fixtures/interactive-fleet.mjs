@@ -60,11 +60,13 @@ ui.addChild(editor);
 ui.setFocus(editor);
 ui.start();
 
-const strip = new FleetStrip();
+let savedView = "expanded";
+const strip = new FleetStrip(() => savedView);
 const runs = ["run-a", "run-b", "run-c", "run-d", "run-e"];
+const active = { ids: runs };
 const host = {
 	strip,
-	activeRunIds: () => runs,
+	activeRunIds: () => active.ids,
 	editorText: () => editor.getText(),
 	editorOwnsFocus: () => editorOwnsFocus(ui),
 	onInspect(runId) {
@@ -72,8 +74,14 @@ const host = {
 	},
 };
 const inspected = [];
+// Keys that reach the editor rather than the fleet; Pi's history and interrupt would act on these.
+const passed = [];
 const input = (data) => terminal.input(data);
-const consume = (data) => (handleFleetInput(host, data) ? { consume: true } : undefined);
+const consume = (data) => {
+	if (handleFleetInput(host, data)) return { consume: true };
+	passed.push(data);
+	return undefined;
+};
 let unsubscribe = ui.addInputListener(consume);
 const render = (rows = terminal.rows) =>
 	strip.render(
@@ -81,8 +89,9 @@ const render = (rows = terminal.rows) =>
 			roots: runs.map((runId, index) => ({
 				runId,
 				agent: runId,
-				state: "running",
+				state: active.ids.includes(runId) ? "running" : "completed",
 				startedAt: index,
+				endedAt: active.ids.includes(runId) ? undefined : 10,
 				activeTools: index === 0 ? ["read"] : [],
 				taskSummary: `Synthetic task ${index + 1}`,
 				observedDescendants: index === 0 ? 2 : 0,
@@ -91,7 +100,7 @@ const render = (rows = terminal.rows) =>
 			visibleAgents: 5,
 			terminalRows: rows,
 		},
-		{ toggle: "alt+o", inspect: "alt+i" },
+		{ toggle: "", inspect: "" },
 	);
 
 const snapshot = createSnapshotCapture({
@@ -107,72 +116,110 @@ const capture = (stage, rows = terminal.rows) =>
 		`fleet-${stage}`,
 		render(rows).map((line) => tui.truncateToWidth(line, terminal.columns, "")),
 	);
+const DOWN = "\x1b[B";
+const UP = "\x1b[A";
+const ESCAPE = "\x1b";
 try {
-	await capture("collapsed");
-	// Collapsed: arrows belong to the editor and move nothing.
-	input("\x1b[B");
-	assert.equal(strip.selection(), undefined);
-	assert.equal(editor.getText(), "");
+	// Default view: the tree shows with no key press, and nothing is selected yet.
+	const expanded = render();
+	assert.equal(expanded.length, 7);
+	assert(expanded.every((line) => !line.startsWith(">")));
+	assert.equal(expanded.at(-1), "↓ select");
+	await capture("expanded-default");
 
-	// Expanded with an empty draft and editor focus: arrows are consumed by the fleet.
-	strip.toggle();
-	render();
-	await capture("expanded");
-	input("\x1b[B");
-	assert.equal(strip.selection(), "run-b");
+	// Outside selection, Up and Escape belong to Pi.
+	input(UP);
+	input(ESCAPE);
+	assert.equal(strip.isSelecting, false);
+	assert.deepEqual(passed.slice(-2), [UP, ESCAPE]);
+
+	// Down from the empty focused editor enters selection at the first root.
+	input(DOWN);
+	assert.equal(strip.isSelecting, true);
+	assert.equal(strip.selection(), "run-a");
 	assert.equal(editor.getText(), "");
+	input(DOWN);
+	assert.equal(strip.selection(), "run-b");
+	assert.equal(render()[2].startsWith("> Synthetic task 2"), true);
+	await capture("empty-prompt-navigation");
 
 	// Key release for the same tap performs no second move.
 	input("\x1b[1;1:3B");
 	assert.equal(strip.selection(), "run-b");
 
-	// A non-empty draft returns input to the editor.
+	// Enter inspects the selection; Escape leaves selection without collapsing.
+	input("\r");
+	assert.deepEqual(inspected, ["run-b"]);
+	input(ESCAPE);
+	assert.equal(strip.isSelecting, false);
+	assert.equal(strip.isExpanded, true);
+	const before = passed.length;
+	input(UP);
+	assert.equal(passed.length, before + 1, "Up returns to the editor after Escape");
+
+	// A non-empty draft keeps Down in the editor and never starts selection.
 	editor.setText("draft");
-	input("\x1b[B");
-	assert.equal(strip.selection(), "run-b");
+	input(DOWN);
+	assert.equal(strip.isSelecting, false);
 	editor.setText("");
 
 	// An unrelated overlay owning focus leaves navigation keys untouched.
 	const overlay = { render: () => ["dialog"], handleInput() {} };
 	const handle = ui.showOverlay(overlay);
 	ui.renderNow();
-	input("\x1b[B");
-	assert.equal(strip.selection(), "run-b");
+	input(DOWN);
+	assert.equal(strip.isSelecting, false);
 	handle.unfocus();
 	ui.hideOverlay();
 	ui.renderNow();
 
-	// Focus restored: Escape collapses without touching the editor draft.
-	editor.setText("preserved");
-	strip.toggle();
-	input("\x1b");
-	assert.equal(strip.isExpanded, false);
-	assert.equal(editor.getText(), "preserved");
+	// The saved collapsed view keeps one row; Down reaches the editor.
+	savedView = "collapsed";
+	strip.resetView();
+	assert.equal(render().length, 1);
+	await capture("collapsed");
+	input(DOWN);
+	assert.equal(strip.isSelecting, false);
 
-	// Resize below the expansion budget keeps the collapsed strip.
-	editor.setText("");
-	strip.toggle();
+	// The saved off view shows nothing at all.
+	savedView = "off";
+	strip.resetView();
+	assert.deepEqual(render(), []);
+	await snapshot("fleet-off", ["(no OMPS fleet widget)"]);
+	input(DOWN);
+	assert.equal(strip.isSelecting, false);
+
+	// A narrow, short terminal falls back to the one-row summary.
+	savedView = "expanded";
+	strip.resetView();
 	terminal.rows = 6;
 	terminal.columns = 45;
 	terminal.resize();
 	assert.equal(render(terminal.rows).length, 1);
 	await capture("narrow", terminal.rows);
 	terminal.rows = 24;
-	terminal.columns = 100;
+	terminal.columns = 70;
 	terminal.resize();
 	assert.equal(render(terminal.rows).length > 1, true);
+	await capture("narrow-expanded");
+	terminal.columns = 100;
+	terminal.resize();
 
-	// Enter inspects the selected run after the arrow move.
-	input("\x1b[B");
-	input("\r");
-	assert.deepEqual(inspected, ["run-b"]);
+	// The last run ending ends selection; the idle summary is what lingers before the clear.
+	input(DOWN);
+	assert.equal(strip.isSelecting, true);
+	active.ids = [];
+	input(UP);
+	assert.equal(strip.isSelecting, false);
+	assert.match(render()[0], /^Agents: idle \| last run-[a-e] completed$/);
+	await capture("after-linger");
 
 	// A stale session unsubscribes: later arrows reach the editor untouched.
+	active.ids = runs;
 	unsubscribe();
 	unsubscribe = () => {};
-	editor.setText("");
-	input("\x1b[B");
-	assert.equal(strip.selection(), "run-b");
+	input(DOWN);
+	assert.equal(strip.isSelecting, false);
 } finally {
 	unsubscribe();
 	ui.stop();

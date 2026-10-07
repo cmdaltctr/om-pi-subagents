@@ -221,7 +221,22 @@ describe("ui settings persistence", () => {
 		const displayed = await readLimitSettings(registry);
 		await saveUiSetting(displayed, "toggleKey", "off");
 		await saveUiSetting(await readLimitSettings(registry), "inspectKey", "off");
-		expect((await loadRegistry(registry)).ui).toEqual({ maxVisibleAgents: 5, toggleKey: "off", inspectKey: "off" });
+		expect((await loadRegistry(registry)).ui).toEqual({
+			maxVisibleAgents: 5,
+			fleetView: "expanded",
+			toggleKey: "off",
+			inspectKey: "off",
+		});
+	});
+
+	it("saves a valid fleet view and rejects other values without touching the file", async () => {
+		await saveUiSetting(await readLimitSettings(registry), "fleetView", "collapsed");
+		expect((await loadRegistry(registry)).ui.fleetView).toBe("collapsed");
+		const saved = await fs.readFile(registry, "utf8");
+		await expect(saveUiSetting(await readLimitSettings(registry), "fleetView", "hidden")).rejects.toThrow(
+			/ui\.fleetView/,
+		);
+		expect(await fs.readFile(registry, "utf8")).toBe(saved);
 	});
 
 	it("rejects a key that duplicates the other declared shortcut", async () => {
@@ -230,7 +245,7 @@ describe("ui settings persistence", () => {
 		await expect(saveUiSetting(await readLimitSettings(registry), "toggleKey", "alt+p")).rejects.toThrow(
 			/duplicate.*alt\+p|choose distinct/i,
 		);
-		expect((await loadRegistry(registry)).ui.toggleKey).toBe("alt+o");
+		expect((await loadRegistry(registry)).ui.toggleKey).toBe("off");
 	});
 
 	it("requires explicit confirmation before creating a missing registry", async () => {

@@ -4,25 +4,25 @@
 
 Write each test, run it, and confirm it fails for the intended reason before section 2.
 
-- [ ] 1.1 `test/config.test.ts`: YAML without `ui` gives `fleetView: "expanded"`, `toggleKey: "off"` and `inspectKey: "off"`. Explicit `alt+o` and `alt+i` stay in effect.
-- [ ] 1.2 `test/config.invalid.test.ts`: `ui.fleetView: hidden` and a non-string value fail with a diagnostic that names `ui.fleetView`.
-- [ ] 1.3 `test/settings-persistence.test.ts` and `test/settings.test.ts`: the settings menu shows "Fleet view"; confirming `collapsed` saves `ui.fleetView`; cancelling saves nothing; the fleet repaints without `/reload`.
-- [ ] 1.4 `test/shortcuts.test.ts`: `ctrl+shift+o` is refused when the resolved built-ins contain `shift+ctrl+o`. Duplicate detection ignores modifier order. Default settings register no shortcut.
-- [ ] 1.5 `test/fleet.test.ts`: the default view renders expanded rows for active roots; `collapsed` renders one row; `off` renders nothing; a session toggle does not change the saved view.
-- [ ] 1.6 `test/fleet-widget.test.ts`: widget content clears 10 seconds after the last active run ends (fake timers); a launch inside that time cancels the clear; shutdown cancels the timer; `/omps inspect` still lists retained runs.
-- [ ] 1.7 `test/fleet-view.test.ts`: Down from an empty focused editor enters selection; Up, Down and Enter act only in selection; Escape leaves selection without collapsing; Up and Escape pass through outside selection; a non-empty draft, an overlay, an empty fleet and `off` all pass Down through; a key release does nothing.
-- [ ] 1.8 Update tests that assert the old Alt+O and Alt+I defaults: `test/ui-settings.test.ts`, `test/registry-store.test.ts`, `test/viewer-registration.test.ts`, `test/parent.e2e.test.ts`, `test/skill.test.ts` and the interactive fixtures. Confirm each new assertion fails on current code.
+- [x] 1.1 `test/config.test.ts`: YAML without `ui` gives `fleetView: "expanded"`, `toggleKey: "off"` and `inspectKey: "off"`. Explicit `alt+o` and `alt+i` stay in effect.
+- [x] 1.2 `test/config.invalid.test.ts`: `ui.fleetView: hidden` and a non-string value fail with a diagnostic that names `ui.fleetView`.
+- [x] 1.3 `test/settings-persistence.test.ts` and `test/settings.test.ts`: the settings menu shows "Fleet view"; confirming `collapsed` saves `ui.fleetView`; cancelling saves nothing; the fleet repaints without `/reload`.
+- [x] 1.4 `test/shortcuts.test.ts`: `ctrl+shift+o` is refused when the resolved built-ins contain `shift+ctrl+o`. Duplicate detection ignores modifier order. Default settings register no shortcut.
+- [x] 1.5 `test/fleet.test.ts`: the default view renders expanded rows for active roots; `collapsed` renders one row; `off` renders nothing; a session toggle does not change the saved view.
+- [x] 1.6 `test/fleet-widget.test.ts`: widget content clears 10 seconds after the last active run ends (fake timers); a launch inside that time cancels the clear; shutdown cancels the timer; `/omps inspect` still lists retained runs.
+- [x] 1.7 `test/fleet-view.test.ts`: Down from an empty focused editor enters selection; Up, Down and Enter act only in selection; Escape leaves selection without collapsing; Up and Escape pass through outside selection; a non-empty draft, an overlay, an empty fleet and `off` all pass Down through; a key release does nothing.
+- [x] 1.8 Update tests that assert the old Alt+O and Alt+I defaults: `test/ui-settings.test.ts`, `test/registry-store.test.ts`, `test/viewer-registration.test.ts`, `test/parent.e2e.test.ts`, `test/skill.test.ts` and the interactive fixtures. Confirm each new assertion fails on current code.
 
 ## 2. Implementation
 
-- [ ] 2.1 `src/config.ts`: add `fleetView` to `UiSettings` and `UI_FIELDS`, validate the three values, and set `DEFAULT_TOGGLE_KEY` and `DEFAULT_INSPECT_KEY` to `"off"`.
-- [ ] 2.2 `src/ui-settings.ts` and `src/settings-persistence.ts`: add `fleetView` to the cached values and to `UiField`.
-- [ ] 2.3 `src/settings.ts`: add the "Fleet view" menu item with a select dialog and confirmation. Repaint on save.
-- [ ] 2.4 `src/shortcuts.ts`: add `normaliseKey` and use it in `occupiedByBuiltin` and the duplicate check.
-- [ ] 2.5 `src/fleet.ts`: read the starting view from settings, keep a session override for the toggle, and add the `selecting` state.
-- [ ] 2.6 `src/fleet-widget.ts`: return no lines for `off`; add the 10-second clear timer per owner and cancel it on launch and shutdown.
-- [ ] 2.7 `src/fleet-view.ts` and `src/index.ts`: implement selection mode as in design decision 3, and render the hint row.
-- [ ] 2.8 Run each test from section 1 and confirm it passes. Break each safeguard in a disposable copy and confirm the matching test fails.
+- [x] 2.1 `src/config.ts`: add `fleetView` to `UiSettings` and `UI_FIELDS`, validate the three values, and set `DEFAULT_TOGGLE_KEY` and `DEFAULT_INSPECT_KEY` to `"off"`.
+- [x] 2.2 `src/ui-settings.ts` and `src/settings-persistence.ts`: add `fleetView` to the cached values and to `UiField`.
+- [x] 2.3 `src/settings.ts`: add the "Fleet view" menu item with a select dialog and confirmation. Repaint on save.
+- [x] 2.4 `src/shortcuts.ts`: add `normaliseKey` and use it in `occupiedByBuiltin` and the duplicate check.
+- [x] 2.5 `src/fleet.ts`: read the starting view from settings, keep a session override for the toggle, and add the `selecting` state.
+- [x] 2.6 `src/fleet-widget.ts`: return no lines for `off`; add the 10-second clear timer per owner and cancel it on launch and shutdown.
+- [x] 2.7 `src/fleet-view.ts` and `src/index.ts`: implement selection mode as in design decision 3, and render the hint row.
+- [x] 2.8 Run each test from section 1 and confirm it passes. Break each safeguard in a disposable copy and confirm the matching test fails.
 
 ## 3. Documentation and skill
 

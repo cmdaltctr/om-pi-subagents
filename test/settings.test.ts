@@ -5,6 +5,8 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import omps from "../src/index.ts";
 import { loadRegistry } from "../src/config.ts";
+import { registerOmpsSettings } from "../src/settings.ts";
+import { createUiSettings } from "../src/ui-settings.ts";
 
 const processes = vi.hoisted(() => ({ spawn: vi.fn(), spawnSync: vi.fn(), execFile: vi.fn(), exec: vi.fn() }));
 vi.mock("node:child_process", () => processes);
@@ -135,8 +137,9 @@ describe("settings commands", () => {
 				"Maximum nesting depth: 3 (root depth 0)",
 				"Parallel direct children per parent: 4",
 				"Visible agents: 5 (default)",
-				"Fleet list shortcut: alt+o",
-				"Inspection shortcut: alt+i",
+				"Fleet view: expanded",
+				"Fleet list shortcut: off",
+				"Inspection shortcut: off",
 				"Agent capabilities",
 				"Done",
 			]);
@@ -333,6 +336,7 @@ describe("view shortcuts", () => {
 		await run(ctx);
 		expect((await loadRegistry(registry)).ui).toEqual({
 			maxVisibleAgents: 5,
+			fleetView: "expanded",
 			toggleKey: "off",
 			inspectKey: "ctrl+alt+i",
 		});
@@ -354,6 +358,15 @@ describe("view shortcuts", () => {
 		},
 	);
 
+	it("refuses a duplicate written in another modifier order before confirmation", async () => {
+		await fs.writeFile(registry, "version: 1\nui: { inspectKey: ctrl+alt+p }\nagents: {}\n");
+		const ctx = context();
+		pick(ctx, "Fleet list shortcut", "alt+ctrl+p");
+		await run(ctx);
+		expect(ctx.ui.notify).toHaveBeenCalledWith(expect.stringMatching(/duplicate/i), "error");
+		expect(ctx.ui.confirm).not.toHaveBeenCalled();
+	});
+
 	it("shows the active binding beside a saved one until reload", async () => {
 		await fs.writeFile(registry, "version: 1\nui: { toggleKey: alt+p }\nagents: {}\n");
 		const ctx = context();
@@ -362,6 +375,71 @@ describe("view shortcuts", () => {
 		expect((await loadRegistry(registry)).ui.inspectKey).toBe("alt+q");
 		const items = ctx.ui.select.mock.calls.flatMap(([_title, options]) => options);
 		expect(items.some((item) => item.includes("Fleet list shortcut: alt+p"))).toBe(true);
+	});
+});
+
+describe("fleet view", () => {
+	/** Open the fleet view item, choose a view, then answer the confirmation. */
+	function pickView(ctx: ReturnType<typeof context>, view: string | undefined, confirmed = true) {
+		ctx.ui.select.mockImplementationOnce(async (_title, items) => items.find((item) => item.startsWith("Fleet view")));
+		ctx.ui.select.mockImplementationOnce(async (_title, items) => items.find((item) => item === view));
+		ctx.ui.confirm.mockResolvedValueOnce(confirmed);
+	}
+
+	it("offers the three views and saves a confirmed choice without a reload", async () => {
+		const ctx = context();
+		pickView(ctx, "collapsed");
+		await run(ctx);
+		expect(ctx.ui.select.mock.calls[1][1]).toEqual(["expanded", "collapsed", "off"]);
+		expect((await loadRegistry(registry)).ui.fleetView).toBe("collapsed");
+		expect(ctx.ui.confirm.mock.calls[0][1]).toContain(registry);
+		const saved = ctx.ui.notify.mock.calls.find(([, level]) => level === "info")?.[0];
+		expect(saved).toMatch(/saved/i);
+		expect(saved).not.toMatch(/\/reload/i);
+		const items = ctx.ui.select.mock.calls.at(-1)?.[1];
+		expect(items).toContain("Fleet view: collapsed");
+	});
+
+	it("resets the session toggle and repaints only after a saved view", async () => {
+		const handlers = new Map<string, Parameters<ExtensionAPI["registerCommand"]>[1]>();
+		const pi = {
+			registerCommand: (name: string, command: Parameters<ExtensionAPI["registerCommand"]>[1]) =>
+				handlers.set(name, command),
+		};
+		const onFleetViewSaved = vi.fn();
+		const onDisplayChanged = vi.fn();
+		registerOmpsSettings(pi as unknown as ExtensionAPI, () => ({
+			registryPath: registry,
+			ui: createUiSettings(registry, display),
+			onFleetViewSaved,
+			onDisplayChanged,
+		}));
+		const declined = context();
+		pickView(declined, "off", false);
+		await handlers.get("omps-settings")!.handler("", declined as unknown as ExtensionCommandContext);
+		expect(onFleetViewSaved).not.toHaveBeenCalled();
+		const opened = onDisplayChanged.mock.calls.length;
+		const ctx = context();
+		pickView(ctx, "collapsed");
+		await handlers.get("omps-settings")!.handler("", ctx as unknown as ExtensionCommandContext);
+		expect(onFleetViewSaved).toHaveBeenCalledOnce();
+		// One repaint when settings open, one more after the save.
+		expect(onDisplayChanged.mock.calls.length).toBe(opened * 2 + 1);
+	});
+
+	it("saves nothing when the view dialog is cancelled", async () => {
+		const ctx = context();
+		pickView(ctx, undefined);
+		await run(ctx);
+		expect(ctx.ui.confirm).not.toHaveBeenCalled();
+		expect(await fs.readFile(registry, "utf8")).not.toContain("fleetView");
+	});
+
+	it("saves nothing when the confirmation is declined", async () => {
+		const ctx = context();
+		pickView(ctx, "off", false);
+		await run(ctx);
+		expect(await fs.readFile(registry, "utf8")).not.toContain("fleetView");
 	});
 });
 

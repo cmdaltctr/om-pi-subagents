@@ -43,7 +43,7 @@ describe.skipIf(!PI_AVAILABLE)("native RPC settings dialogs", () => {
 	it("saves view shortcuts through the alias command", async () => {
 		const fixture = await startPi({ mcp: false, args: ["-e", index] });
 		try {
-			expect((await editRpcSettings(fixture, 3, "alt+p", true, "/subagents-settings")).data.disposition).toBe(
+			expect((await editRpcSettings(fixture, 4, "alt+p", true, "/subagents-settings")).data.disposition).toBe(
 				"handled",
 			);
 			const saved = await loadRegistry(join(fixture.agentDir, "om-pi-subagents.yaml"));

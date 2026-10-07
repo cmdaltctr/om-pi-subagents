@@ -1,3 +1,4 @@
+import type { FleetView } from "./config.ts";
 import { isTerminal, type RunState } from "./runs.ts";
 
 /** One direct root as seen by the projection: manager state plus retained observation evidence. */
@@ -21,6 +22,8 @@ export interface FleetInput {
 	/** Terminal height in rows. Expansion may use at most one third of it. */
 	readonly terminalRows: number;
 	readonly selectedRunId?: string;
+	/** True while the operator moves through the rows; only then is a row marked and Enter live. */
+	readonly selecting?: boolean;
 	/** Wall clock for elapsed times; omitted from row text when absent. */
 	readonly now?: number;
 }
@@ -87,15 +90,17 @@ export function projectFleet(input: FleetInput): FleetProjection {
 	const start = Math.max(0, Math.min(selectedIndex - shown + 1, activeRoots.length - shown));
 	const windowed = activeRoots.slice(start, start + shown);
 	const rows: FleetRow[] = [{ kind: "summary", text: summaryText(activeRoots, descendants, incomplete) }];
+	const selecting = input.selecting === true;
 	for (const root of windowed)
-		rows.push({ kind: "root", runId: root.runId, selected: root.runId === selectedRunId, text: rootText(root, input) });
+		rows.push({
+			kind: "root",
+			runId: root.runId,
+			selected: selecting && root.runId === selectedRunId,
+			text: rootText(root, input),
+		});
 	const additional = activeRoots.length - windowed.length;
-	rows.push({
-		kind: "navigation",
-		text: additional
-			? `+${additional} more | Arrows select | Enter inspect`
-			: "Arrows select | Enter inspect | Esc collapse",
-	});
+	const hint = selecting ? "↑↓ move | Enter inspect | Esc back" : "↓ select";
+	rows.push({ kind: "navigation", text: additional ? `+${additional} more | ${hint}` : hint });
 	return Object.freeze({
 		rows: Object.freeze(rows),
 		selectedRunId,
@@ -130,20 +135,56 @@ export interface FleetKeys {
 	readonly inspect: string;
 }
 
-/** Session-local strip state: expansion and selection never persist and never touch a file. */
+/**
+ * Session-local strip state. The saved `ui.fleetView` supplies the starting view; a toggle overrides
+ * it for this session only. Selection mode starts from an empty prompt and never touches a file.
+ */
 export class FleetStrip {
-	private expanded = false;
+	private override: boolean | undefined;
 	private selectedRunId: string | undefined;
+	private selecting = false;
 
+	constructor(private readonly view: () => FleetView = () => "expanded") {}
+
+	/** Flip between the expanded tree and one summary row for this session. */
 	toggle(): void {
-		this.expanded = !this.expanded;
+		const expanded = !this.isExpanded;
+		// Returning to the saved view drops the override, so an off fleet can hide again.
+		this.override = expanded === (this.view() === "expanded") ? undefined : expanded;
+		if (!expanded) this.selecting = false;
+	}
+
+	/** Drop the session override so a newly saved view applies. */
+	resetView(): void {
+		this.override = undefined;
+		this.selecting = false;
 	}
 
 	get isExpanded(): boolean {
-		return this.expanded;
+		return this.override ?? this.view() === "expanded";
 	}
 
-	/** Select by run identity; used by the keyboard controller in the next task. */
+	/** True when the fleet widget shows nothing: the saved view is off and no toggle overrides it. */
+	get isHidden(): boolean {
+		return this.override === undefined && this.view() === "off";
+	}
+
+	get isSelecting(): boolean {
+		return this.selecting;
+	}
+
+	/** Enter selection mode at a run; only an expanded strip can select. */
+	startSelection(runId: string): void {
+		if (!this.isExpanded) return;
+		this.selecting = true;
+		this.selectedRunId = runId;
+	}
+
+	endSelection(): void {
+		this.selecting = false;
+	}
+
+	/** Select by run identity. */
 	select(runId: string): void {
 		this.selectedRunId = runId;
 	}
@@ -152,9 +193,15 @@ export class FleetStrip {
 		return this.selectedRunId;
 	}
 
-	/** Render the strip's content lines. Collapsed content is exactly one line. */
-	render(input: Omit<FleetInput, "expanded" | "selectedRunId">, keys: FleetKeys): string[] {
-		const projection = projectFleet({ ...input, expanded: this.expanded, selectedRunId: this.selectedRunId });
+	/** Render the strip's content lines. Collapsed content is exactly one line; off renders none. */
+	render(input: Omit<FleetInput, "expanded" | "selectedRunId" | "selecting">, keys: FleetKeys): string[] {
+		if (this.isHidden) return [];
+		const projection = projectFleet({
+			...input,
+			expanded: this.isExpanded,
+			selectedRunId: this.selectedRunId,
+			selecting: this.selecting,
+		});
 		this.selectedRunId = projection.selectedRunId;
 		if (!projection.rows.length) return [];
 		if (projection.collapsed) {

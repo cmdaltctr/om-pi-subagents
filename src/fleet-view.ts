@@ -17,19 +17,30 @@ export interface FleetViewHost {
 }
 
 /**
- * Editor-focus-aware fleet navigation. Arrows move the selection through every active root,
- * Escape collapses without cancelling work, Enter inspects the selection. Keys belonging to
- * another dialog or overlay, non-empty drafts, key releases and unexpanded fleets pass through.
+ * Empty-prompt fleet navigation. Down from an empty, focused editor enters selection mode when the
+ * expanded strip shows run rows. Only inside selection do Up, Down, Enter and Escape belong to the
+ * fleet; outside it Up keeps Pi's prompt history and Escape keeps Pi's interrupt. A draft, a dialog,
+ * an overlay or the end of the last active run ends selection and passes the key on.
  *
  * @returns true when the key was consumed and must not reach the editor.
  */
 export function handleFleetInput(host: FleetViewHost, data: string): boolean {
 	if (isKeyRelease(data)) return false;
-	if (!host.strip.isExpanded) return false;
-	if (!host.editorOwnsFocus()) return false;
-	if (host.editorText().length > 0) return false;
 	const runIds = host.activeRunIds();
-	if (!runIds.length) return false;
+	const usable = host.strip.isExpanded && host.editorOwnsFocus() && host.editorText().length === 0 && runIds.length > 0;
+	if (!usable) {
+		if (host.strip.isSelecting) {
+			host.strip.endSelection();
+			host.onViewChanged?.();
+		}
+		return false;
+	}
+	if (!host.strip.isSelecting) {
+		if (!matchesKey(data, "down")) return false;
+		host.strip.startSelection(runIds[0]);
+		host.onViewChanged?.();
+		return true;
+	}
 	const current = host.strip.selection() ?? runIds[0];
 	if (matchesKey(data, "up") || matchesKey(data, "down")) {
 		const index = Math.max(0, runIds.indexOf(current));
@@ -39,7 +50,7 @@ export function handleFleetInput(host: FleetViewHost, data: string): boolean {
 		return true;
 	}
 	if (matchesKey(data, "escape")) {
-		host.strip.toggle();
+		host.strip.endSelection();
 		host.onViewChanged?.();
 		return true;
 	}

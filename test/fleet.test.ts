@@ -84,7 +84,7 @@ describe("root ordering and selection", () => {
 
 	it("keeps selection attached to run identity across changes", () => {
 		const roots = [root({ runId: "a" }), root({ runId: "b" }), root({ runId: "c" })];
-		const selected = projectFleet({ ...base, roots, expanded: true, selectedRunId: "b" });
+		const selected = projectFleet({ ...base, roots, expanded: true, selectedRunId: "b", selecting: true });
 		const selectedRow = selected.rows.find(
 			(row) => row.kind === "root" && (row as { runId: string }).runId === "b",
 		) as { selected: boolean };
@@ -133,6 +133,12 @@ describe("expanded bounds and overflow", () => {
 		expect((projection.rows.at(-1) as { text: string }).text).toMatch(/\+2 more/);
 	});
 
+	it("marks no row outside selection mode", () => {
+		const roots = [root({ runId: "a" }), root({ runId: "b" })];
+		const projection = projectFleet({ ...base, roots, expanded: true, selectedRunId: "b" });
+		expect(projection.rows.some((row) => row.kind === "root" && row.selected)).toBe(false);
+	});
+
 	it("stays collapsed when a small terminal cannot fit a selectable row and navigation", () => {
 		const roots = [root({ runId: "a" }), root({ runId: "b" })];
 		const projection = projectFleet({ ...base, roots, expanded: true, terminalRows: 6 });
@@ -177,21 +183,35 @@ describe("strip rendering", () => {
 	);
 	const input = { visibleAgents: 5, terminalRows: 40, roots };
 
-	it("keeps five active roots on exactly one persistent content row", () => {
+	it("expands by default so the tree shows without a key press", () => {
 		const strip = new FleetStrip();
+		const lines = strip.render(input, keys);
+		expect(lines).toHaveLength(7);
+		expect(lines[1]).toBe("  Task 1 running 1 descendants");
+		expect(lines.at(-1)).toBe("↓ select");
+	});
+
+	it("keeps five active roots on exactly one persistent content row when collapsed", () => {
+		const strip = new FleetStrip(() => "collapsed");
 		expect(strip.render(input, keys)).toEqual([
 			"Agents: 5 active | 15 observed descendants | alt+o list | alt+i inspect",
 		]);
 	});
 
-	it("expands within the seven-content-row budget and marks the selection", () => {
+	it("renders nothing when the view is off, even with active roots", () => {
+		const strip = new FleetStrip(() => "off");
+		expect(strip.render(input, keys)).toEqual([]);
+	});
+
+	it("marks the selection and shows selection hints only in selection mode", () => {
 		const strip = new FleetStrip();
-		strip.toggle();
+		strip.startSelection("run-1");
 		const lines = strip.render(input, keys);
-		expect(lines).toHaveLength(7);
 		expect(lines[1]).toBe("> Task 1 running 1 descendants");
 		expect(lines[2]).toBe("  Task 2 running 2 descendants");
-		expect(lines.at(-1)).toMatch(/Enter inspect/);
+		expect(lines.at(-1)).toBe("↑↓ move | Enter inspect | Esc back");
+		strip.endSelection();
+		expect(strip.render(input, keys)[1]).toBe("  Task 1 running 1 descendants");
 	});
 
 	it("returns no lines without run evidence", () => {
@@ -199,16 +219,29 @@ describe("strip rendering", () => {
 		expect(strip.render({ ...input, roots: [] }, keys)).toEqual([]);
 	});
 
-	it("keeps expansion session-local and collapses without touching run state", () => {
-		const strip = new FleetStrip();
+	it("toggles for the session without changing the saved view", () => {
+		let saved: "expanded" | "collapsed" | "off" = "expanded";
+		const strip = new FleetStrip(() => saved);
+		strip.toggle();
+		expect(strip.render(input, keys)).toHaveLength(1);
+		expect(saved).toBe("expanded");
 		strip.toggle();
 		expect(strip.render(input, keys)).toHaveLength(7);
-		strip.toggle();
+		saved = "collapsed";
+		strip.resetView();
 		expect(strip.render(input, keys)).toHaveLength(1);
 	});
 
+	it("shows an off fleet for the session when toggled", () => {
+		const strip = new FleetStrip(() => "off");
+		strip.toggle();
+		expect(strip.render(input, keys)).toHaveLength(7);
+		strip.toggle();
+		expect(strip.render(input, keys)).toEqual([]);
+	});
+
 	it("restores the previous collapsed summary after expansion", () => {
-		const strip = new FleetStrip();
+		const strip = new FleetStrip(() => "collapsed");
 		strip.toggle();
 		strip.render(input, keys);
 		strip.toggle();

@@ -88,7 +88,7 @@ ${ui}agents:
 		await write(dir, "om-pi-subagents.yaml", uiYaml("ui:\n  maxVisibleAgents: 6\n"));
 		const store = createRegistryStore(join(dir, "om-pi-subagents.yaml"));
 		const snapshot = await store.refresh();
-		expect(snapshot.ui).toEqual({ maxVisibleAgents: 6, toggleKey: "alt+o", inspectKey: "alt+i" });
+		expect(snapshot.ui).toEqual({ maxVisibleAgents: 6, fleetView: "expanded", toggleKey: "off", inspectKey: "off" });
 	});
 
 	it("blocks refresh on invalid ui values and serves no stale configuration", async () => {

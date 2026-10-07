@@ -23,9 +23,13 @@ export interface RunLimits {
 	readonly maxDepth: number;
 }
 
+/** How the fleet first appears: the agent tree, one summary row, or no widget. */
+export type FleetView = "expanded" | "collapsed" | "off";
+
 /** Presentation settings from the optional `ui` mapping. Key values are Pi key specifications or `off`. */
 export interface UiSettings {
 	readonly maxVisibleAgents: number;
+	readonly fleetView: FleetView;
 	readonly toggleKey: string;
 	readonly inspectKey: string;
 }
@@ -56,14 +60,17 @@ export class RegistryError extends Error {
 
 const SUPPORTED_VERSION = 1;
 export const DEFAULT_MAX_VISIBLE_AGENTS = 5;
-export const DEFAULT_TOGGLE_KEY = "alt+o";
-export const DEFAULT_INSPECT_KEY = "alt+i";
+export const DEFAULT_FLEET_VIEW: FleetView = "expanded";
+// macOS terminals type "ø" for Option+O unless Option sends Alt, so no modifier key ships enabled.
+export const DEFAULT_TOGGLE_KEY = "off";
+export const DEFAULT_INSPECT_KEY = "off";
+export const FLEET_VIEWS: readonly FleetView[] = ["expanded", "collapsed", "off"];
 const MAX_FILE_BYTES = 256 * 1024;
 const NAME_PATTERN = /^[a-z][a-z0-9-]{0,63}$/;
 const TOOL_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_.-]*$/;
 const THINKING_LEVELS = ["off", "minimal", "low", "medium", "high", "xhigh", "max"];
 const AGENT_FIELDS = ["persona", "tools", "model", "thinking", "skills", "extensions"];
-const UI_FIELDS: readonly (keyof UiSettings)[] = ["maxVisibleAgents", "toggleKey", "inspectKey"];
+const UI_FIELDS: readonly (keyof UiSettings)[] = ["maxVisibleAgents", "fleetView", "toggleKey", "inspectKey"];
 /** Pi key specifications are lowercase `modifier+base` pairs; `pageUp` and `pageDown` keep their capitals. */
 const SPECIAL_KEYS = [
 	"escape",
@@ -160,25 +167,49 @@ function validateUi(value: unknown): { settings: UiSettings; declarations: UiDec
 		(typeof visible !== "number" || !Number.isSafeInteger(visible) || visible < 1 || visible > 256)
 	)
 		throw new RegistryError("ui.maxVisibleAgents", "must be a safe integer from 1 to 256");
+	const view = raw.fleetView === undefined ? undefined : checkFleetView(raw.fleetView);
 	const toggle = raw.toggleKey === undefined ? undefined : checkUiKey("toggleKey", raw.toggleKey);
 	const inspect = raw.inspectKey === undefined ? undefined : checkUiKey("inspectKey", raw.inspectKey);
 	// Compare effective values: one declared key can also collide with the other key's default.
 	const effectiveToggle = toggle ?? DEFAULT_TOGGLE_KEY;
 	const effectiveInspect = inspect ?? DEFAULT_INSPECT_KEY;
-	if (effectiveToggle === effectiveInspect && effectiveToggle !== "off")
+	if (normaliseKey(effectiveToggle) === normaliseKey(effectiveInspect) && effectiveToggle !== "off")
 		throw new RegistryError("ui.inspectKey", `duplicate of ui.toggleKey (${effectiveInspect}); choose distinct keys`);
 	return {
 		settings: Object.freeze({
 			maxVisibleAgents: visible ?? DEFAULT_MAX_VISIBLE_AGENTS,
+			fleetView: view ?? DEFAULT_FLEET_VIEW,
 			toggleKey: toggle ?? DEFAULT_TOGGLE_KEY,
 			inspectKey: inspect ?? DEFAULT_INSPECT_KEY,
 		}),
 		declarations: Object.freeze({
 			maxVisibleAgents: visible !== undefined,
+			fleetView: view !== undefined,
 			toggleKey: toggle !== undefined,
 			inspectKey: inspect !== undefined,
 		}),
 	};
+}
+
+const MODIFIER_ORDER = ["ctrl", "shift", "alt", "super"];
+
+/**
+ * One spelling per key: Pi parses `shift+ctrl+o` and `ctrl+shift+o` as the same key, so conflict
+ * checks compare modifiers in a fixed order with the base key last.
+ */
+export function normaliseKey(key: string): string {
+	const match = /^((?:(?:ctrl|shift|alt|super)\+)*)(.+)$/.exec(key);
+	if (!match) return key;
+	const modifiers = match[1].split("+").filter(Boolean);
+	modifiers.sort((a, b) => MODIFIER_ORDER.indexOf(a) - MODIFIER_ORDER.indexOf(b));
+	return [...modifiers, match[2]].join("+");
+}
+
+/** Validate one fleet view outside a full registry load. Throws a RegistryError naming `ui.fleetView`. */
+export function checkFleetView(value: unknown): FleetView {
+	if (!FLEET_VIEWS.includes(value as FleetView))
+		throw new RegistryError("ui.fleetView", 'must be "expanded", "collapsed" or "off"');
+	return value as FleetView;
 }
 
 /** Validate one shortcut value outside a full registry load. Throws a RegistryError naming `ui.<field>`. */

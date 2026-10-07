@@ -8,7 +8,7 @@ import { FleetStrip, type FleetKeys, type FleetRoot } from "./fleet.ts";
 import type { Messenger, TerminalFacts, WidgetComponent } from "./notify.ts";
 import { plain } from "./plain.ts";
 import type { ObservedTree } from "./observation.ts";
-import type { RunView } from "./runs.ts";
+import { isTerminal, type RunView } from "./runs.ts";
 
 export type { TerminalFacts, WidgetComponent };
 
@@ -29,12 +29,16 @@ export interface FleetWidgetDeps {
 	mode(): string;
 	/** Wall clock for elapsed times. */
 	now?(): number;
+	/** How long the final summary stays after the last active run ends. */
+	lingerMs?: number;
 }
 
 /** Line hosts accept arrays but not live components, so they render at a fixed budget. */
 const LINE_HOST_WIDTH = 200;
 const LINE_HOST_ROWS = 40;
 const MAX_AGENT_CHARS = 48;
+/** Long enough to read the outcome, short enough to match tintinweb/pi-subagents. */
+export const FLEET_LINGER_MS = 10_000;
 
 function fit(line: string, width: number): string {
 	return stripVTControlCharacters(truncateToWidth(line, width, ""));
@@ -44,6 +48,9 @@ export class FleetWidget {
 	private readonly attached = new Set<string>();
 	private readonly painters = new Map<string, () => void>();
 	private readonly factsByOwner = new Map<string, TerminalFacts>();
+	private readonly lingers = new Map<string, ReturnType<typeof setTimeout>>();
+	/** Owners whose final summary has lingered out; the next active run shows the strip again. */
+	private readonly settled = new Set<string>();
 
 	constructor(private readonly deps: FleetWidgetDeps) {}
 
@@ -68,6 +75,7 @@ export class FleetWidget {
 
 	/** Render the strip's content lines within the given terminal width. */
 	renderLines(owner: string, width: number, terminalRows: number): string[] {
+		if (this.settled.has(owner)) return [];
 		const roots = this.roots(owner);
 		if (!roots.length) return [];
 		const lines = this.deps.strip.render(
@@ -107,7 +115,33 @@ export class FleetWidget {
 
 	/** Repaint after a run snapshot changes. */
 	onChange(run: RunView): void {
+		this.linger(run.owner);
 		this.repaint(run.owner);
+	}
+
+	/** Start the clear once no direct run is active; any active run cancels it. */
+	private linger(owner: string): void {
+		const runs = this.deps.runs(owner);
+		if (runs.some((entry) => !isTerminal(entry.state))) {
+			this.cancelLinger(owner);
+			this.settled.delete(owner);
+			return;
+		}
+		if (!runs.length || this.lingers.has(owner) || this.settled.has(owner)) return;
+		const timer = setTimeout(() => {
+			this.lingers.delete(owner);
+			this.settled.add(owner);
+			this.repaint(owner);
+		}, this.deps.lingerMs ?? FLEET_LINGER_MS);
+		// A pending clear must never keep the parent process alive.
+		timer.unref?.();
+		this.lingers.set(owner, timer);
+	}
+
+	private cancelLinger(owner: string): void {
+		const timer = this.lingers.get(owner);
+		if (timer) clearTimeout(timer);
+		this.lingers.delete(owner);
 	}
 
 	/** Repaint the attached strip; a display failure never changes a run. */
@@ -126,6 +160,8 @@ export class FleetWidget {
 
 	/** Remove the strip; the owning session keeps its runs. */
 	clear(owner: string): void {
+		this.cancelLinger(owner);
+		this.settled.delete(owner);
 		this.attached.delete(owner);
 		this.painters.delete(owner);
 		this.factsByOwner.delete(owner);

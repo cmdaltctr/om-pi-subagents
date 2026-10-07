@@ -226,6 +226,20 @@ ${ui}`;
 		);
 	});
 
+	it.each(["hidden", '"Expanded"', "12", "true", "[]"])("rejects fleetView %s", async (value) => {
+		await expectRejected(
+			await config(valid, uiHead(`  fleetView: ${value}\n`)),
+			/ui\.fleetView.*expanded.*collapsed.*off/i,
+		);
+	});
+
+	it("rejects duplicate keys written in another modifier order", async () => {
+		await expectRejected(
+			await config(valid, uiHead('  toggleKey: "ctrl+alt+p"\n  inspectKey: "alt+ctrl+p"\n')),
+			/ui\.inspectKey.*duplicate/i,
+		);
+	});
+
 	it("rejects an off value spelled differently", async () => {
 		await expectRejected(await config(valid, uiHead('  inspectKey: "disabled"\n')), /ui\.inspectKey.*(key|off)/i);
 	});
