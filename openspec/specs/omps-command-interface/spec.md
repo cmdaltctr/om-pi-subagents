@@ -69,12 +69,25 @@ This change MUST NOT add automatic model fallback.
 
 ### Requirement: Preserve explicit commands and useful validation
 
-Existing `list`, `run`, `status`, `cancel` and `inspect [run-id]` forms SHALL keep their meaning and ownership checks. The additive `fleet` form SHALL provide current-session fleet access without execution. Unknown or malformed subcommands SHALL show actionable usage guidance. Service failures SHALL remain error notifications. Bare `/omps` SHALL remain status rather than opening a view.
+Existing `list`, `run`, `status`, `cancel` and `inspect [run-id]` forms SHALL keep their meaning and ownership checks. The additive `fleet` form SHALL provide current-session fleet access without execution. Unknown or malformed subcommands SHALL show actionable usage guidance. Service failures SHALL remain error notifications. Bare `/omps` SHALL remain status rather than opening a view. The `list` output shown to the operator SHALL be compact: one line for each agent with its name, its approved tool count, `read-only` or `write-capable`, and its model and delegation capability when they apply. The `omps` tool SHALL keep every exact approved tool name in the text returned to the model, and SHALL show that full list to the operator only when the tool output is expanded.
 
 #### Scenario: An explicit command is valid
 
 - **WHEN** the operator enters a supported execution command with required arguments
 - **THEN** it calls the same current-session operation as before
+
+#### Scenario: The operator lists agents
+
+- **WHEN** the operator enters `/omps list` and an agent has 24 approved tools without write tools
+- **THEN** that agent appears on one line as `<name>: 24 tools (read-only)`
+- **AND** no individual tool name is printed
+
+#### Scenario: The model lists agents
+
+- **WHEN** the model calls the `omps` tool with action `list`
+- **THEN** the returned text names every approved tool for every agent
+- **AND** the collapsed tool output shows the compact one-line form
+- **AND** expanding the tool output with the host expansion action shows the full list
 
 #### Scenario: A subcommand is incomplete or unknown
 
@@ -94,7 +107,7 @@ Existing `list`, `run`, `status`, `cancel` and `inspect [run-id]` forms SHALL ke
 #### Scenario: Fleet is used in interactive Pi
 
 - **WHEN** the operator enters `/omps fleet`
-- **THEN** the current fleet toggles without starting a model request or process
+- **THEN** the current fleet toggles between expanded and collapsed without starting a model request or process
 - **AND** an empty session receives a clear empty-state message
 
 #### Scenario: Fleet is used through RPC
@@ -138,7 +151,7 @@ Existing `list`, `run`, `status`, `cancel` and `inspect [run-id]` forms SHALL ke
 
 ### Requirement: Provide native operator settings dialogs
 
-`/omps-settings` SHALL be the canonical operator settings command, with `/subagents-settings` as an alias. Native dialogs SHALL expose depth, per-parent concurrency, visible roots, fleet/inspection shortcuts and per-agent Memory/Todo switches. The menu SHALL show effective values, sources, selected YAML destination and reload needs. Opening settings SHALL start no process or model request and change no mapping. Registration MUST perform no file access.
+`/omps-settings` SHALL be the canonical operator settings command, with `/subagents-settings` as an alias. Native dialogs SHALL expose depth, per-parent concurrency, visible roots, fleet view, fleet/inspection shortcuts and per-agent Memory/Todo switches. The menu SHALL show effective values, sources, selected YAML destination and reload needs. Opening settings SHALL start no process or model request and change no mapping. Registration MUST perform no file access.
 
 #### Scenario: The operator opens settings
 
@@ -146,6 +159,12 @@ Existing `list`, `run`, `status`, `cancel` and `inspect [run-id]` forms SHALL ke
 - **THEN** the menu shows current execution and UI values with their source and save destination
 - **AND** an existing agent can be selected to inspect its Memory/Todo mapping states
 - **AND** an edit requires confirmation
+
+#### Scenario: The operator changes the fleet view
+
+- **WHEN** the operator selects the fleet view item and confirms `collapsed`, `expanded` or `off`
+- **THEN** `ui.fleetView` is saved to the selected YAML
+- **AND** the current fleet repaints in that view without `/reload`
 
 #### Scenario: The legacy command is used
 
@@ -246,13 +265,19 @@ Each confirmed setting SHALL be validated and saved using private temporary file
 
 ### Requirement: Configure display and shortcuts in YAML
 
-Version-one YAML SHALL accept optional `ui.maxVisibleAgents`, `ui.toggleKey` and `ui.inspectKey`. Defaults SHALL be five, Alt+O and Alt+I respectively. Visible roots MUST be safe integers from one to 256; keys MUST be valid non-conflicting specifications or `off`. Unknown or invalid fields MUST identify their YAML path. YAML without `ui` SHALL remain valid. UI rendering MUST use cached values without file access.
+Version-one YAML SHALL accept optional `ui.maxVisibleAgents`, `ui.fleetView`, `ui.toggleKey` and `ui.inspectKey`. Defaults SHALL be five, `expanded`, `off` and `off` respectively. Visible roots MUST be safe integers from one to 256. The fleet view MUST be `expanded`, `collapsed` or `off`. Keys MUST be valid non-conflicting specifications or `off`. Unknown or invalid fields MUST identify their YAML path. YAML without `ui` SHALL remain valid. UI rendering MUST use cached values without file access.
 
 #### Scenario: UI settings are omitted
 
 - **WHEN** valid existing YAML has no `ui` mapping or legacy display value
-- **THEN** the default settings apply and the fleet starts collapsed
+- **THEN** the default settings apply and the tree shows expanded above the editor while runs are active
+- **AND** no view shortcut is registered
 - **AND** rendering creates no settings file
+
+#### Scenario: Explicit keys survive the default change
+
+- **WHEN** YAML already sets `ui.toggleKey: alt+o` and `ui.inspectKey: alt+i`
+- **THEN** those keys stay in effect after the upgrade
 
 #### Scenario: A UI value is confirmed through settings
 
@@ -262,14 +287,14 @@ Version-one YAML SHALL accept optional `ui.maxVisibleAgents`, `ui.toggleKey` and
 
 #### Scenario: Invalid UI YAML is loaded
 
-- **WHEN** a UI mapping has unknown fields or invalid values
+- **WHEN** a UI mapping has unknown fields or invalid values, such as `ui.fleetView: hidden`
 - **THEN** an actionable diagnostic names the field
 - **AND** new launches cannot proceed on an invalid registry
 - **AND** retained run evidence remains inspectable
 
 #### Scenario: Display and shortcut edits take effect
 
-- **WHEN** a visible-root value is saved
+- **WHEN** a visible-root or fleet view value is saved
 - **THEN** the fleet repaints immediately
 - **WHEN** a shortcut is saved
 - **THEN** settings distinguishes the saved binding from the active one and requests `/reload`

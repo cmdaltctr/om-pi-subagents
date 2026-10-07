@@ -76,4 +76,4 @@ Write each test, run it, and confirm it fails for the intended reason before sec
 - [x] 7.1 Write `docs/adr/009-port-the-tintin-agent-tree-and-show-it-by-default.md` with the `s-adr` skill. Add it to `docs/adr/ADR_README.md`. Mark ADR-007 as partly superseded by ADR-009.
 - [x] 7.2 Run `openspec validate follow-tintin-fleet-default --strict`.
 - [x] 7.3 Run the `openspec-verify-change` skill and resolve its findings.
-- [ ] 7.4 Archive the change with the `openspec-archive-change` skill before opening the pull request.
+- [x] 7.4 Archive the change with the `openspec-archive-change` skill before opening the pull request.
