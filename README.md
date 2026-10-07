@@ -212,14 +212,16 @@ that already started keeps the settings it started with.
 ## Tools and MCP
 
 Write each tool by its exact name. Native MCP tools are named
-`mcp__<server>__<tool>`. The server name comes from your `mcp.json`.
+`mcp__<server>__<tool>`. The server name comes from your `mcp.json`. On Pi 1.0
+and newer, hyphens in the name become underscores. See
+[Tools](docs/SETUP.md#tools).
 
 ```yaml
 tools:
   - read
   - tool_search
-  - mcp__context7-mcp__resolve-library-id
-  - mcp__context7-mcp__query-docs
+  - mcp__context7_mcp__resolve_library_id
+  - mcp__context7_mcp__query_docs
 ```
 
 - Add `tool_search` if the agent must find deferred MCP tools.

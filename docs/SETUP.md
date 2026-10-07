@@ -357,19 +357,30 @@ MCP tools come from an MCP server (a separate program that gives Pi extra tools)
 mcp__<server>__<tool>
 ```
 
-`<server>` is the server's name in Pi's `mcp.json`. `<tool>` is the tool's own name. For a server called `context7`:
+`<server>` is the server's name in Pi's `mcp.json`. `<tool>` is the tool's own name.
+
+Pi 1.0 and newer change every character other than a letter, a digit or `_` to `_` in the full name. Hyphens become underscores. Pi 0.99 and earlier kept hyphens.
+
+| Server in `mcp.json` | Tool on the server   | Name on Pi 1.0 and newer            |
+| -------------------- | -------------------- | ----------------------------------- |
+| `context7`           | `resolve-library-id` | `mcp__context7__resolve_library_id` |
+| `context7-mcp`       | `query-docs`         | `mcp__context7_mcp__query_docs`     |
+| `paper-search`       | `search_arxiv`       | `mcp__paper_search__search_arxiv`   |
+
+For a server called `context7`:
 
 ```yaml
 tools:
   - read
   - tool_search
-  - mcp__context7__resolve-library-id
-  - mcp__context7__query-docs
+  - mcp__context7__resolve_library_id
+  - mcp__context7__query_docs
 ```
 
 - Add `tool_search` when the agent must find deferred MCP tools (tools Pi does not show to the model until it searches for them).
 - Listing an MCP tool does not set up its server. Configure the server in Pi first, for example with `pi mcp add`, and check it with `pi mcp list`.
 - The old tool name `mcp` no longer exists. Use the native `mcp__<server>__<tool>` names.
+- After a Pi update from 0.99 to 1.0, change the hyphens in your MCP tool names to underscores. If you do not, runs fail with `tool "..." is not registered`.
 - A tool from an extension needs its explicit `extensions` entry.
 - Approving the exact `omps` tool loads OMPS's managed delegator. It can select targets with their own tool permissions.
 - Approving `todo` requires the real todo extension too. OMPS seeds only the child's normal-mode list.
@@ -459,8 +470,8 @@ agents:
     tools:
       - read
       - tool_search
-      - mcp__context7__resolve-library-id
-      - mcp__context7__query-docs
+      - mcp__context7__resolve_library_id
+      - mcp__context7__query_docs
     thinking: low
     skills:
       - ~/.pi/agent/skills/citations/SKILL.md
@@ -471,7 +482,7 @@ Each persona file must exist before `/omps list` succeeds. `/omps list` then sho
 ```text
 reviewer: tools [read, grep, find, ls]
 writer: tools [read, grep, find, ls, edit, write]; model my-provider/my-model; write-capable
-docs-researcher: tools [read, tool_search, mcp__context7__resolve-library-id, mcp__context7__query-docs]
+docs-researcher: tools [read, tool_search, mcp__context7__resolve_library_id, mcp__context7__query_docs]
 ```
 
 ### YAML features OMPS rejects
