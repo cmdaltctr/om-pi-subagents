@@ -36,12 +36,12 @@ Write each test, run it, and confirm it fails for the intended reason before sec
 
 ## 4. Visual test before any push or pull request
 
-- [ ] 4.1 Extend `test/fixtures/interactive-fleet.mjs` and `test/interactive-fleet.test.ts` to capture snapshots through `capture-snapshot.mjs` with `OMPS_CAPTURE_DIR` set. Capture these stages: `expanded-default`, `collapsed`, `fleet-off`, `empty-prompt-navigation`, `after-linger`, `narrow` (under 80 columns) and `beside-todo` (with the real todo extension).
-- [ ] 4.2 Run the interactive suites with the pinned host: `bun run test test/interactive-fleet.test.ts test/interactive-shortcuts.test.ts`. Review every captured snapshot by eye.
-- [ ] 4.3 Run the same suites with the operator's Pi: `OMPS_PI_BIN=~/.pi/agent/bin/pi bun run test test/interactive-fleet.test.ts test/interactive-shortcuts.test.ts`. Record any difference between Pi 0.99.1 and Pi 1.0.4.
+- [x] 4.1 Extend `test/fixtures/interactive-fleet.mjs` and `test/interactive-fleet.test.ts` to capture snapshots through `capture-snapshot.mjs` with `OMPS_CAPTURE_DIR` set. Capture these stages: `expanded-default`, `collapsed`, `fleet-off`, `empty-prompt-navigation`, `after-linger`, `narrow` (under 80 columns) and `beside-todo` (with the real todo extension).
+- [x] 4.2 Run the interactive suites with the pinned host: `bun run test test/interactive-fleet.test.ts test/interactive-shortcuts.test.ts`. Review every captured snapshot by eye.
+- [x] 4.3 Run the same suites with the operator's Pi: `OMPS_PI_BIN=~/.pi/agent/bin/pi bun run test test/interactive-fleet.test.ts test/interactive-shortcuts.test.ts`. Record any difference between Pi 0.99.1 and Pi 1.0.4.
 - [ ] 4.4 Manual check in the operator's terminal (Orca, `xterm-256color`, Pi 1.0.4). Load the worktree build, start a run with four agents, and check: the tree shows without a key press; Down, Enter and Escape work from an empty prompt; Up still recalls history outside selection; the widget clears 10 seconds after the last run.
 - [ ] 4.5 Save screenshots of 4.4 in ignored `docs/local-docs/`. Commit none of them.
-- [ ] 4.6 Run `bun run ci`. Fix every failure.
+- [x] 4.6 Run `bun run ci`. Fix every failure.
 - [ ] 4.7 Commit. Ask the operator before running `bun run ci:clean`, because it installs dependencies in a temporary clone.
 
 ## 5. Close the change
