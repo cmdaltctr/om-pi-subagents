@@ -188,7 +188,7 @@ describe("Release Please is configured", () => {
 describe("the release workflow", () => {
 	const workflow = read(".github/workflows/release.yml");
 	const releaseJob = /\n  release-please:[\s\S]*?\n  publish:/.exec(workflow)![0];
-	const publishJob = /\n  publish:[\s\S]*$/.exec(workflow)![0];
+	const publishJob = /\n  publish:[\s\S]*?\n  report-failure:/.exec(workflow)![0];
 
 	it("runs on pushes to main only, and hands every release to Release Please", () => {
 		expect(workflow).toMatch(/branches:\s*\n\s*- main/);
@@ -220,7 +220,8 @@ describe("the release workflow", () => {
 		expect(releaseJob).not.toContain("id-token");
 		expect(publishJob).toContain("contents: write"); // to add the approval note to the GitHub Release
 		expect(publishJob).toContain("id-token: write"); // npm trusted publishing (OIDC)
-		expect(publishJob).not.toMatch(/pull-requests|packages: write|actions: write/);
+		expect(publishJob).toContain("pull-requests: write"); // to mention the maintainer on the release pull request
+		expect(publishJob).not.toMatch(/packages: write|actions: write/);
 	});
 
 	it("publishes only when a release was created, in the protected npm-publish environment", () => {

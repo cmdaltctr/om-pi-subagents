@@ -1,0 +1,80 @@
+name: Release auto-merge
+
+# The release App merges only its signed, version-only output after CI passes.
+# Its token starts the Release workflow; npm still requires human 2FA approval.
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+
+concurrency:
+  group: release-auto-merge-${{ github.repository }}
+  cancel-in-progress: false
+
+permissions: {}
+
+jobs:
+  merge:
+    name: Merge the release pull request
+    if: >-
+      vars.RELEASE_PLEASE_ENABLED == 'true' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.head_repository.full_name == github.repository &&
+      startsWith(github.event.workflow_run.head_branch, 'release-please--')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    env:
+      RELEASE_BOT: om-pi-subagents-release[bot]
+      HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+      PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number }}
+    steps:
+      # Never check out the pull request in this privileged workflow.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+          sparse-checkout: scripts/release-pr-guard.mjs
+          sparse-checkout-cone-mode: false
+
+      - uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        id: app-token
+        with:
+          client-id: ${{ secrets.RELEASE_APP_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+
+      - name: Check the pull request is untouched release-please output
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "$PR_NUMBER" ]; then
+            echo "Not merged: the CI run names no pull request."
+            exit 1
+          fi
+          mkdir -p guard/base guard/head
+          api="repos/$GITHUB_REPOSITORY"
+          gh api "$api/pulls/$PR_NUMBER" > guard/pr.json
+          gh api "$api/pulls/$PR_NUMBER/commits?per_page=100" > guard/commits.json
+          gh api "$api/pulls/$PR_NUMBER/files?per_page=100" > guard/files.json
+          base_sha=$(jq -r .base.sha guard/pr.json)
+          for name in .release-please-manifest.json package.json; do
+            for side in base head; do
+              ref=$base_sha
+              [ "$side" = head ] && ref=$HEAD_SHA
+              gh api -H "Accept: application/vnd.github.raw" "$api/contents/$name?ref=$ref" \
+                > "guard/$side/$name"
+            done
+          done
+          node scripts/release-pr-guard.mjs guard "$RELEASE_BOT" "$HEAD_SHA"
+
+      - name: Merge the release pull request
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        shell: bash
+        run: |
+          gh pr merge "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --squash \
+            --match-head-commit "$HEAD_SHA"

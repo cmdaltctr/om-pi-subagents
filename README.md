@@ -439,9 +439,9 @@ Releases go to npm as `om-pi-subagents`. [Release Please](https://github.com/goo
 1. Write commits and pull request titles in the [Conventional Commits](https://www.conventionalcommits.org) style: `feat:`, `fix:`, `perf:`, `docs:`. Add `!` for a breaking change, for example `feat!:`.
 2. Merge to `main`. Release Please opens or updates a pull request called "chore(main): release X.Y.Z". It bumps `version` in `package.json` and writes `CHANGELOG.md`.
 3. Read that pull request. Check the version and the changelog text. Its CI checks run.
-4. Merge it. Release Please tags the commit and creates a GitHub release.
+4. `release-auto-merge.yml` waits for successful `CI` from a same-repository `pull_request` run, then checks the release output. The release App squash-merges the tested SHA with `--match-head-commit`. Release Please tags the commit and creates a GitHub release.
 5. The publish job runs the full gate on that exact commit, then **stages** the version on npm. It captures npm's stage UUID and adds the exact approval command to the GitHub release. The version is not installable yet.
-6. As the human maintainer, run `bun run release:approve` from the repository with two-factor authentication.
+6. As the human maintainer, run `bun run release:approve` from the repository with two-factor authentication. In Pi, use `! bun run release:approve`.
 
    The helper reads the captured UUID from the release note. If capture failed, the note gives manual-list guidance:
 
@@ -452,6 +452,23 @@ Releases go to npm as `om-pi-subagents`. [Release Please](https://github.com/goo
 
    Select the UUID for that version. You can instead run the note's exact `npm stage approve` command,
    or use the Staged tab at https://www.npmjs.com/package/om-pi-subagents. Reject with `npm stage reject <stage-id>`.
+
+### Guarded release pull request merge
+
+The workflow loads the trusted `scripts/release-pr-guard.mjs` from `main`. It never checks out or executes pull request code.
+The guard requires the release bot's pull request targeting `main`, bot-authored commits signed by GitHub, and an unchanged tested head.
+Only `package.json`, `.release-please-manifest.json` and `CHANGELOG.md` may change.
+Both JSON files must change only their versions and agree; the changelog must contain no deletions.
+A guard failure stops the merge. The App token lets the merge start the Release workflow.
+GitHub's native `allow_auto_merge` setting is not required.
+
+After this workflow reaches `main`, rerun the existing release pull request's `pull_request` CI run to trigger it.
+Leave the pull request source unchanged.
+
+The Release workflow comments on the merged release pull request and mentions the repository owner after staging.
+Enable email notifications for GitHub `@mentions` to receive that comment by email.
+If the release fails before staging, it adds a failure notice to the release and comments with the failed run link.
+Fix the failed step, then rerun the Release workflow. Human approval with 2FA remains required for npm publication.
 
 ### Human-run approval helper
 
