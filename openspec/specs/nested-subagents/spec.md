@@ -49,24 +49,24 @@ Later changes MUST NOT change the branch's existing run settings or cancel its a
 
 ### Requirement: Require explicit delegation approval
 
-Only a mapping that approves the exact tool `ompss` SHALL let its child call OMPSS.
+Only a mapping that approves the exact tool `omps` SHALL let its child call OMPS.
 Every nested target SHALL use its freshly validated persona, own approved tools and explicit thinking setting.
-Omitted models SHALL inherit from the immediate parent. Ambient resources MUST remain disabled.
+Omitted models SHALL inherit from the immediate parent. Ambient resources MUST remain disabled. The old `ompss` tool entry MUST NOT approve the new tool.
 
 #### Scenario: Delegation is approved
 
-- **WHEN** a child whose tools include `ompss` requests a valid mapped target within both limits
+- **WHEN** a child whose tools include `omps` requests a valid mapped target within both limits
 - **THEN** the target starts in that child's session ownership and requested working directory
 - **AND** it uses the same operator registry selected for the parent
 
 #### Scenario: Delegation is absent
 
-- **WHEN** a child whose tools omit `ompss` attempts to call it
+- **WHEN** a child whose tools omit `omps` attempts to call it
 - **THEN** the call cannot start a subagent
 
 #### Scenario: The child is at the depth limit
 
-- **WHEN** an approved `ompss` tool is called from a session at maximum depth
+- **WHEN** an approved `omps` tool is called from a session at maximum depth
 - **THEN** it reports the depth limit rather than failing readiness because the tool is missing
 
 #### Scenario: The target has different approved tools
@@ -74,6 +74,12 @@ Omitted models SHALL inherit from the immediate parent. Ambient resources MUST r
 - **WHEN** a delegating persona selects an operator-mapped target with write-capable tools
 - **THEN** the target uses its own approved tools
 - **AND** listings and documentation identify delegation as a capability that can indirectly change files
+
+#### Scenario: Only old delegation approval is present
+
+- **WHEN** the mapping lists `ompss` without exact `omps` approval
+- **THEN** it does not gain new delegation permission
+- **AND** unavailable approved tools still fail readiness before task submission
 
 ### Requirement: Retain lineage in run evidence
 
@@ -172,7 +178,7 @@ Their examples MUST match the supported YAML and commands. Existing operator con
 - **THEN** its YAML validates and its commands perform the documented operation
 - **AND** the guides explain that per-parent capacity can multiply total descendant load
 
-### Requirement: Publish an OMPSS operational skill
+### Requirement: Publish an OMPS operational skill
 
 The package SHALL ship `skills/om-pi-subagents/SKILL.md`, with skill name `om-pi-subagents` and valid routing frontmatter.
 A normal package install SHALL make it discoverable through `/skill:om-pi-subagents` when skill commands are enabled.
@@ -183,7 +189,7 @@ Skill loading MUST NOT grant tools, alter live configuration or load ambient chi
 #### Scenario: The package is installed
 
 - **WHEN** an operator loads the package with its skill resources enabled
-- **THEN** the OMPSS skill is available under its declared name
+- **THEN** the OMPS skill is available under its declared name
 - **AND** its references resolve within the published package
 
 #### Scenario: No agents are mapped
@@ -199,7 +205,7 @@ Skill loading MUST NOT grant tools, alter live configuration or load ambient chi
 
 #### Scenario: Skill instructions lack tool approval
 
-- **WHEN** a child loads the skill but its tool mapping omits `ompss`
+- **WHEN** a child loads the skill but its tool mapping omits `omps`
 - **THEN** skill instructions cannot enable delegation or bypass the guard
 
 #### Scenario: The skill covers todo tracking

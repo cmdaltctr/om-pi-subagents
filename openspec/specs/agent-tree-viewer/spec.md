@@ -2,13 +2,13 @@
 
 ## Purpose
 
-Let operators expand an OMPSS run tree and inspect an agent's work from the main conversation using keyboard or supported mouse input.
+Let operators expand an OMPS run tree and inspect an agent's work from the main conversation using keyboard or supported mouse input.
 
 ## Requirements
 
 ### Requirement: Render a current-session hierarchy
 
-The system SHALL represent tool-launched and command-launched runs in one current-session fleet and a retained descendant modal. Each modal node SHALL show its agent, run identity and authoritative or observed state beneath its immediate parent. Per-launch transcript entries SHALL remain compact acknowledgements rather than separate live trees. Historical tree entries MUST retain bounded rendering without recreating active work. The status count SHALL remain complete for direct active runs.
+The system SHALL represent tool-launched and command-launched runs in one current-session fleet and a retained descendant modal. Each modal node SHALL show its agent, run identity and authoritative or observed state beneath its immediate parent. Per-launch transcript entries SHALL remain compact acknowledgements rather than separate live trees. Historical `omps-tree` entries MUST retain bounded rendering without recreating active work. Old `ompss-tree` entries SHALL have no extension compatibility renderer. The status count SHALL remain complete for direct active runs.
 
 #### Scenario: Parallel roots and nested children coexist
 
@@ -18,7 +18,7 @@ The system SHALL represent tool-launched and command-launched runs in one curren
 
 #### Scenario: A run starts through the slash command
 
-- **WHEN** an operator starts a run with `/ompss run`
+- **WHEN** an operator starts a run with `/omps run`
 - **THEN** it receives a compact transcript acknowledgement and the same fleet/modal representation as a tool launch
 - **AND** no synthetic user prompt or model-visible progress message is needed
 
@@ -29,29 +29,35 @@ The system SHALL represent tool-launched and command-launched runs in one curren
 
 #### Scenario: An older session contains tree entries
 
-- **WHEN** a historical `ompss-tree` entry is rendered
+- **WHEN** a historical `omps-tree` entry is rendered
 - **THEN** it stays bounded and labels unavailable evidence
 - **AND** it creates no live tree, process or model request
 
+#### Scenario: An old-acronym tree entry exists
+
+- **WHEN** a session file contains `ompss-tree`
+- **THEN** no extension renderer is registered under that identifier
+- **AND** the session file is neither rewritten nor used to restart work
+
 ### Requirement: Honour the host expansion action
 
-OMPSS SHALL preserve the host's tool-output expansion action, including Ctrl+O and configured replacements. That action SHALL keep its normal effect on transcript tool output without controlling the session fleet or modal. OMPSS MUST NOT replace the host action or silently edit host keybindings. Compact launch acknowledgements MUST NOT become live per-run trees through host expansion.
+OMPS SHALL preserve the host's tool-output expansion action, including Ctrl+O and configured replacements. That action SHALL keep its normal effect on transcript tool output without controlling the session fleet or modal. OMPS MUST NOT replace the host action or silently edit host keybindings. Compact launch acknowledgements MUST NOT become live per-run trees through host expansion.
 
 #### Scenario: The operator presses Ctrl+O
 
 - **WHEN** the default host expansion shortcut is pressed
 - **THEN** Pi performs its normal tool-output expansion
-- **AND** the OMPSS fleet keeps its own expansion state
+- **AND** the OMPS fleet keeps its own expansion state
 
 #### Scenario: The expansion key is remapped
 
 - **WHEN** the operator changes the host expansion binding
 - **THEN** that key retains its host-defined behaviour
-- **AND** OMPSS does not rewrite the binding
+- **AND** OMPS does not rewrite the binding
 
 #### Scenario: Other tool output shares the transcript
 
-- **WHEN** OMPSS acknowledgements coexist with unrelated tool calls
+- **WHEN** OMPS acknowledgements coexist with unrelated tool calls
 - **THEN** host expansion keeps its existing effect on those calls
 
 ### Requirement: Inspect agents without leaving the main session
@@ -66,7 +72,7 @@ One read-only modal SHALL inspect owned roots and validated observed descendants
 
 #### Scenario: Keyboard navigation is used
 
-- **WHEN** the operator opens `/ompss inspect` in either terminal mode
+- **WHEN** the operator opens `/omps inspect` in either terminal mode
 - **THEN** arrows select nodes, branch keys fold/unfold, and Enter opens selected details
 - **AND** Escape returns to Pi without cancelling work
 
@@ -128,7 +134,7 @@ Details SHALL show the submitted task, state, known model, elapsed time, active 
 
 ### Requirement: Configure visible agents without limiting their work
 
-`/ompss-settings` SHALL expose registry `ui.maxVisibleAgents`, default five and safe integers from one to 256. It SHALL bound expanded fleet roots; the modal SHALL independently scroll all retained nodes within terminal space. Hidden counts MUST differ from incomplete observations. Applying the value MUST NOT discard evidence, change execution limits, cancel runs or affect delivery. The legacy command alias SHALL use the same settings.
+`/omps-settings` SHALL expose registry `ui.maxVisibleAgents`, default five and safe integers from one to 256. It SHALL bound expanded fleet roots; the modal SHALL independently scroll all retained nodes within terminal space. Hidden counts MUST differ from incomplete observations. Applying the value MUST NOT discard evidence, change execution limits, cancel runs or affect delivery. The generic command alias SHALL use the same settings.
 
 #### Scenario: The widget exceeds the visible-agent preference
 
@@ -177,17 +183,17 @@ Tree and detail rendering SHALL fit the available terminal width and bound retai
 
 ### Requirement: Preserve non-interactive and todo behaviour
 
-RPC inspection SHALL provide bounded plain text through supported output instead of attempting a terminal modal. JSON and print runs SHALL remain unaffected by terminal-only rendering. The OMPSS viewer MUST NOT replace the todo widget, copy parent tasks, change OpenSpec bindings or complete a parent todo from a child result.
+RPC inspection SHALL provide bounded plain text through supported output instead of attempting a terminal modal. JSON and print runs SHALL remain unaffected by terminal-only rendering. The OMPS viewer MUST NOT replace the todo widget, copy parent tasks, change OpenSpec bindings or complete a parent todo from a child result.
 
 #### Scenario: An RPC client requests inspection
 
-- **WHEN** `/ompss inspect` is handled outside the terminal UI
+- **WHEN** `/omps inspect` is handled outside the terminal UI
 - **THEN** the client receives bounded current-session tree or detail text
 - **AND** no custom terminal component is attempted
 
 #### Scenario: Todo uses normal or OpenSpec mode
 
-- **WHEN** real `om-pi-todo` and OMPSS load in either order
+- **WHEN** real `om-pi-todo` and OMPS load in either order
 - **THEN** both widgets and their task ownership remain independent
 - **AND** opening, expanding and closing the viewer leave todo preferences and linked checkboxes unchanged
 
@@ -224,8 +230,8 @@ The fleet toggle SHALL default to Alt+O and inspection to Alt+I. Both SHALL be c
 
 #### Scenario: Shortcuts are disabled
 
-- **WHEN** both OMPSS view keys are `off`
-- **THEN** `/ompss fleet` and `/ompss inspect` still provide view access
+- **WHEN** both OMPS view keys are `off`
+- **THEN** `/omps fleet` and `/omps inspect` still provide view access
 
 ### Requirement: Update public operator guidance
 
@@ -277,7 +283,7 @@ The package SHALL ship the revised `skills/om-pi-subagents/SKILL.md` through `fi
 
 #### Scenario: A child maps only the skill
 
-- **WHEN** a child explicitly loads this skill without approval for ompss, memory or todo
+- **WHEN** a child explicitly loads this skill without approval for omps, memory or todo
 - **THEN** its instructions cannot enable those tools or bypass the guard
 - **AND** unrelated ambient skills remain excluded
 
