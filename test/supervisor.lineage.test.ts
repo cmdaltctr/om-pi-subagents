@@ -3,15 +3,22 @@ import { resolve } from "node:path";
 import { RunManager } from "../src/runs.ts";
 import { resolveRegistryPath } from "../src/index.ts";
 
-const launch = vi.hoisted(() => vi.fn(async (_input: unknown, _options: unknown) => {
-	throw new Error("synthetic startup stop");
-}));
+const launch = vi.hoisted(() =>
+	vi.fn(async (_input: unknown, _options: unknown) => {
+		throw new Error("synthetic startup stop");
+	}),
+);
 vi.mock("../src/startup.ts", () => ({ launchChild: launch }));
 import { createSupervisor } from "../src/supervisor.ts";
 
 const agent = {
-	name: "reader", persona: "Read.", personaPath: "/persona.md", tools: ["read"],
-	thinking: "off", skills: [], extensions: [],
+	name: "reader",
+	persona: "Read.",
+	personaPath: "/persona.md",
+	tools: ["read"],
+	thinking: "off",
+	skills: [],
+	extensions: [],
 };
 
 describe("supervisor lineage registry", () => {
@@ -20,7 +27,9 @@ describe("supervisor lineage registry", () => {
 		const env = { PI_CODING_AGENT_DIR: "/disposable-agent", OMPS_REGISTRY: override };
 		const terminal = vi.fn();
 		const supervisor = createSupervisor({
-			piBin: "/bin/pi", guardPath: "/guard.ts", env,
+			piBin: "/bin/pi",
+			guardPath: "/guard.ts",
+			env,
 			prepare: async () => ({ personaFile: "/persona.md" }),
 			persist: async () => undefined,
 		});

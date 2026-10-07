@@ -27,6 +27,6 @@ export async function registryMigrationMessage(yamlPath: string): Promise<string
 		throw error;
 	}
 	const personas = join(agentDir, "omps", "personas");
-	const quoted = (path: string) => /^[A-Za-z0-9_./-]+$/.test(path) ? path : `'${path.replaceAll("'", "'\\''")}'`;
+	const quoted = (path: string) => (/^[A-Za-z0-9_./-]+$/.test(path) ? path : `'${path.replaceAll("'", "'\\''")}'`);
 	return `OMPS now reads ${destination}. Move your settings:\n  mkdir -p ${quoted(personas)}\n  mv ${quoted(oldPath)} ${quoted(destination)}\nThen move your persona files into ${personas}/ and change each persona: line to ./personas/<name>.md.\nSee docs/INSTALL.md#move-settings-into-the-omps-folder.`;
 }

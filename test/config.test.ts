@@ -130,10 +130,7 @@ ${ui}agents: {}
 	});
 
 	it("carries declared ui values", async () => {
-		await write(
-			"config.yaml",
-			uiYaml('ui:\n  maxVisibleAgents: 9\n  toggleKey: "ctrl+alt+p"\n  inspectKey: "off"\n'),
-		);
+		await write("config.yaml", uiYaml('ui:\n  maxVisibleAgents: 9\n  toggleKey: "ctrl+alt+p"\n  inspectKey: "off"\n'));
 		const registry = await loadRegistry(yamlPath());
 		expect(registry.ui).toEqual({
 			maxVisibleAgents: 9,

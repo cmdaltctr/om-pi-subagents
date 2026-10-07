@@ -72,7 +72,10 @@ describe("default OMPS folder", () => {
 			seed: async ({ agentDir }) => {
 				await mkdir(join(agentDir, "omps/personas"), { recursive: true });
 				await writeFile(join(agentDir, "omps/personas/reader.md"), "CHILD-PERSONA: you read.");
-				await writeFile(join(agentDir, "omps/config.yaml"), "version: 1\nagents:\n  reader:\n    persona: ./personas/reader.md\n    tools: [read]\n    thinking: off\n");
+				await writeFile(
+					join(agentDir, "omps/config.yaml"),
+					"version: 1\nagents:\n  reader:\n    persona: ./personas/reader.md\n    tools: [read]\n    thinking: off\n",
+				);
 			},
 		});
 		const fixture = pi;
@@ -84,7 +87,9 @@ describe("default OMPS folder", () => {
 			return { tool: "omps", args: { action: "run", agent: "reader", task: "read" } };
 		};
 		await fixture.send({ type: "prompt", message: "start" });
-		const launched = await fixture.waitFor((record) => record.type === "tool_execution_end" && record.toolName === "omps");
+		const launched = await fixture.waitFor(
+			(record) => record.type === "tool_execution_end" && record.toolName === "omps",
+		);
 		expect(launched.isError, JSON.stringify(launched.result)).toBe(false);
 		await waitFor(() => settles(fixture) === 2);
 		expect(fixture.model.requests.filter((body) => !isParent(body))).toHaveLength(1);

@@ -29,7 +29,7 @@ Stop all old sessions and confirm their descendant cleanup first. Never overwrit
 
 | Item                                    | What happens                                                                                                                                                                                    |
 | --------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `~/.pi/agent/omps/` | Your `config.yaml`, `personas/` and saved `runs/` remain for a later installation. |
+| `~/.pi/agent/omps/`                     | Your `config.yaml`, `personas/` and saved `runs/` remain for a later installation.                                                                                                              |
 | Parent Pi session history               | Existing tool calls and result messages remain.                                                                                                                                                 |
 | Development checkout                    | Remains unchanged, including its local tools and ignored host packages.                                                                                                                         |
 | `<config-dir>/pi-subagents/config.json` | Legacy visible-agent preferences remain. Absolute `XDG_CONFIG_HOME` selects the config directory, otherwise `~/.config`. Current versions read this file only as a fallback and never write it. |

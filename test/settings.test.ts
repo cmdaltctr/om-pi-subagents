@@ -177,7 +177,10 @@ describe("default registry layout", () => {
 		const ctx = context();
 		pick(ctx, "Maximum nesting depth", "2");
 		await run(ctx);
-		expect(ctx.ui.notify).toHaveBeenCalledWith(expect.stringContaining(`mv ${oldPath} ${join(agentDir, "omps/config.yaml")}`), "error");
+		expect(ctx.ui.notify).toHaveBeenCalledWith(
+			expect.stringContaining(`mv ${oldPath} ${join(agentDir, "omps/config.yaml")}`),
+			"error",
+		);
 		expect(ctx.ui.select).not.toHaveBeenCalled();
 		expect(ctx.ui.confirm).not.toHaveBeenCalled();
 		expect(fs.rename).not.toHaveBeenCalled();

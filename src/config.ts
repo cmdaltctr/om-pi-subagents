@@ -399,8 +399,7 @@ async function readPersona(field: string, persona: string, yamlDir: string): Pro
 		throw new RegistryError(field, `cannot read ${persona} as a file`);
 	}
 	if (text.trim() === "") throw new RegistryError(field, `${persona} is empty`);
-	if (FRONTMATTER.test(text))
-		throw new RegistryError(field, `${persona} has frontmatter; put settings in config.yaml`);
+	if (FRONTMATTER.test(text)) throw new RegistryError(field, `${persona} has frontmatter; put settings in config.yaml`);
 	return { path: canonical, text };
 }
 

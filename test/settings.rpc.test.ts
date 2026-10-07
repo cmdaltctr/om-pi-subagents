@@ -14,10 +14,7 @@ describe.skipIf(!PI_AVAILABLE)("native RPC settings dialogs", () => {
 			mcp: false,
 			args: ["-e", index],
 			seed: async ({ agentDir }) => {
-				await writeFixtureRegistry(
-					agentDir,
-					"version: 1\nlimits: { maxDepth: 3, maxConcurrentRuns: 4 }\nagents: {}\n",
-				);
+				await writeFixtureRegistry(agentDir, "version: 1\nlimits: { maxDepth: 3, maxConcurrentRuns: 4 }\nagents: {}\n");
 			},
 		});
 		try {

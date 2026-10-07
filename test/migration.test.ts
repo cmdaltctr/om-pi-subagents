@@ -21,15 +21,18 @@ function script(name: string): string {
 }
 
 describe("manual settings migration", () => {
-	const yaml = "version: 1\nagents:\n  reader:\n    persona: ./om-pi-subagents/personas/reader.md\n    tools: [read]\n    thinking: off\n";
+	const yaml =
+		"version: 1\nagents:\n  reader:\n    persona: ./om-pi-subagents/personas/reader.md\n    tools: [read]\n    thinking: off\n";
 	async function seed() {
 		await mkdir(join(root, "om-pi-subagents/personas"), { recursive: true });
 		await writeFile(join(root, "om-pi-subagents/personas/reader.md"), "Trusted persona.\n");
 		await writeFile(join(root, "om-pi-subagents.yaml"), yaml);
 	}
-	const run = () => spawnSync("bash", ["-c", script("settings")], {
-		env: { ...process.env, PI_CODING_AGENT_DIR: root }, encoding: "utf8",
-	});
+	const run = () =>
+		spawnSync("bash", ["-c", script("settings")], {
+			env: { ...process.env, PI_CODING_AGENT_DIR: root },
+			encoding: "utf8",
+		});
 
 	it("preserves saved evidence, loads the edited mapping and restores the backup byte for byte", async () => {
 		await seed();
@@ -50,19 +53,24 @@ describe("manual settings migration", () => {
 		await cp(join(root, "registry.bak"), join(root, "om-pi-subagents.yaml"));
 		await cp(join(root, "personas.bak/reader.md"), join(root, "om-pi-subagents/personas/reader.md"));
 		expect(await readFile(join(root, "om-pi-subagents.yaml"))).toEqual(await readFile(join(root, "registry.bak")));
-		expect(await readFile(join(root, "om-pi-subagents/personas/reader.md"))).toEqual(await readFile(join(root, "personas.bak/reader.md")));
+		expect(await readFile(join(root, "om-pi-subagents/personas/reader.md"))).toEqual(
+			await readFile(join(root, "personas.bak/reader.md")),
+		);
 	});
 
-	it.each(["config.yaml", "personas/reader.md"])("refuses collision %s before moving either source", async (collision) => {
-		await seed();
-		const target = join(root, "omps", collision);
-		await mkdir(join(root, "omps/personas"), { recursive: true });
-		await writeFile(target, "Existing destination.");
-		expect(run().status).not.toBe(0);
-		expect(await readFile(target, "utf8")).toBe("Existing destination.");
-		expect(await readFile(join(root, "om-pi-subagents.yaml"), "utf8")).toBe(yaml);
-		expect(await readFile(join(root, "om-pi-subagents/personas/reader.md"), "utf8")).toBe("Trusted persona.\n");
-	});
+	it.each(["config.yaml", "personas/reader.md"])(
+		"refuses collision %s before moving either source",
+		async (collision) => {
+			await seed();
+			const target = join(root, "omps", collision);
+			await mkdir(join(root, "omps/personas"), { recursive: true });
+			await writeFile(target, "Existing destination.");
+			expect(run().status).not.toBe(0);
+			expect(await readFile(target, "utf8")).toBe("Existing destination.");
+			expect(await readFile(join(root, "om-pi-subagents.yaml"), "utf8")).toBe(yaml);
+			expect(await readFile(join(root, "om-pi-subagents/personas/reader.md"), "utf8")).toBe("Trusted persona.\n");
+		},
+	);
 });
 
 describe("manual migration examples", () => {

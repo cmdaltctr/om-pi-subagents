@@ -59,12 +59,12 @@ It creates no persona folder. Document a manual, backed-up migration with collis
 
 ## Alternatives Considered
 
-| Option | Rejected Because |
-| --- | --- |
-| Read the old registry as a fallback | Two possible sources obscure which settings are active. |
-| Move files automatically | Persona and resource paths need operator review; destinations may already exist. |
-| Name the file `omps/om-pi-subagents.yaml` | The folder already identifies OMPS. |
-| Rely on operator care for run evidence | Model output could otherwise pass persona containment and become system instructions. |
+| Option                                    | Rejected Because                                                                      |
+| ----------------------------------------- | ------------------------------------------------------------------------------------- |
+| Read the old registry as a fallback       | Two possible sources obscure which settings are active.                               |
+| Move files automatically                  | Persona and resource paths need operator review; destinations may already exist.      |
+| Name the file `omps/om-pi-subagents.yaml` | The folder already identifies OMPS.                                                   |
+| Rely on operator care for run evidence    | Model output could otherwise pass persona containment and become system instructions. |
 
 ## References
 

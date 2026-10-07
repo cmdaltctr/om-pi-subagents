@@ -91,9 +91,7 @@ describe("the environment is clean", () => {
 		const handle = await start();
 		const { installed, fixture, home } = handle;
 		expect(readdirSync(fixture.agentDir).sort()).toEqual(
-			["mcp.json", "models.json", "omps"].filter((name) =>
-				readdirSync(fixture.agentDir).includes(name),
-			),
+			["mcp.json", "models.json", "omps"].filter((name) => readdirSync(fixture.agentDir).includes(name)),
 		);
 		expect(readdirSync(home)).toEqual([]);
 		for (const path of [

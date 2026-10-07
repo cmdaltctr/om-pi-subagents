@@ -150,7 +150,11 @@ describe("persona file", () => {
 	])("rejects run evidence as a persona (symbolic link: %s, path: %s)", async (linked, evidence) => {
 		vi.stubEnv("PI_CODING_AGENT_DIR", root);
 		await write(dir, evidence as string, "Untrusted model output.");
-		await write(dir, "config.yaml", `version: 1\nagents:\n  reader:\n${valid.replace("./personas/reader.md", linked ? "./personas/evidence.md" : `./${evidence}`)}`);
+		await write(
+			dir,
+			"config.yaml",
+			`version: 1\nagents:\n  reader:\n${valid.replace("./personas/reader.md", linked ? "./personas/evidence.md" : `./${evidence}`)}`,
+		);
 		if (linked) {
 			await mkdir(join(dir, "personas"), { recursive: true });
 			await symlink(join(dir, evidence as string), join(dir, "personas/evidence.md"));
