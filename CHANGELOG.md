@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.4.0](https://github.com/cmdaltctr/om-pi-subagents/compare/v0.3.0...v0.4.0) (2026-10-07)
+
+
+### ⚠ BREAKING CHANGES
+
+* Live per-run trees become compact launch acknowledgements. New UI settings live in operator YAML; the legacy display JSON is a read-only fallback.
+
+### Features
+
+* redesign compact subagent fleet ([6d66624](https://github.com/cmdaltctr/om-pi-subagents/commit/6d666249885de876545bb4886b09cbd70e9a3128))
+
 ## [0.3.0](https://github.com/cmdaltctr/om-pi-subagents/compare/v0.2.1...v0.3.0) (2026-10-05)
 
 
