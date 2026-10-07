@@ -63,12 +63,12 @@ describe("README setup steps", () => {
 		await waitFor(() => notices(fixture).includes("No personas mapped."));
 
 		// "Add your first agent": the persona and mapping come straight from the README.
-		await mkdir(join(fixture.agentDir, "om-pi-subagents", "personas"), { recursive: true });
-		await writeFile(join(fixture.agentDir, "om-pi-subagents", "personas", "reader.md"), block("persona"));
-		await writeFile(join(fixture.agentDir, "om-pi-subagents.yaml"), block("yaml"));
+		await mkdir(join(fixture.agentDir, "omps", "personas"), { recursive: true });
+		await writeFile(join(fixture.agentDir, "omps", "personas", "reader.md"), block("persona"));
+		await writeFile(join(fixture.agentDir, "omps/config.yaml"), block("yaml"));
 
 		await fixture.send({ type: "prompt", message: "/omps list" });
-		await waitFor(() => notices(fixture).some((text) => /^reader: tools \[read, grep, find, ls\]$/.test(text)));
+		await waitFor(() => notices(fixture).some((text) => /^reader: 4 tools \(read-only\)$/.test(text)));
 
 		// Start a run, as the README says, and wait for the result.
 		fixture.model.script = (body): Turn =>
@@ -94,10 +94,10 @@ describe("README setup steps", () => {
 
 	it("a mapping that lists the obsolete `mcp` tool fails before the model sees the task", async () => {
 		const { fixture } = await install();
-		await mkdir(join(fixture.agentDir, "om-pi-subagents", "personas"), { recursive: true });
-		await writeFile(join(fixture.agentDir, "om-pi-subagents", "personas", "reader.md"), block("persona"));
+		await mkdir(join(fixture.agentDir, "omps", "personas"), { recursive: true });
+		await writeFile(join(fixture.agentDir, "omps", "personas", "reader.md"), block("persona"));
 		await writeFile(
-			join(fixture.agentDir, "om-pi-subagents.yaml"),
+			join(fixture.agentDir, "omps/config.yaml"),
 			block("yaml").replace("[read, grep, find, ls]", "[read, mcp]"),
 		);
 		await fixture.send({ type: "prompt", message: "/omps run reader go" });

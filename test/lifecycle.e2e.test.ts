@@ -36,15 +36,15 @@ async function startBusyChild(): Promise<{
 	runDirectory: () => Promise<string>;
 }> {
 	extensionDir = await mkdtemp(join(tmpdir(), "omps-life-"));
-	await mkdir(join(extensionDir, "personas"));
-	await writeFile(join(extensionDir, "personas/reader.md"), "CHILD-PERSONA: you read.");
+	await mkdir(join(extensionDir, "omps/personas"), { recursive: true });
+	await writeFile(join(extensionDir, "omps/personas/reader.md"), "CHILD-PERSONA: you read.");
 	await writeFile(
-		join(extensionDir, "om-pi-subagents.yaml"),
+		join(extensionDir, "omps/config.yaml"),
 		"version: 1\nagents:\n  reader:\n    persona: ./personas/reader.md\n    tools: [read]\n    thinking: off\n",
 	);
 	const fixture = await startPi({
 		args: ["-e", INDEX],
-		env: { OMPS_REGISTRY: join(extensionDir, "om-pi-subagents.yaml"), OMPS_PI_BIN: PI_BIN },
+		env: { OMPS_REGISTRY: join(extensionDir, "omps/config.yaml"), OMPS_PI_BIN: PI_BIN },
 	});
 	pi = fixture;
 	fixture.model.script = (body): Turn => {

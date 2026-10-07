@@ -6,10 +6,13 @@ import { createRegistryStore } from "../src/config.ts";
 import { RunManager, type RunOutcome, type Supervisor, type SupervisorHooks } from "../src/runs.ts";
 import { createService } from "../src/service.ts";
 
+let root: string;
 let dir: string;
 let context: { cwd: string; model: string; thinking: string };
 beforeEach(async () => {
-	dir = await mkdtemp(join(tmpdir(), "omps-service-"));
+	root = await mkdtemp(join(tmpdir(), "omps-service-"));
+	dir = join(root, "omps");
+	await mkdir(dir, { recursive: true });
 	context = { cwd: dir, model: "p/parent", thinking: "high" };
 	await mkdir(join(dir, "personas"));
 	await writeFile(join(dir, "personas/reader.md"), "Read.");
@@ -27,9 +30,9 @@ agents:
     model: p/own
 `);
 });
-afterEach(() => rm(dir, { recursive: true, force: true }));
+afterEach(() => rm(root, { recursive: true, force: true }));
 
-const writeYaml = (text: string) => writeFile(join(dir, "om-pi-subagents.yaml"), text);
+const writeYaml = (text: string) => writeFile(join(dir, "config.yaml"), text);
 const tick = () => new Promise((done) => setImmediate(done));
 
 function setup(deliveryOf?: (runId: string) => { delivered: boolean; error?: string } | undefined) {
@@ -43,7 +46,7 @@ function setup(deliveryOf?: (runId: string) => { delivered: boolean; error?: str
 	);
 	const manager = new RunManager(supervisor);
 	const service = createService({
-		registry: createRegistryStore(join(dir, "om-pi-subagents.yaml")),
+		registry: createRegistryStore(join(dir, "config.yaml")),
 		manager,
 		directoryFor: (owner, runId) => `/runs/${owner}/${runId}`,
 		deliveryOf,
@@ -66,6 +69,21 @@ describe("list", () => {
 		expect(text).not.toMatch(/reader.*write-capable/);
 		expect(text).toMatch(/writer.*read, bash.*write-capable/);
 		expect(text).toContain("p/own");
+	});
+
+	it("gives a compact line per agent with a tool count and its capability", async () => {
+		const text = await setup().service.list("compact");
+		expect(text).toMatch(/^reader: 2 tools \(read-only\)$/m);
+		expect(text).toMatch(/^writer: 2 tools \(write-capable\)/m);
+		expect(text).not.toMatch(/grep|bash/);
+		expect(text).toContain("model p/own");
+	});
+
+	it("names one tool in the singular", async () => {
+		await writeYaml(
+			"version: 1\nagents:\n  solo:\n    persona: ./personas/reader.md\n    tools: [read]\n    thinking: off\n",
+		);
+		expect(await setup().service.list("compact")).toBe("solo: 1 tool (read-only)");
 	});
 
 	it("says so when nothing is mapped", async () => {

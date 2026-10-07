@@ -18,8 +18,8 @@
 	{ "eval_id": 5, "file": "test/todo.parent.test.ts", "test": "preserves %s parent tasks with %s load order" },
 	{
 		"eval_id": 6,
-		"file": "test/fleet.test.ts",
-		"test": "keeps five active roots on exactly one persistent content row"
+		"file": "test/agent-tree-widget.test.ts",
+		"test": "caps content at 12 lines, running first, then finished, then a more line"
 	},
 	{
 		"eval_id": 6,

@@ -51,10 +51,10 @@ const notices = (installed: Installed) =>
 
 async function start() {
 	env = await installExtension();
-	await mkdir(join(env.fixture.agentDir, "personas"));
-	await writeFile(join(env.fixture.agentDir, "personas", "reader.md"), PERSONA);
+	await mkdir(join(env.fixture.agentDir, "omps/personas"), { recursive: true });
+	await writeFile(join(env.fixture.agentDir, "omps/personas", "reader.md"), PERSONA);
 	await writeFile(
-		join(env.fixture.agentDir, "om-pi-subagents.yaml"),
+		join(env.fixture.agentDir, "omps/config.yaml"),
 		"version: 1\nagents:\n  reader:\n    persona: ./personas/reader.md\n    tools: [read]\n    thinking: off\n",
 	);
 	await writeFile(join(env.fixture.cwd, "note.txt"), "NOTE-CONTENT-88");
@@ -91,9 +91,7 @@ describe("the environment is clean", () => {
 		const handle = await start();
 		const { installed, fixture, home } = handle;
 		expect(readdirSync(fixture.agentDir).sort()).toEqual(
-			["mcp.json", "models.json", "om-pi-subagents.yaml", "personas"].filter((name) =>
-				readdirSync(fixture.agentDir).includes(name),
-			),
+			["mcp.json", "models.json", "omps"].filter((name) => readdirSync(fixture.agentDir).includes(name)),
 		);
 		expect(readdirSync(home)).toEqual([]);
 		for (const path of [
@@ -119,7 +117,7 @@ describe("OMPS in that environment", () => {
 		const fixture = handle.fixture;
 
 		await fixture.send({ type: "prompt", message: "/omps list" });
-		await waitFor(() => notices(handle).some((text) => /^reader: tools \[read\]$/.test(text)));
+		await waitFor(() => notices(handle).some((text) => /^reader: 1 tool \(read-only\)$/.test(text)));
 
 		fixture.model.script = (body): Turn => {
 			const text = JSON.stringify(body);
@@ -159,6 +157,6 @@ describe("OMPS in that environment", () => {
 		const fixture = handle.fixture;
 		await fixture.send({ type: "new_session" });
 		await fixture.send({ type: "prompt", message: "/omps list" });
-		await waitFor(() => notices(handle).some((text) => /^reader: tools \[read\]$/.test(text)));
+		await waitFor(() => notices(handle).some((text) => /^reader: 1 tool \(read-only\)$/.test(text)));
 	});
 });

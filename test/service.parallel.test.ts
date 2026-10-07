@@ -6,20 +6,23 @@ import { createRegistryStore } from "../src/config.ts";
 import { RunManager, type RunOutcome, type Supervisor } from "../src/runs.ts";
 import { createService } from "../src/service.ts";
 
+let root: string;
 let dir: string;
 beforeEach(async () => {
-	dir = await mkdtemp(join(tmpdir(), "omps-admission-"));
+	root = await mkdtemp(join(tmpdir(), "omps-admission-"));
+	dir = join(root, "omps");
+	await mkdir(dir, { recursive: true });
 	await mkdir(join(dir, "personas"));
 	await writeFile(join(dir, "personas", "reader.md"), "Read.");
 	await revision(4);
 });
-afterEach(() => rm(dir, { recursive: true, force: true }));
+afterEach(() => rm(root, { recursive: true, force: true }));
 const tick = () => new Promise((done) => setImmediate(done));
 const context = () => ({ cwd: dir, model: "fake/counter" });
 const input = { agent: "reader", task: "Read the task" };
 const revision = (capacity: number, tool = "read") =>
 	writeFile(
-		join(dir, "om-pi-subagents.yaml"),
+		join(dir, "config.yaml"),
 		`version: 1\nlimits:\n  maxConcurrentRuns: ${capacity}\n  maxDepth: 3\nagents:\n  reader:\n    persona: ./personas/reader.md\n    tools: [${tool}]\n    thinking: off\n`,
 	);
 
@@ -29,7 +32,7 @@ function setup() {
 		(_run, request, _hooks) => new Promise((settle) => calls.push({ request, settle })),
 	);
 	const manager = new RunManager(supervisor);
-	const registry = createRegistryStore(join(dir, "om-pi-subagents.yaml"));
+	const registry = createRegistryStore(join(dir, "config.yaml"));
 	let hold: { ready: () => void; wait: Promise<void> } | undefined;
 	const service = createService({
 		registry: {

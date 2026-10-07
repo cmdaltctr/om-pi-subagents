@@ -1,5 +1,6 @@
 import { resolve as resolvePath } from "node:path";
 import {
+	DEFAULT_FLEET_VIEW,
 	DEFAULT_INSPECT_KEY,
 	DEFAULT_MAX_VISIBLE_AGENTS,
 	DEFAULT_TOGGLE_KEY,
@@ -33,6 +34,7 @@ export interface UiSettingsCache {
 
 const DEFAULTS: UiSettings = Object.freeze({
 	maxVisibleAgents: DEFAULT_MAX_VISIBLE_AGENTS,
+	fleetView: DEFAULT_FLEET_VIEW,
 	toggleKey: DEFAULT_TOGGLE_KEY,
 	inspectKey: DEFAULT_INSPECT_KEY,
 });
@@ -115,6 +117,7 @@ async function load(registryPath: string, legacyPath: string): Promise<UiSetting
 export function createUiSettings(registryPath: string, legacyPath = displayPreferencesPath()): UiSettingsCache {
 	// nosemgrep: AIK_ts_generic_path_traversal -- Trusted extension code selects these fixed destinations.
 	const destination = resolvePath(registryPath);
+	// nosemgrep: AIK_ts_generic_path_traversal -- Normalise the fixed operator legacy path; no file read. Evidence: docs/local-docs/final-pr-security-triage.md.
 	const legacy = resolvePath(legacyPath);
 	let value = DEFAULTS;
 	let loaded: Promise<UiSettingsState> | undefined;

@@ -22,10 +22,10 @@ async function write(relativePath: string, text: string): Promise<void> {
 	await writeFile(target, text);
 }
 
-const registry = () => join(dir, "om-pi-subagents.yaml");
+const registry = () => join(dir, "omps/config.yaml");
 const legacy = () => join(dir, "pi-subagents", "config.json");
 
-const defaults = { maxVisibleAgents: 5, toggleKey: "alt+o", inspectKey: "alt+i" };
+const defaults = { maxVisibleAgents: 5, fleetView: "expanded", toggleKey: "off", inspectKey: "off" };
 
 const emptyRegistry = "version: 1\nagents: {}\n";
 
@@ -42,20 +42,20 @@ describe("cache without files", () => {
 	});
 
 	it("serves the cached value without file access", async () => {
-		await write("om-pi-subagents.yaml", emptyRegistry);
+		await write("omps/config.yaml", emptyRegistry);
 		const cache = createUiSettings(registry(), legacy());
 		await cache.ensureLoaded();
 
-		await write("om-pi-subagents.yaml", "version: 1\nui:\n  maxVisibleAgents: 1\nagents: {}\n");
+		await write("omps/config.yaml", "version: 1\nui:\n  maxVisibleAgents: 1\nagents: {}\n");
 		expect(cache.value).toEqual(defaults);
 	});
 
 	it("ensureLoaded keeps the first load and refresh reloads", async () => {
-		await write("om-pi-subagents.yaml", emptyRegistry);
+		await write("omps/config.yaml", emptyRegistry);
 		const cache = createUiSettings(registry(), legacy());
 		await cache.ensureLoaded();
 
-		await write("om-pi-subagents.yaml", "version: 1\nui:\n  maxVisibleAgents: 2\nagents: {}\n");
+		await write("omps/config.yaml", "version: 1\nui:\n  maxVisibleAgents: 2\nagents: {}\n");
 		expect((await cache.ensureLoaded()).value.maxVisibleAgents).toBe(5);
 		expect((await cache.refresh()).value.maxVisibleAgents).toBe(2);
 	});
@@ -63,18 +63,18 @@ describe("cache without files", () => {
 
 describe("yaml ui declarations", () => {
 	it("uses declared yaml values", async () => {
-		await write("om-pi-subagents.yaml", "version: 1\nui:\n  maxVisibleAgents: 9\nagents: {}\n");
+		await write("omps/config.yaml", "version: 1\nui:\n  maxVisibleAgents: 9\nagents: {}\n");
 		const cache = createUiSettings(registry(), legacy());
 		const state = await cache.ensureLoaded();
-		expect(state.value).toEqual({ maxVisibleAgents: 9, toggleKey: "alt+o", inspectKey: "alt+i" });
+		expect(state.value).toEqual({ maxVisibleAgents: 9, fleetView: "expanded", toggleKey: "off", inspectKey: "off" });
 		expect(state.maxVisibleAgentsSource).toBe("yaml");
 	});
 
 	it("accepts partial declarations beside the legacy value", async () => {
 		await write("pi-subagents/config.json", '{"maxVisibleAgents": 7}\n');
-		await write("om-pi-subagents.yaml", 'version: 1\nui:\n  toggleKey: "off"\nagents: {}\n');
+		await write("omps/config.yaml", 'version: 1\nui:\n  inspectKey: "alt+i"\nagents: {}\n');
 		const state = await createUiSettings(registry(), legacy()).ensureLoaded();
-		expect(state.value).toEqual({ maxVisibleAgents: 7, toggleKey: "off", inspectKey: "alt+i" });
+		expect(state.value).toEqual({ maxVisibleAgents: 7, fleetView: "expanded", toggleKey: "off", inspectKey: "alt+i" });
 		expect(state.maxVisibleAgentsSource).toBe("legacy");
 	});
 });
@@ -95,7 +95,7 @@ describe("legacy display preferences", () => {
 
 	it("lets yaml win over the legacy value without rewriting it", async () => {
 		await write("pi-subagents/config.json", '{"maxVisibleAgents": 7}\n');
-		await write("om-pi-subagents.yaml", "version: 1\nui:\n  maxVisibleAgents: 3\nagents: {}\n");
+		await write("omps/config.yaml", "version: 1\nui:\n  maxVisibleAgents: 3\nagents: {}\n");
 		const state = await createUiSettings(registry(), legacy()).ensureLoaded();
 		expect(state.value.maxVisibleAgents).toBe(3);
 		expect(state.maxVisibleAgentsSource).toBe("yaml");
@@ -121,7 +121,7 @@ describe("legacy display preferences", () => {
 	});
 
 	it("reports a missing legacy file without a diagnostic", async () => {
-		await write("om-pi-subagents.yaml", emptyRegistry);
+		await write("omps/config.yaml", emptyRegistry);
 		const state = await createUiSettings(registry(), legacy()).ensureLoaded();
 		expect(state.value).toEqual(defaults);
 		expect(state.maxVisibleAgentsSource).toBe("default");
@@ -131,27 +131,27 @@ describe("legacy display preferences", () => {
 
 describe("registry failures", () => {
 	it("keeps the retained cache usable when the registry becomes invalid", async () => {
-		await write("om-pi-subagents.yaml", "version: 1\nui:\n  maxVisibleAgents: 6\nagents: {}\n");
+		await write("omps/config.yaml", "version: 1\nui:\n  maxVisibleAgents: 6\nagents: {}\n");
 		const cache = createUiSettings(registry(), legacy());
 		await cache.ensureLoaded();
 		expect(cache.value.maxVisibleAgents).toBe(6);
 
-		await write("om-pi-subagents.yaml", "version: 1\nui:\n  maxVisibleAgents: 0\nagents: {}\n");
+		await write("omps/config.yaml", "version: 1\nui:\n  maxVisibleAgents: 0\nagents: {}\n");
 		const state = await cache.refresh();
 		expect(state.value.maxVisibleAgents).toBe(5);
 		expect(state.diagnostics.length).toBe(1);
 		expect(state.diagnostics[0]).toMatch(/ui\.maxVisibleAgents/);
 		// The retained cache still serves the last good presentation values.
-		expect(cache.value).toEqual({ maxVisibleAgents: 6, toggleKey: "alt+o", inspectKey: "alt+i" });
+		expect(cache.value).toEqual({ maxVisibleAgents: 6, fleetView: "expanded", toggleKey: "off", inspectKey: "off" });
 	});
 
 	it("recovers on the next refresh once the registry is valid again", async () => {
-		await write("om-pi-subagents.yaml", "version: 1\nagents: {}\n");
+		await write("omps/config.yaml", "version: 1\nagents: {}\n");
 		const cache = createUiSettings(registry(), legacy());
 		await cache.ensureLoaded();
-		await write("om-pi-subagents.yaml", "version: 1\nui:\n  maxVisibleAgents: 0\nagents: {}\n");
+		await write("omps/config.yaml", "version: 1\nui:\n  maxVisibleAgents: 0\nagents: {}\n");
 		await cache.refresh();
-		await write("om-pi-subagents.yaml", "version: 1\nui:\n  maxVisibleAgents: 4\nagents: {}\n");
+		await write("omps/config.yaml", "version: 1\nui:\n  maxVisibleAgents: 4\nagents: {}\n");
 		const state = await cache.refresh();
 		expect(state.value.maxVisibleAgents).toBe(4);
 		expect(state.diagnostics).toEqual([]);

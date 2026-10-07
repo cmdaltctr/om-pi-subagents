@@ -3,6 +3,7 @@
 - **Date:** 2026-10-06
 - **Status:** Accepted
 - **Deciders:** Project maintainer
+- **Partly superseded by:** [ADR-009](./009-port-the-tintin-agent-tree-and-show-it-by-default.md) for the collapsed below-editor strip, Alt+O and Alt+I defaults and fleet presentation; this record's settings, permission, observation and sibling-capability rules remain in force.
 
 ## Context
 

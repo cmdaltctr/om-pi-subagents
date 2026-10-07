@@ -1,9 +1,9 @@
+import { fixtureRegistryPath } from "./registry.ts";
 // Test-only "parent": launches an OMPS child through the real gate, reports its pid, then idles.
 // The test kills this process without warning to prove that no child outlives its parent.
 import type { AgentSnapshot } from "../../src/config.ts";
 import { launchChild } from "../../src/startup.ts";
 import { fixtureLineage } from "./lineage.ts";
-import { join } from "node:path";
 
 const config = JSON.parse(process.argv[2]);
 const snapshot: AgentSnapshot = {
@@ -22,7 +22,7 @@ const ready = await launchChild({
 	personaFile: config.personaFile,
 	guardPath: config.guardPath,
 	runToken: "parent-run",
-	lineage: fixtureLineage(join(config.env.PI_CODING_AGENT_DIR, "om-pi-subagents.yaml")),
+	lineage: fixtureLineage(fixtureRegistryPath(config.env.PI_CODING_AGENT_DIR)),
 	piBin: config.piBin,
 	parentModel: "fake/counter",
 	env: config.env,

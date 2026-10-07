@@ -1,3 +1,4 @@
+import { writeFixturePersona } from "./fixtures/registry.ts";
 import { readFile, realpath, readdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -47,11 +48,11 @@ async function rootFixture() {
 		env: { OMPS_PI_BIN: PI_BIN },
 		seed: async ({ agentDir }) => {
 			// nosemgrep: AIK_ts_generic_path_traversal -- Seed a constant persona filename in the disposable fixture directory.
-			await writeFile(join(agentDir, "worker.md"), "SAVED-LIMIT-WORKER");
+			await writeFixturePersona(agentDir, "worker.md", "SAVED-LIMIT-WORKER");
 			await writeFile(
 				// nosemgrep: AIK_ts_generic_path_traversal -- Seed a constant registry filename in the disposable fixture directory.
-				join(agentDir, "om-pi-subagents.yaml"),
-				"version: 1\nlimits: { maxDepth: 3, maxConcurrentRuns: 4 }\nagents:\n  worker:\n    persona: worker.md\n    tools: [read]\n    thinking: off\n",
+				join(agentDir, "omps/config.yaml"),
+				"version: 1\nlimits: { maxDepth: 3, maxConcurrentRuns: 4 }\nagents:\n  worker:\n    persona: ./personas/worker.md\n    tools: [read]\n    thinking: off\n",
 			);
 		},
 	});
@@ -149,16 +150,16 @@ describe.skipIf(!PI_AVAILABLE)("saved limits through fresh real launches", () =>
 			env: { OMPS_PI_BIN: PI_BIN },
 			seed: async ({ agentDir }) => {
 				// nosemgrep: AIK_ts_generic_path_traversal -- Seed a constant persona filename in the disposable fixture directory.
-				await writeFile(join(agentDir, "delegator.md"), "SAVED-LIMIT-DELEGATOR");
+				await writeFixturePersona(agentDir, "delegator.md", "SAVED-LIMIT-DELEGATOR");
 				// nosemgrep: AIK_ts_generic_path_traversal -- Seed a constant persona filename in the disposable fixture directory.
-				await writeFile(join(agentDir, "worker.md"), "SAVED-NESTED-WORKER");
+				await writeFixturePersona(agentDir, "worker.md", "SAVED-NESTED-WORKER");
 				await writeFile(
 					// nosemgrep: AIK_ts_generic_path_traversal -- Seed a constant registry filename in the disposable fixture directory.
-					join(agentDir, "om-pi-subagents.yaml"),
-					`version: 1\nlimits: { maxDepth: ${ceiling}, maxConcurrentRuns: 4 }\nagents:\n  worker:\n    persona: worker.md\n    tools: [omps]\n    thinking: off\n`,
+					join(agentDir, "omps/config.yaml"),
+					`version: 1\nlimits: { maxDepth: ${ceiling}, maxConcurrentRuns: 4 }\nagents:\n  worker:\n    persona: ./personas/worker.md\n    tools: [omps]\n    thinking: off\n`,
 				);
 				// nosemgrep: AIK_ts_generic_path_traversal -- Canonicalise only the synthetic registry just written by this fixture.
-				registryPath = await realpath(join(agentDir, "om-pi-subagents.yaml"));
+				registryPath = await realpath(join(agentDir, "omps/config.yaml"));
 			},
 			launch: ({ cwd, agentDir }) =>
 				buildLaunch({
@@ -173,7 +174,7 @@ describe.skipIf(!PI_AVAILABLE)("saved limits through fresh real launches", () =>
 					},
 					cwd,
 					// nosemgrep: AIK_ts_generic_path_traversal -- Constant persona filename in this disposable fixture's agent directory.
-					personaFile: join(agentDir, "delegator.md"),
+					personaFile: join(agentDir, "omps/personas", "delegator.md"),
 					guardPath: guard,
 					runToken: "settings-token",
 					piBin: PI_BIN,

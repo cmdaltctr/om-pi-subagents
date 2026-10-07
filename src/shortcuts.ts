@@ -1,6 +1,6 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { getKeybindings, type KeyId } from "@earendil-works/pi-tui";
-import type { UiSettings } from "./config.ts";
+import { normaliseKey, type UiSettings } from "./config.ts";
 
 /** Actions the two view shortcuts perform. */
 export interface ViewShortcutActions {
@@ -26,8 +26,10 @@ const builtinBindings = (): ResolvedBindings => getKeybindings().getResolvedBind
  * a remapped `app.tools.expand` frees its old key without OMPS editing any keybinding.
  */
 export function occupiedByBuiltin(key: string, resolved: ResolvedBindings = builtinBindings()): boolean {
+	const wanted = normaliseKey(key);
 	for (const keys of Object.values(resolved)) {
-		if (keys === key || (Array.isArray(keys) && keys.includes(key as never))) return true;
+		const list: unknown[] = Array.isArray(keys) ? keys : [keys];
+		if (list.some((entry) => typeof entry === "string" && normaliseKey(entry) === wanted)) return true;
 	}
 	return false;
 }

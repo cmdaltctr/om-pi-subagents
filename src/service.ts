@@ -28,11 +28,21 @@ export interface RunContext {
 	model?: string;
 }
 
-const describeAgent = (agent: AgentSnapshot): string => {
+/** `full` names every approved tool for the model; `compact` keeps the operator's screen short. */
+export type ListForm = "full" | "compact";
+
+const describeAgent = (agent: AgentSnapshot, form: ListForm): string => {
+	const writeCapable = agent.tools.some((tool) => WRITE_CAPABLE.includes(tool));
+	const delegation = agent.tools.includes("omps");
+	if (form === "compact") {
+		const count = `${agent.tools.length} tool${agent.tools.length === 1 ? "" : "s"}`;
+		const extras = [agent.model ? `model ${agent.model}` : "", delegation ? "delegation-capable" : ""].filter(Boolean);
+		return `${agent.name}: ${count} (${writeCapable ? "write-capable" : "read-only"})${extras.map((extra) => `; ${extra}`).join("")}`;
+	}
 	const parts = [`tools [${agent.tools.join(", ")}]`];
 	if (agent.model) parts.push(`model ${agent.model}`);
-	if (agent.tools.some((tool) => WRITE_CAPABLE.includes(tool))) parts.push("write-capable");
-	if (agent.tools.includes("omps")) parts.push("delegation-capable (can select write-capable targets)");
+	if (writeCapable) parts.push("write-capable");
+	if (delegation) parts.push("delegation-capable (can select write-capable targets)");
 	return `${agent.name}: ${parts.join("; ")}`;
 };
 
@@ -62,10 +72,17 @@ export function createService({ registry, manager, directoryFor, flush, delivery
 	};
 
 	return {
-		async list(): Promise<string> {
+		async list(form: ListForm = "full"): Promise<string> {
+			return (await this.listForms())[form];
+		},
+
+		/** Both list forms from one registry read, so the model's text and the compact render agree. */
+		async listForms(): Promise<Record<ListForm, string>> {
 			const snapshot = await registry.refresh();
 			const agents = [...snapshot.agents.values()];
-			return agents.length === 0 ? "No personas mapped." : agents.map(describeAgent).join("\n");
+			const render = (form: ListForm) =>
+				agents.length === 0 ? "No personas mapped." : agents.map((agent) => describeAgent(agent, form)).join("\n");
+			return { full: render("full"), compact: render("compact") };
 		},
 
 		/** Validate, start a background run and return at once. Never waits for the model. */

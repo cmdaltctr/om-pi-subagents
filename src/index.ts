@@ -3,26 +3,26 @@
 // The factory only registers extension handlers. It starts no process and reads no file; the run table,
 // the store and the supervisor are built on first use. A child is spawned only from a validated `run`.
 
-import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI, ExtensionContext, Theme } from "@earendil-works/pi-coding-agent";
 import { Text } from "@earendil-works/pi-tui";
 import { existsSync } from "node:fs";
-import { homedir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { TUI } from "@earendil-works/pi-tui";
 import { ACK_MAX_AGENT_CHARS } from "./acknowledgement.ts";
 import { createRegistryStore, type UiSettings } from "./config.ts";
-import type { FleetKeys } from "./fleet.ts";
+import { resolveAgentDir, resolveRegistryPath } from "./registry-path.ts";
+export { resolveRegistryPath } from "./registry-path.ts";
 import { FleetStrip } from "./fleet.ts";
 import { editorOwnsFocus, handleFleetInput } from "./fleet-view.ts";
-import { FleetWidget } from "./fleet-widget.ts";
+import { FleetWidget, LIST_KEY, TREE_KEY } from "./fleet-widget.ts";
 import { createNotifier, type Messenger, type WidgetComponent } from "./notify.ts";
 import { createPersistence } from "./persistence.ts";
 import type { ObservationStore } from "./observation.ts";
 import { ObservationRelay } from "./observation-relay.ts";
 import { TransportObservationStore } from "./observation-transport.ts";
 import { CLEANUP_ENTRY, OBSERVATION_ENTRY, type ChildLineage } from "./protocol.ts";
-import { isTerminal, RunManager } from "./runs.ts";
+import { RunManager } from "./runs.ts";
 import { createService, type OmpsService, type RunContext } from "./service.ts";
 import { registerOmpsSettings } from "./settings.ts";
 import { registerViewShortcuts } from "./shortcuts.ts";
@@ -106,11 +106,12 @@ export class SessionBinding {
 			} catch {
 				/* Clearing one display must not block the other. */
 			}
-			try {
-				ctx.ui.setWidget("omps", undefined);
-			} catch {
-				/* Detach even when the UI has gone. */
-			}
+			for (const key of [LIST_KEY, TREE_KEY])
+				try {
+					ctx.ui.setWidget(key, undefined);
+				} catch {
+					/* Detach even when the UI has gone. */
+				}
 		}
 		this.ctx = undefined;
 	}
@@ -131,20 +132,21 @@ export class SessionBinding {
 					}
 				: undefined,
 			setWidget: ctx.hasUI
-				? (content, placement) => {
+				? (content, placement, key = LIST_KEY) => {
 						if (!live()) return;
 						// Interactive hosts keep a live component with terminal facts; line hosts keep arrays.
 						const options = { placement: placement ?? ("belowEditor" as const) };
 						if (typeof content === "function")
 							ctx.ui.setWidget(
-								"omps",
-								(tui: TUI): WidgetComponent => {
+								key,
+								(tui: TUI, theme: Theme): WidgetComponent => {
 									// The public focused-component accessor lives on the viewport TUI;
 									// a host without it never reports editor focus, so navigation stays off.
 									const viewport = tui as TUI & { getFocusedComponent?: () => unknown };
 									return content({
 										rows: tui.terminal.rows,
 										requestRender: () => tui.requestRender(),
+										theme,
 										focus: {
 											getFocusedComponent: () => viewport.getFocusedComponent?.() ?? null,
 											hasOverlay: () => tui.hasOverlay(),
@@ -153,7 +155,7 @@ export class SessionBinding {
 								},
 								options,
 							);
-						else ctx.ui.setWidget("omps", content, options);
+						else ctx.ui.setWidget(key, content, options);
 					}
 				: undefined,
 		};
@@ -170,12 +172,6 @@ export function resolvePiBin(
 	// nosemgrep: AIK_ts_generic_path_traversal -- The trusted agent directory is followed only by constant components.
 	const managed = join(agentDir, "bin", "pi");
 	return exists(managed) ? managed : "pi";
-}
-
-/** The operator's agent mapping: an explicit override, or a file in the agent directory that package updates never touch. */
-export function resolveRegistryPath(agentDir: string, env: NodeJS.ProcessEnv = process.env): string {
-	// nosemgrep: AIK_ts_generic_path_traversal -- The trusted agent directory is followed only by a constant file name.
-	return env.OMPS_REGISTRY ?? join(agentDir, "om-pi-subagents.yaml");
 }
 
 export interface OmpsRuntime {
@@ -195,10 +191,9 @@ function createRuntime(
 	binding: SessionBinding,
 	preferences: VisibleAgentsInput,
 	strip: FleetStrip,
-	keys: () => FleetKeys,
 	branch?: ChildLineage,
 ): OmpsRuntime {
-	const agentDir = process.env.PI_CODING_AGENT_DIR ?? join(homedir(), ".pi", "agent");
+	const agentDir = resolveAgentDir();
 	const runRoot = join(agentDir, "omps", "runs");
 	const store = new RunStore(runRoot);
 	const persistence = createPersistence(store);
@@ -253,8 +248,8 @@ function createRuntime(
 		messenger: (owner) => binding.messenger(pi, owner),
 		runs: (owner) => manager.list(owner),
 		trees: (owner) => observations.trees(owner),
+		toolUses: (runId) => relay.toolUses(runId),
 		visibleAgents: () => preferences.value,
-		keys,
 		strip,
 		mode: () => binding.mode ?? "print",
 		now: () => Date.now(),
@@ -299,11 +294,14 @@ export function registerOmps(
 		promptSnippet: "omps: run a mapped subagent in the background (actions: list, run, status, cancel)",
 		parameters: PARAMETERS as never,
 		renderResult: (result, { expanded }, _theme, _context) => {
-			const identity = result.details as RunCardIdentity | undefined;
 			const text = result.content
 				.filter((block) => block.type === "text")
 				.map((block) => block.text)
 				.join("\n");
+			// A list result shows one short line per agent until Ctrl+O reveals every tool name.
+			const compact = (result.details as { compact?: unknown } | undefined)?.compact;
+			if (typeof compact === "string") return new Text(expanded ? text : compact, 0, 0);
+			const identity = result.details as RunCardIdentity | undefined;
 			if (identity && observationId(identity.owner) && observationId(identity.runId)) {
 				// Expansion reveals the acknowledgement text only; acknowledgements never become live trees.
 				const component = getViewer?.()?.render(identity, expanded, text);
@@ -316,8 +314,14 @@ export function registerOmps(
 			binding?.bind(ctx);
 			const { owner, context } = sessionOf(ctx);
 			const service = getService();
+			let compact: string | undefined;
 			const actions = {
-				list: () => service.list(),
+				// The model keeps the full tool list; the transcript shows the compact form until expanded.
+				list: async () => {
+					const forms = await service.listForms();
+					compact = forms.compact;
+					return forms.full;
+				},
 				run: () => service.run(owner, { agent: params.agent ?? "", task: params.task ?? "", cwd: params.cwd }, context),
 				status: async () => service.status(owner, params.runId),
 				cancel: async () => service.cancel(owner, params.runId ?? ""),
@@ -325,6 +329,7 @@ export function registerOmps(
 			if (!Object.hasOwn(actions, params.action))
 				throw new Error(`unknown action "${params.action}"; use list, run, status or cancel`);
 			const text = await actions[params.action]();
+			if (compact !== undefined) return { content: [{ type: "text", text }], details: { compact } };
 			const identity = params.action === "run" ? acknowledgedRun(text, owner) : undefined;
 			if (identity) getViewer?.()?.activate(ctx);
 			return { content: [{ type: "text", text }], details: identity };
@@ -366,7 +371,7 @@ export function registerOmps(
 					// View-only access: no service call, no process, no model request.
 					const fleet = getFleet?.();
 					fleet?.toggle();
-					const lines = fleet?.renderLines(owner, 200, 40) ?? [];
+					const lines = fleet ? [...fleet.treeLines(owner, 200), ...fleet.listLines(owner, 200)] : [];
 					if (ctx.mode === "tui") {
 						fleet?.attach(owner);
 						fleet?.repaint(owner);
@@ -378,7 +383,7 @@ export function registerOmps(
 				const service = getService();
 				let text: string;
 				const run = /^run\s+(\S+)\s+([\s\S]+)$/.exec(input);
-				if (input === "list") text = await service.list();
+				if (input === "list") text = (await service.listForms()).compact;
 				else if (run) {
 					text = await service.run(owner, { agent: run[1], task: run[2] }, context);
 					const identity = acknowledgedRun(text, owner);
@@ -401,7 +406,7 @@ export function registerOmps(
 export function registerRuntime(pi: ExtensionAPI, branch?: ChildLineage): () => OmpsRuntime | undefined {
 	const binding = new SessionBinding();
 	let runtime: OmpsRuntime | undefined;
-	const agentDir = () => process.env.PI_CODING_AGENT_DIR ?? join(homedir(), ".pi", "agent");
+	const agentDir = () => resolveAgentDir();
 	let ui: UiSettingsCache | undefined;
 	// One cache per session: settings edits refresh the same values the fleet renders.
 	const getUi = () => (ui ??= createUiSettings(branch?.registryPath ?? resolveRegistryPath(agentDir())));
@@ -411,16 +416,11 @@ export function registerRuntime(pi: ExtensionAPI, branch?: ChildLineage): () => 
 		},
 		ensureLoaded: () => getUi().ensureLoaded(),
 	};
-	// Session-local strip state: expansion and selection never persist and never touch a file.
-	const strip = new FleetStrip();
-	const fleetKeys = (): FleetKeys => {
-		const value = activeKeys ?? getUi().value;
-		const label = (key: string) => (key === "off" ? "" : key);
-		return { toggle: label(value.toggleKey), inspect: label(value.inspectKey) };
-	};
+	// The saved view comes from the cached registry; session toggles and selection never touch a file.
+	const strip = new FleetStrip(() => getUi().value.fleetView);
 	registerOmps(
 		pi,
-		() => (runtime ??= createRuntime(pi, binding, visibleAgents, strip, fleetKeys, branch)).service,
+		() => (runtime ??= createRuntime(pi, binding, visibleAgents, strip, branch)).service,
 		binding,
 		() => runtime?.viewer,
 		() => runtime?.fleet,
@@ -429,6 +429,8 @@ export function registerRuntime(pi: ExtensionAPI, branch?: ChildLineage): () => 
 		registryPath: branch?.registryPath ?? resolveRegistryPath(agentDir()),
 		ui: getUi(),
 		activeKeys: () => activeKeys,
+		// A saved view replaces any session toggle, so the operator sees the new setting at once.
+		onFleetViewSaved: () => strip.resetView(),
 		onDisplayChanged: (ctx) => {
 			runtime?.viewer.activate(ctx);
 			runtime?.viewer.redraw();
@@ -457,7 +459,7 @@ export function registerRuntime(pi: ExtensionAPI, branch?: ChildLineage): () => 
 		});
 		activeKeys = registration.keys;
 		for (const diagnostic of registration.diagnostics) ctx.ui.notify(`OMPS shortcuts: ${diagnostic}`, "warning");
-		// Fleet arrows work only while the strip is expanded, the draft is empty and the editor owns focus.
+		// Down enters fleet selection only from an empty, focused editor while the expanded strip shows runs.
 		stopInput?.();
 		stopInput = ctx.ui.onTerminalInput((data) => {
 			const owner = binding.owner;
@@ -467,11 +469,8 @@ export function registerRuntime(pi: ExtensionAPI, branch?: ChildLineage): () => 
 			return handleFleetInput(
 				{
 					strip,
-					activeRunIds: () =>
-						current.manager
-							.list(owner)
-							.filter((entry) => !isTerminal(entry.state))
-							.map((entry) => entry.id),
+					// Navigation moves through the rows the list shows, including briefly lingering finished runs.
+					activeRunIds: () => current.fleet.listedRunIds(owner),
 					editorText: () => {
 						try {
 							return ctx.ui.getEditorText();
@@ -490,6 +489,11 @@ export function registerRuntime(pi: ExtensionAPI, branch?: ChildLineage): () => 
 				? { consume: true }
 				: undefined;
 		});
+	});
+	// Finished runs age by parent turns, as in tintin's widget; aging needs no runtime before first use.
+	pi.on("turn_start", async () => {
+		const owner = binding.owner;
+		if (owner) runtime?.fleet.onTurnStart(owner);
 	});
 	// Quit, reload and session replacement all end here: detach first so no message reaches a successor,
 	// then stop the children and wait until their cleanup is confirmed.

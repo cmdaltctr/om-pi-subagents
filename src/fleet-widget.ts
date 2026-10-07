@@ -1,16 +1,28 @@
-// The session-wide below-editor fleet strip. This controller owns the persistent widget: it maps
-// authoritative RunManager snapshots plus retained observation evidence into the pure projection
-// from fleet.ts and keeps one live strip per owning session. Result delivery stays in notify.ts.
+// The session-wide fleet widgets: tintin's `● Agents` tree above the editor and the navigation list
+// below it. This controller maps authoritative RunManager snapshots plus retained observation
+// evidence into both renderers, owns the spinner and linger timers, and keeps one pair of widgets per
+// owning session. Result delivery stays in notify.ts.
 
-import { truncateToWidth } from "@earendil-works/pi-tui";
-import { stripVTControlCharacters } from "node:util";
-import { FleetStrip, type FleetKeys, type FleetRoot } from "./fleet.ts";
+import {
+	PLAIN_THEME,
+	renderAgentTree,
+	SPINNER_MS,
+	TreeLinger,
+	treeStatus,
+	type TreeAgent,
+	type TreeTheme,
+} from "./agent-tree-widget.ts";
+import { LIST_LINGER_MS, listedRoots, type FleetRoot, type FleetStrip } from "./fleet.ts";
 import type { Messenger, TerminalFacts, WidgetComponent } from "./notify.ts";
 import { plain } from "./plain.ts";
 import type { ObservedTree } from "./observation.ts";
-import type { RunView } from "./runs.ts";
+import { isTerminal, type RunView } from "./runs.ts";
 
 export type { TerminalFacts, WidgetComponent };
+
+/** Widget keys: the list keeps the original OMPS key; the tree gets its own. */
+export const LIST_KEY = "omps";
+export const TREE_KEY = "omps-agents";
 
 export interface FleetWidgetDeps {
 	/** The live owning parent, or nothing once its session has ended. */
@@ -19,31 +31,34 @@ export interface FleetWidgetDeps {
 	runs(owner: string): readonly RunView[];
 	/** Retained observation trees for those roots, when present. */
 	trees(owner: string): readonly ObservedTree[];
+	/** Task tool calls each run has started. */
+	toolUses(runId: string): number;
 	/** Cached registry `ui.maxVisibleAgents`. Rendering performs no file access. */
 	visibleAgents(): number;
-	/** Shortcut labels for row hints; empty labels omit the hint. */
-	keys(): FleetKeys;
-	/** Session-local strip state: expansion and selection never persist. */
+	/** Session-local view state: toggles and selection never persist. */
 	strip: FleetStrip;
-	/** Interactive hosts keep a live component; other hosts receive plain lines. */
+	/** Interactive hosts keep live components; other hosts receive plain lines. */
 	mode(): string;
-	/** Wall clock for elapsed times. */
-	now?(): number;
+	/** Wall clock for elapsed times and lingers. */
+	now(): number;
 }
 
-/** Line hosts accept arrays but not live components, so they render at a fixed budget. */
+/** Line hosts accept arrays but not live components, so they render at a fixed width. */
 const LINE_HOST_WIDTH = 200;
-const LINE_HOST_ROWS = 40;
 const MAX_AGENT_CHARS = 48;
+const MAX_ERROR_CHARS = 120;
 
-function fit(line: string, width: number): string {
-	return stripVTControlCharacters(truncateToWidth(line, width, ""));
+interface OwnerState {
+	readonly linger: TreeLinger;
+	painter?: () => void;
+	facts?: TerminalFacts;
+	frame: number;
+	spinner?: ReturnType<typeof setInterval>;
+	expiry?: ReturnType<typeof setTimeout>;
 }
 
 export class FleetWidget {
-	private readonly attached = new Set<string>();
-	private readonly painters = new Map<string, () => void>();
-	private readonly factsByOwner = new Map<string, TerminalFacts>();
+	private readonly owners = new Map<string, OwnerState>();
 
 	constructor(private readonly deps: FleetWidgetDeps) {}
 
@@ -51,7 +66,8 @@ export class FleetWidget {
 	private roots(owner: string): FleetRoot[] {
 		const trees = new Map(this.deps.trees(owner).map((tree) => [tree.runId, tree]));
 		return this.deps.runs(owner).map((run) => {
-			const root = trees.get(run.id)?.nodes[0];
+			const observed = trees.get(run.id);
+			const root = observed?.nodes[0];
 			return {
 				runId: run.id,
 				agent: plain(run.agent, MAX_AGENT_CHARS),
@@ -60,79 +76,207 @@ export class FleetWidget {
 				endedAt: run.endedAt,
 				taskSummary: root?.taskSummary,
 				activeTools: root?.activeTools.map((tool) => plain(tool.name, 128)) ?? [],
-				observedDescendants: trees.get(run.id) ? trees.get(run.id)!.nodes.length - 1 : 0,
-				observationIncomplete: !!trees.get(run.id)?.incomplete,
+				observedDescendants: observed ? observed.nodes.length - 1 : 0,
+				observationIncomplete: !!observed?.incomplete,
+				toolUses: this.deps.toolUses(run.id),
+				assistantPreview: root?.assistantPreview,
+				error: run.error === undefined ? undefined : plain(run.error, MAX_ERROR_CHARS),
 			};
 		});
 	}
 
-	/** Render the strip's content lines within the given terminal width. */
-	renderLines(owner: string, width: number, terminalRows: number): string[] {
-		const roots = this.roots(owner);
-		if (!roots.length) return [];
-		const lines = this.deps.strip.render(
-			{ roots, visibleAgents: this.deps.visibleAgents(), terminalRows, now: this.deps.now?.() },
-			this.deps.keys(),
-		);
-		return lines.map((line) => fit(line, width));
+	/** Running runs plus finished runs the linger rule still shows. */
+	private treeAgents(owner: string, state: OwnerState): TreeAgent[] {
+		const now = this.deps.now();
+		return this.roots(owner)
+			.map((root): TreeAgent => {
+				const status = treeStatus(root.state);
+				return {
+					id: root.runId,
+					name: root.agent,
+					description: root.taskSummary ?? "",
+					status,
+					toolUses: root.toolUses,
+					startedAt: root.startedAt,
+					completedAt: status === "running" ? undefined : (root.endedAt ?? now),
+					error: root.error,
+					activeTools: root.activeTools,
+					responseText: root.assistantPreview,
+				};
+			})
+			.filter((agent) => agent.status === "running" || state.linger.shouldShow(agent.id, agent.status, now));
 	}
 
-	/** Toggle this session's strip expansion. */
+	/** Render the tree within the given width. */
+	treeLines(owner: string, width: number, theme: TreeTheme = PLAIN_THEME): string[] {
+		const state = this.owners.get(owner);
+		if (!state || this.deps.strip.isHidden) return [];
+		return renderAgentTree(this.treeAgents(owner, state), {
+			width,
+			frame: state.frame,
+			now: this.deps.now(),
+			theme,
+			collapsed: !this.deps.strip.isExpanded,
+		});
+	}
+
+	/** Render the navigation list within the given width. */
+	listLines(owner: string, width: number, theme: TreeTheme = PLAIN_THEME): string[] {
+		const roots = this.roots(owner);
+		if (!roots.length) return [];
+		return this.deps.strip.render(
+			{ roots, visibleAgents: this.deps.visibleAgents(), now: this.deps.now() },
+			width,
+			theme,
+		);
+	}
+
+	/** Run ids in list order, exactly as the list shows them; empty while the list is hidden. */
+	listedRunIds(owner: string): string[] {
+		if (this.deps.strip.isHidden || !this.deps.strip.isExpanded) return [];
+		return listedRoots(this.roots(owner), this.deps.now()).map((root) => root.runId);
+	}
+
+	/** Toggle this session's view between expanded and the collapsed tree heading. */
 	toggle(): void {
 		this.deps.strip.toggle();
 	}
 
-	/** Terminal facts captured when the strip attached; view navigation reads focus from here. */
+	/** Terminal facts captured when the widgets attached; view navigation reads focus from here. */
 	factsOf(owner: string): TerminalFacts | undefined {
-		return this.factsByOwner.get(owner);
+		return this.owners.get(owner)?.facts;
 	}
 
-	/** Register the persistent below-editor strip once per owning session. */
+	/** Register both widgets once per owning session. */
 	attach(owner: string): void {
-		if (this.attached.has(owner)) return;
+		if (this.owners.has(owner)) return;
 		const messenger = this.deps.messenger(owner);
 		if (!messenger?.setWidget) return;
-		this.attached.add(owner);
-		if (this.deps.mode() === "tui")
-			messenger.setWidget((terminal: TerminalFacts) => {
-				this.factsByOwner.set(owner, terminal);
-				this.painters.set(owner, () => terminal.requestRender());
-				return {
-					render: (width: number) => this.renderLines(owner, width, terminal.rows),
-					invalidate: () => terminal.requestRender(),
+		const state: OwnerState = { linger: new TreeLinger(), frame: 0 };
+		this.owners.set(owner, state);
+		// Runs that ended before attachment still linger from their real end time.
+		for (const run of this.deps.runs(owner)) this.track(state, run);
+		if (this.deps.mode() === "tui") {
+			const component =
+				(render: (width: number, theme: TreeTheme) => string[]) =>
+				(terminal: TerminalFacts): WidgetComponent => {
+					state.facts = terminal;
+					state.painter = () => terminal.requestRender();
+					return {
+						render: (width: number) => render(width, terminal.theme ?? PLAIN_THEME),
+						invalidate: () => terminal.requestRender(),
+					};
 				};
-			}, "belowEditor");
-		else messenger.setWidget(this.renderLines(owner, LINE_HOST_WIDTH, LINE_HOST_ROWS), "belowEditor");
+			messenger.setWidget(
+				component((width, theme) => this.treeLines(owner, width, theme)),
+				"aboveEditor",
+				TREE_KEY,
+			);
+			messenger.setWidget(
+				component((width, theme) => this.listLines(owner, width, theme)),
+				"belowEditor",
+				LIST_KEY,
+			);
+		} else this.sendLines(owner, messenger);
+		this.schedule(owner, state);
 	}
 
 	/** Repaint after a run snapshot changes. */
 	onChange(run: RunView): void {
+		const state = this.owners.get(run.owner);
+		if (!state) return;
+		this.track(state, run);
+		this.schedule(run.owner, state);
 		this.repaint(run.owner);
 	}
 
-	/** Repaint the attached strip; a display failure never changes a run. */
+	/** Age finished runs when the owning parent starts a turn, as tintin's widget does. */
+	onTurnStart(owner: string): void {
+		const state = this.owners.get(owner);
+		if (!state) return;
+		state.linger.onTurnStart();
+		this.schedule(owner, state);
+		this.repaint(owner);
+	}
+
+	private track(state: OwnerState, run: RunView): void {
+		if (isTerminal(run.state)) state.linger.markFinished(run.id, run.endedAt ?? this.deps.now());
+		else state.linger.markRunning(run.id);
+	}
+
+	/**
+	 * Run the 80 ms spinner only while a run is active, and arm one repaint for the next linger end so
+	 * a finished line leaves without a spinner tick. Line hosts get neither timer.
+	 */
+	private schedule(owner: string, state: OwnerState): void {
+		if (state.expiry) clearTimeout(state.expiry);
+		state.expiry = undefined;
+		if (this.deps.mode() !== "tui") return;
+		const runs = this.deps.runs(owner);
+		state.linger.retain(new Set(runs.map((run) => run.id)));
+		if (runs.some((run) => !isTerminal(run.state))) {
+			state.spinner ??= setInterval(() => {
+				state.frame++;
+				this.repaint(owner);
+			}, SPINNER_MS);
+			// The spinner must never keep the parent process alive.
+			state.spinner.unref?.();
+			return;
+		}
+		if (state.spinner) clearInterval(state.spinner);
+		state.spinner = undefined;
+		const now = this.deps.now();
+		const ends = runs.flatMap((run) => {
+			const end = run.endedAt ?? now;
+			return [end + LIST_LINGER_MS, state.linger.floorEndsAt(run.id) ?? end].filter((at) => at > now);
+		});
+		if (!ends.length) return;
+		state.expiry = setTimeout(
+			() => {
+				state.expiry = undefined;
+				this.repaint(owner);
+				this.schedule(owner, state);
+			},
+			Math.min(...ends) - now,
+		);
+		state.expiry.unref?.();
+	}
+
+	/** Repaint the attached widgets; a display failure never changes a run. */
 	repaint(owner: string): void {
-		if (!this.attached.has(owner)) return;
+		const state = this.owners.get(owner);
+		if (!state) return;
 		const messenger = this.deps.messenger(owner);
 		if (!messenger?.setWidget) return;
 		if (this.deps.mode() === "tui") {
 			try {
-				this.painters.get(owner)?.();
+				state.painter?.();
 			} catch {
 				/* Display failures do not change the run. */
 			}
-		} else messenger.setWidget(this.renderLines(owner, LINE_HOST_WIDTH, LINE_HOST_ROWS), "belowEditor");
+		} else this.sendLines(owner, messenger);
 	}
 
-	/** Remove the strip; the owning session keeps its runs. */
+	private sendLines(owner: string, messenger: Messenger): void {
+		messenger.setWidget?.(this.treeLines(owner, LINE_HOST_WIDTH), "aboveEditor", TREE_KEY);
+		messenger.setWidget?.(this.listLines(owner, LINE_HOST_WIDTH), "belowEditor", LIST_KEY);
+	}
+
+	/** Remove both widgets and stop their timers; the owning session keeps its runs. */
 	clear(owner: string): void {
-		this.attached.delete(owner);
-		this.painters.delete(owner);
-		this.factsByOwner.delete(owner);
-		try {
-			this.deps.messenger(owner)?.setWidget?.(undefined, "belowEditor");
-		} catch {
-			/* Detach even when the UI has gone. */
-		}
+		const state = this.owners.get(owner);
+		if (state?.spinner) clearInterval(state.spinner);
+		if (state?.expiry) clearTimeout(state.expiry);
+		this.owners.delete(owner);
+		const messenger = this.deps.messenger(owner);
+		for (const [placement, key] of [
+			["aboveEditor", TREE_KEY],
+			["belowEditor", LIST_KEY],
+		] as const)
+			try {
+				messenger?.setWidget?.(undefined, placement, key);
+			} catch {
+				/* Detach even when the UI has gone. */
+			}
 	}
 }

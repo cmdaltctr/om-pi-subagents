@@ -97,6 +97,31 @@ describe("observation supervision adapter", () => {
 		expect(h.tree().nodes[0].activeTools).toEqual([]);
 	});
 
+	it("counts each distinct task tool call once and keeps the count after the run ends", () => {
+		const h = setup();
+		h.setCurrent({ ...root, state: "running" });
+		const start = (id: string, name = "read") =>
+			h.relay.onProgress(root, { type: "tool_execution_start", toolCallId: id, toolName: name });
+		// Startup replay arrives before the task is submitted and is not task work.
+		start("startup");
+		expect(h.relay.toolUses(root.id)).toBe(0);
+		h.relay.onTask(root, "look around");
+		start("a");
+		start("a");
+		h.relay.onProgress(root, { type: "tool_execution_end", toolCallId: "a", toolName: "read" });
+		start("a");
+		start("b", "grep");
+		start("bad", "");
+		h.relay.onProgress(root, { type: "message_update", toolCallId: "c", toolName: "read" });
+		for (let i = 0; i < 6; i++) start(`many/${i}`);
+		expect(h.relay.toolUses(root.id)).toBe(8);
+		expect(h.relay.toolUses("sibling")).toBe(0);
+		h.setCurrent({ ...root, state: "completed", endedAt: 4 });
+		h.relay.onChange({ ...root, state: "completed", endedAt: 4 });
+		start("late");
+		expect(h.relay.toolUses(root.id)).toBe(8);
+	});
+
 	it("rewrites each hop token while preserving owner, ancestry and dedicated revisions from replay", async () => {
 		const h = setup();
 		const pipe = connection([record(descendant, ["nodes-omitted", "backlog-expired"])]);

@@ -14,25 +14,29 @@ vi.mock("node:child_process", () => processSpies);
 
 import { loadRegistry, RegistryError } from "../src/config.ts";
 
+let root: string;
 let dir: string;
 let outside: string;
 
 beforeEach(async () => {
-	dir = await mkdtemp(join(tmpdir(), "omps-invalid-"));
+	root = await mkdtemp(join(tmpdir(), "omps-invalid-"));
+	dir = join(root, "omps");
+	await mkdir(dir, { recursive: true });
 	outside = await mkdtemp(join(tmpdir(), "omps-outside-"));
 	for (const spy of Object.values(processSpies)) spy.mockClear();
 });
 
 afterEach(async () => {
-	await rm(dir, { recursive: true, force: true });
+	vi.unstubAllEnvs();
+	await rm(root, { recursive: true, force: true });
 	await rm(outside, { recursive: true, force: true });
 	// Rejection must happen before any spawn.
 	for (const [name, spy] of Object.entries(processSpies)) expect(spy, name).not.toHaveBeenCalled();
 });
 
-async function write(root: string, relativePath: string, text: string): Promise<void> {
+async function write(base: string, relativePath: string, text: string): Promise<void> {
 	// nosemgrep: AIK_ts_generic_path_traversal -- This helper is called only with literal test paths below generated temporary roots.
-	const target = join(root, relativePath);
+	const target = join(base, relativePath);
 	await mkdir(dirname(target), { recursive: true });
 	await writeFile(target, text);
 }
@@ -40,8 +44,8 @@ async function write(root: string, relativePath: string, text: string): Promise<
 /** Write a YAML file whose `reader` agent body is `agentLines` (indented four spaces). */
 async function config(agentLines: string, head = "version: 1\n"): Promise<string> {
 	await write(dir, "personas/reader.md", "Read things.");
-	await write(dir, "om-pi-subagents.yaml", `${head}agents:\n  reader:\n${agentLines}`);
-	return join(dir, "om-pi-subagents.yaml");
+	await write(dir, "config.yaml", `${head}agents:\n  reader:\n${agentLines}`);
+	return join(dir, "config.yaml");
 }
 
 const valid = "    persona: ./personas/reader.md\n    tools: [read]\n    thinking: off\n";
@@ -57,8 +61,8 @@ async function expectRejected(yamlPath: string, pattern: RegExp): Promise<void> 
 
 describe("YAML structure", () => {
 	it("rejects malformed YAML", async () => {
-		await write(dir, "om-pi-subagents.yaml", "version: 1\nagents: [unclosed,\n");
-		await expectRejected(join(dir, "om-pi-subagents.yaml"), /malformed yaml/i);
+		await write(dir, "config.yaml", "version: 1\nagents: [unclosed,\n");
+		await expectRejected(join(dir, "config.yaml"), /malformed yaml/i);
 	});
 
 	it("rejects duplicate agent names", async () => {
@@ -67,8 +71,8 @@ describe("YAML structure", () => {
 	});
 
 	it("rejects an unknown top-level field", async () => {
-		await write(dir, "om-pi-subagents.yaml", "version: 1\nagents: {}\nextra: true\n");
-		await expectRejected(join(dir, "om-pi-subagents.yaml"), /extra.*unknown field/i);
+		await write(dir, "config.yaml", "version: 1\nagents: {}\nextra: true\n");
+		await expectRejected(join(dir, "config.yaml"), /extra.*unknown field/i);
 	});
 
 	it("rejects an unknown agent field such as `toolz`", async () => {
@@ -94,8 +98,8 @@ describe("YAML structure", () => {
 describe("agent settings", () => {
 	it.each(["Reader", "1reader", "read_er", "", "a".repeat(65)])("rejects invalid name %j", async (name) => {
 		await write(dir, "personas/reader.md", "Read things.");
-		await write(dir, "om-pi-subagents.yaml", `version: 1\nagents:\n  ${JSON.stringify(name)}:\n${valid}`);
-		await expectRejected(join(dir, "om-pi-subagents.yaml"), /name/i);
+		await write(dir, "config.yaml", `version: 1\nagents:\n  ${JSON.stringify(name)}:\n${valid}`);
+		await expectRejected(join(dir, "config.yaml"), /name/i);
 	});
 
 	it("requires a tools list", async () => {
@@ -138,6 +142,56 @@ describe("agent settings", () => {
 });
 
 describe("persona file", () => {
+	it.each([
+		[false, "runs/session-1/run-1/output.md"],
+		[true, "runs/session-1/run-1/output.md"],
+		[false, "runs/..persona.md"],
+		[true, "runs/..persona.md"],
+	])("rejects run evidence as a persona (symbolic link: %s, path: %s)", async (linked, evidence) => {
+		vi.stubEnv("PI_CODING_AGENT_DIR", root);
+		await write(dir, evidence as string, "Untrusted model output.");
+		await write(
+			dir,
+			"config.yaml",
+			`version: 1\nagents:\n  reader:\n${valid.replace("./personas/reader.md", linked ? "./personas/evidence.md" : `./${evidence}`)}`,
+		);
+		if (linked) {
+			await mkdir(join(dir, "personas"), { recursive: true });
+			await symlink(join(dir, evidence as string), join(dir, "personas/evidence.md"));
+		}
+		await expectRejected(join(dir, "config.yaml"), /agents\.reader\.persona.*resolves inside the OMPS run folder/);
+	});
+
+	it("accepts a contained filename beginning with two dots outside run evidence", async () => {
+		await write(dir, "..persona.md", "Trusted instructions.");
+		const path = await config(valid.replace("./personas/reader.md", "./..persona.md"));
+		expect((await loadRegistry(path)).agents.get("reader")?.persona).toBe("Trusted instructions.");
+	});
+
+	it("accepts a sibling of the run folder without confusing its shared prefix", async () => {
+		vi.stubEnv("PI_CODING_AGENT_DIR", root);
+		await mkdir(join(dir, "runs"));
+		await write(dir, "runs-archive/reader.md", "Trusted instructions.");
+		const path = await config(valid.replace("./personas/reader.md", "./runs-archive/reader.md"));
+		expect((await loadRegistry(path)).agents.get("reader")?.persona).toBe("Trusted instructions.");
+	});
+
+	it("keeps an unrelated registry's runs folder available when the OMPS run root is elsewhere", async () => {
+		vi.stubEnv("PI_CODING_AGENT_DIR", outside);
+		await mkdir(join(outside, "omps/runs"), { recursive: true });
+		await write(dir, "runs/reader.md", "Trusted instructions.");
+		const path = await config(valid.replace("./personas/reader.md", "./runs/reader.md"));
+		expect((await loadRegistry(path)).agents.get("reader")?.persona).toBe("Trusted instructions.");
+	});
+
+	it("refuses a persona beneath the canonical target of a linked run root", async () => {
+		vi.stubEnv("PI_CODING_AGENT_DIR", root);
+		await write(dir, "evidence/output.md", "Untrusted model output.");
+		await symlink(join(dir, "evidence"), join(dir, "runs"));
+		const path = await config(valid.replace("./personas/reader.md", "./evidence/output.md"));
+		await expectRejected(path, /agents\.reader\.persona.*resolves inside the OMPS run folder/);
+	});
+
 	it("rejects frontmatter", async () => {
 		const path = await config(valid);
 		await write(dir, "personas/reader.md", "---\ntools: read\n---\nRead things.");
@@ -164,7 +218,7 @@ describe("persona file", () => {
 	it("rejects a traversal path outside the extension directory", async () => {
 		await write(outside, "evil.md", "Outside.");
 		const path = await config(
-			`    persona: ../${outside.split("/").pop()}/evil.md\n    tools: [read]\n    thinking: off\n`,
+			`    persona: ../../${outside.split("/").pop()}/evil.md\n    tools: [read]\n    thinking: off\n`,
 		);
 		await expectRejected(path, /outside/i);
 	});
@@ -223,6 +277,20 @@ ${ui}`;
 		await expectRejected(
 			await config(valid, uiHead('  toggleKey: "alt+p"\n  inspectKey: "alt+p"\n')),
 			/ui\.inspectKey.*duplicate.*alt\+p/i,
+		);
+	});
+
+	it.each(["hidden", '"Expanded"', "12", "true", "[]"])("rejects fleetView %s", async (value) => {
+		await expectRejected(
+			await config(valid, uiHead(`  fleetView: ${value}\n`)),
+			/ui\.fleetView.*expanded.*collapsed.*off/i,
+		);
+	});
+
+	it("rejects duplicate keys written in another modifier order", async () => {
+		await expectRejected(
+			await config(valid, uiHead('  toggleKey: "ctrl+alt+p"\n  inspectKey: "alt+ctrl+p"\n')),
+			/ui\.inspectKey.*duplicate/i,
 		);
 	});
 

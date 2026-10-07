@@ -15,78 +15,61 @@ Contents:
 
 ## Where the files live
 
-Two kinds of file define your agents:
-
-- The mapping file, `om-pi-subagents.yaml`. It lists every agent and its settings.
-- Persona files. Each is a Markdown file with the instructions for one agent.
-
-Both live in your Pi agent directory. Run files go in a sub-folder of the same directory.
+Keep the mapping and personas in one OMPS folder:
 
 ```text
 ~/.pi/agent/
-├── om-pi-subagents.yaml          # the mapping file. YOU create it
-├── om-pi-subagents/              # your files for this extension. YOU create it
-│   └── personas/                 # your persona files. YOU create it
-│       ├── reader.md
-│       └── reviewer.md
-├── mcp.json                      # Pi's own MCP server list, if you use MCP tools
+├── mcp.json                         # Pi's own MCP server list, if used
 └── omps/
-    └── runs/<session-id>/<run-id>/   # one private folder per run, written by OMPS
+    ├── config.yaml                  # your mapping file
+    ├── personas/                    # your persona files
+    │   ├── reader.md
+    │   └── reviewer.md
+    └── runs/<session-id>/<run-id>/   # private evidence written by OMPS
 ```
 
-Rules for these locations:
-
-- OMPS reads the mapping file from `~/.pi/agent/om-pi-subagents.yaml`.
-- If you do not have this file, OMPS has no agents. `/omps list` answers `No personas mapped.`
-- Persona paths are relative to the folder that holds the mapping file.
-- A persona must stay inside that folder after symbolic links are resolved. A path or link that leads outside it is rejected.
-- The package contains no mapping file and no personas. Package updates do not write to your agent directory.
+- OMPS reads `~/.pi/agent/omps/config.yaml` by default.
+- A new installation has no mapping. `/omps list` answers `No personas mapped.`
+- If only `~/.pi/agent/om-pi-subagents.yaml` exists, listing and launches stop with migration commands.
+- Follow [Move settings into the OMPS folder](INSTALL.md#move-settings-into-the-omps-folder) before creating another registry.
+- Persona paths resolve from the mapping file's folder after symbolic links are resolved.
+- A persona must stay inside that folder and outside the canonical OMPS run folder.
+- The package ships no mapping or personas. Package updates leave your files untouched.
 
 ### Persona, persona folder and `omps/`: the difference
 
-Several names look alike. Each one is a different thing.
+| Name                           | What it holds                      | Who creates it                    | How OMPS uses it                                 |
+| ------------------------------ | ---------------------------------- | --------------------------------- | ------------------------------------------------ |
+| `~/.pi/agent/omps/config.yaml` | Agent names and settings           | You, or a confirmed settings save | Reads it before listing or launching agents.     |
+| `~/.pi/agent/omps/personas/`   | Your Markdown instructions         | You                               | Reads only files named by a `persona:` line.     |
+| Persona                        | Instructions for one agent         | You                               | Reads it afresh and saves a copy for each child. |
+| `persona:` field               | A path relative to the YAML folder | You                               | Selects that one file.                           |
+| `~/.pi/agent/omps/runs/`       | Saved tasks, output and events     | OMPS                              | Writes private evidence for each run.            |
 
-| Name                                    | What it is                                                           | Who creates it         | How OMPS uses it                                                                                                              |
-| --------------------------------------- | -------------------------------------------------------------------- | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| `~/.pi/agent/om-pi-subagents.yaml`      | The mapping file. A file. It lists every agent.                      | You                    | Reads it to learn the agent names and their settings.                                                                         |
-| `~/.pi/agent/om-pi-subagents/`          | A folder for your files for this extension. It holds `personas/`.    | You, with `mkdir`      | Never reads the folder itself.                                                                                                |
-| `~/.pi/agent/om-pi-subagents/personas/` | The persona folder. It holds your persona files.                     | You, with `mkdir`      | Never reads the folder itself. It reads only the files that `persona:` lines name.                                            |
-| Persona                                 | One Markdown file with the instructions for one agent.               | You                    | Reads it on `/omps list` and `/omps run`. Saves a copy as `persona.md`. Gives the copy to the child Pi as system prompt text. |
-| `persona:` field                        | One line under an agent in the YAML. It holds the path to a persona. | You                    | Joins the path to the YAML's folder. Reads that one file.                                                                     |
-| `~/.pi/agent/omps/`                     | The run folder.                                                      | OMPS, on the first run | Writes each run's files here. See [USAGE.md](USAGE.md).                                                                       |
-
-The mapping file and the `om-pi-subagents/` folder sit side by side and have almost the same name.
-The file is the list of agents. The folder holds the files that the list points to.
-
-Rules that follow from this:
-
-- Keep every persona in `~/.pi/agent/om-pi-subagents/personas/`. Every example in these docs uses this folder.
-- The package creates neither folder. You create both with `mkdir -p ~/.pi/agent/om-pi-subagents/personas`.
-- OMPS does not scan the persona folder. A file in it that no `persona:` line names is ignored.
-- OMPS itself accepts any path inside `~/.pi/agent/`. Use the path above so that your set-up matches the docs.
-- If you move the persona folder, edit every `persona:` line that uses it.
+Use `mkdir -p ~/.pi/agent/omps/personas` to create the conventional persona folder.
+OMPS does not scan it. Unmapped files stay unavailable.
+Other persona paths inside the YAML folder are accepted, except paths into the run folder.
+Model output and saved run personas must never become mapped instructions.
 
 ### Where each `persona:` path points
 
-OMPS takes the `persona:` text from the YAML exactly as you wrote it.
-It then joins that text to the folder that holds the mapping file. By default this folder is `~/.pi/agent/`.
+The default YAML folder is `~/.pi/agent/omps/`.
 The folder where you start Pi has no effect.
 
-| `persona:` value in the YAML           | File OMPS reads                                  |
-| -------------------------------------- | ------------------------------------------------ |
-| `./om-pi-subagents/personas/reader.md` | `~/.pi/agent/om-pi-subagents/personas/reader.md` |
+| `persona:` value in the YAML | File OMPS reads                       |
+| ---------------------------- | ------------------------------------- |
+| `./personas/reader.md`       | `~/.pi/agent/omps/personas/reader.md` |
 
-- If the folder or the file is missing, `/omps list` fails with `agents.<name>.persona: cannot read <path>`. The `<path>` is the text from your YAML, not the full path.
-- To check which folder your YAML uses, run `grep persona: ~/.pi/agent/om-pi-subagents.yaml`.
+- A missing file gives `agents.<name>.persona: cannot read <path>`. The path is your YAML text.
+- Check the paths with `grep persona: ~/.pi/agent/omps/config.yaml`.
+- After moving a persona folder, edit each affected `persona:` line.
 
-Two environment variables change these locations:
+| Variable              | Effect                                                                                                             |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `OMPS_REGISTRY`       | Selects another registry. Persona paths resolve from its folder. An explicit old-file path still works.            |
+| `PI_CODING_AGENT_DIR` | Replaces `~/.pi/agent`. The default becomes `<agent-dir>/omps/config.yaml`, with runs in `<agent-dir>/omps/runs/`. |
 
-| Variable              | Effect                                                                                                            |
-| --------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `OMPS_REGISTRY`       | Full path of the mapping file to use instead. Persona paths then resolve from that file's folder.                 |
-| `PI_CODING_AGENT_DIR` | Replaces `~/.pi/agent` as the agent directory. The default mapping file and the `omps/runs/` folder move with it. |
-
-Set either variable before you start Pi.
+Set either variable before starting Pi.
 
 ## Set up your first agent
 
@@ -98,13 +81,13 @@ This procedure makes an agent called `reader`. It reads files and answers questi
 4. Make the persona folder:
 
    ```sh
-   mkdir -p ~/.pi/agent/om-pi-subagents/personas
+   mkdir -p ~/.pi/agent/omps/personas
    ```
 
 5. Write the persona file:
 
    ```sh
-   cat > ~/.pi/agent/om-pi-subagents/personas/reader.md <<'EOF'
+   cat > ~/.pi/agent/omps/personas/reader.md <<'EOF'
    You read files and answer questions about them.
    Give short answers. Name the file for every claim.
    EOF
@@ -113,11 +96,11 @@ This procedure makes an agent called `reader`. It reads files and answers questi
 6. Write the mapping file. This command replaces an existing mapping file, so check first that you have none:
 
    ```sh
-   cat > ~/.pi/agent/om-pi-subagents.yaml <<'EOF'
+   cat > ~/.pi/agent/omps/config.yaml <<'EOF'
    version: 1
    agents:
      reader:
-       persona: ./om-pi-subagents/personas/reader.md
+       persona: ./personas/reader.md
        tools: [read, grep, find, ls]
        thinking: off
    EOF
@@ -126,7 +109,7 @@ This procedure makes an agent called `reader`. It reads files and answers questi
 7. In Pi, run `/omps list`. The answer is:
 
    ```text
-   reader: tools [read, grep, find, ls]
+   reader: 4 tools (read-only)
    ```
 
 8. Start a run:
@@ -161,10 +144,10 @@ The task you give in `/omps run` reaches the child as a separate message.
 A persona file holds instructions only. Do not add YAML frontmatter to it.
 Frontmatter is a settings block between two `---` lines at the top of a Markdown file. Some other tools use it. OMPS does not.
 
-| Where                              | What goes there                                                                |
-| ---------------------------------- | ------------------------------------------------------------------------------ |
-| Persona `.md` file                 | The instructions for the model, in plain Markdown only.                        |
-| `~/.pi/agent/om-pi-subagents.yaml` | `tools`, `model`, `thinking`, `skills`, `extensions`, and the `persona:` path. |
+| Where                          | What goes there                                                                |
+| ------------------------------ | ------------------------------------------------------------------------------ |
+| Persona `.md` file             | The instructions for the model, in plain Markdown only.                        |
+| `~/.pi/agent/omps/config.yaml` | `tools`, `model`, `thinking`, `skills`, `extensions`, and the `persona:` path. |
 
 Wrong. OMPS rejects this persona file:
 
@@ -188,12 +171,12 @@ Right. The settings are in the mapping file:
 ```yaml
 agents:
   reviewer:
-    persona: ./om-pi-subagents/personas/reviewer.md
+    persona: ./personas/reviewer.md
     tools: [read, grep]
     thinking: high
 ```
 
-If a persona starts with `---`, `/omps list` and `/omps run` fail with `has frontmatter; put settings in om-pi-subagents.yaml`.
+If a persona starts with `---`, `/omps list` and `/omps run` fail with `has frontmatter; put settings in config.yaml`.
 
 ### What happens to the file
 
@@ -226,7 +209,7 @@ Write to the model in the second person. Cover these points:
 
 ### Example
 
-A read-only code reviewer, saved as `~/.pi/agent/om-pi-subagents/personas/reviewer.md`.
+A read-only code reviewer, saved as `~/.pi/agent/omps/personas/reviewer.md`.
 The file has no `---` block. Its settings (`tools`, `thinking`) are in the mapping file. See [Complete example](#complete-example).
 
 ```markdown
@@ -272,24 +255,48 @@ Put blocking issues first. Keep the whole answer under 400 words.
 
 ### Top-level keys
 
-| Key       | Required | Value                                                              |
-| --------- | -------- | ------------------------------------------------------------------ |
-| `version` | yes      | The number `1`. The text `'1'` and other numbers are rejected.     |
-| `agents`  | yes      | A mapping of agent names to settings. Use `agents: {}` for none.   |
-| `limits`  | no       | `maxConcurrentRuns` and `maxDepth`. Omitted fields default to one. |
-| `ui`      | no       | `maxVisibleAgents`, `toggleKey` and `inspectKey`. See below.       |
+| Key       | Required | Value                                                                     |
+| --------- | -------- | ------------------------------------------------------------------------- |
+| `version` | yes      | The number `1`. The text `'1'` and other numbers are rejected.            |
+| `agents`  | yes      | A mapping of agent names to settings. Use `agents: {}` for none.          |
+| `limits`  | no       | `maxConcurrentRuns` and `maxDepth`. Omitted fields default to one.        |
+| `ui`      | no       | `maxVisibleAgents`, `fleetView`, `toggleKey` and `inspectKey`. See below. |
 
 Only `version`, `agents`, `limits` and `ui` are allowed at the top level.
 `maxConcurrentRuns` accepts safe integers of at least one; `maxDepth` accepts safe integers of at least zero.
 See [configured limits and nesting](USAGE.md#configured-limits-and-nesting) for the table, depth examples and branch ceilings.
 
 `ui.maxVisibleAgents` accepts safe integers from one to 256 and defaults to five.
+`ui.fleetView` sets how the fleet first appears: `expanded` (default) shows the `● Agents` tree above the editor and the list below it,
+`collapsed` shows only the tree heading and `off` hides both. `/omps fleet` and a bound toggle key change the view for the current session only.
 `ui.toggleKey` and `ui.inspectKey` accept lowercase Pi key specifications, such as `alt+o`
-or `ctrl+alt+p`, or `off` to disable the shortcut. The defaults are `alt+o` and `alt+i`.
+or `ctrl+alt+p`, or `off` to disable the shortcut. Both default to `off`. Empty-prompt arrows, `/omps fleet` and
+`/omps inspect` give full access without a shortcut.
 The two keys must differ. Tab and Ctrl+I are refused because legacy terminals send one byte
 for both. A key bound to an effective built-in action is refused with guidance when the
-session starts. Edit these fields with `/omps-settings`, or by hand; see
+session starts. The check ignores modifier order, so `ctrl+shift+o` is refused because Pi 1.0 binds
+`shift+ctrl+o` to the session-tree filter. Edit these fields with `/omps-settings`, or by hand; see
 [operator settings](USAGE.md#operator-settings).
+
+#### Restore the Alt keys
+
+OMPS 0.5 and earlier bound `alt+o` and `alt+i` by default. To keep them, add these lines:
+
+```yaml
+ui:
+  toggleKey: alt+o
+  inspectKey: alt+i
+```
+
+On macOS, Option+O types `ø` unless the terminal sends Option as Alt. Change this setting first:
+
+| Terminal     | Setting                                                       |
+| ------------ | ------------------------------------------------------------- |
+| Terminal.app | Settings > Profiles > Keyboard > Use Option as Meta key       |
+| iTerm2       | Settings > Profiles > Keys > Left Option key > Esc+           |
+| Ghostty      | Add `macos-option-as-alt = true` to the Ghostty configuration |
+
+Then run `/reload` in Pi.
 
 ### Agent names
 
@@ -357,19 +364,30 @@ MCP tools come from an MCP server (a separate program that gives Pi extra tools)
 mcp__<server>__<tool>
 ```
 
-`<server>` is the server's name in Pi's `mcp.json`. `<tool>` is the tool's own name. For a server called `context7`:
+`<server>` is the server's name in Pi's `mcp.json`. `<tool>` is the tool's own name.
+
+Pi 1.0 and newer change every character other than a letter, a digit or `_` to `_` in the full name. Hyphens become underscores. Pi 0.99 and earlier kept hyphens.
+
+| Server in `mcp.json` | Tool on the server   | Name on Pi 1.0 and newer            |
+| -------------------- | -------------------- | ----------------------------------- |
+| `context7`           | `resolve-library-id` | `mcp__context7__resolve_library_id` |
+| `context7-mcp`       | `query-docs`         | `mcp__context7_mcp__query_docs`     |
+| `paper-search`       | `search_arxiv`       | `mcp__paper_search__search_arxiv`   |
+
+For a server called `context7`:
 
 ```yaml
 tools:
   - read
   - tool_search
-  - mcp__context7__resolve-library-id
-  - mcp__context7__query-docs
+  - mcp__context7__resolve_library_id
+  - mcp__context7__query_docs
 ```
 
 - Add `tool_search` when the agent must find deferred MCP tools (tools Pi does not show to the model until it searches for them).
 - Listing an MCP tool does not set up its server. Configure the server in Pi first, for example with `pi mcp add`, and check it with `pi mcp list`.
 - The old tool name `mcp` no longer exists. Use the native `mcp__<server>__<tool>` names.
+- After a Pi update from 0.99 to 1.0, change the hyphens in your MCP tool names to underscores. If you do not, runs fail with `tool "..." is not registered`.
 - A tool from an extension needs its explicit `extensions` entry.
 - Approving the exact `omps` tool loads OMPS's managed delegator. It can select targets with their own tool permissions.
 - Approving `todo` requires the real todo extension too. OMPS seeds only the child's normal-mode list.
@@ -444,23 +462,23 @@ This file maps three agents: a read-only reviewer, a writer and a documentation 
 version: 1
 agents:
   reviewer:
-    persona: ./om-pi-subagents/personas/reviewer.md
+    persona: ./personas/reviewer.md
     tools: [read, grep, find, ls]
     thinking: medium
 
   writer:
-    persona: ./om-pi-subagents/personas/writer.md
+    persona: ./personas/writer.md
     tools: [read, grep, find, ls, edit, write]
     model: my-provider/my-model # replace with a name from `pi --list-models`
     thinking: low
 
   docs-researcher:
-    persona: ./om-pi-subagents/personas/docs-researcher.md
+    persona: ./personas/docs-researcher.md
     tools:
       - read
       - tool_search
-      - mcp__context7__resolve-library-id
-      - mcp__context7__query-docs
+      - mcp__context7__resolve_library_id
+      - mcp__context7__query_docs
     thinking: low
     skills:
       - ~/.pi/agent/skills/citations/SKILL.md
@@ -469,9 +487,9 @@ agents:
 Each persona file must exist before `/omps list` succeeds. `/omps list` then shows:
 
 ```text
-reviewer: tools [read, grep, find, ls]
-writer: tools [read, grep, find, ls, edit, write]; model my-provider/my-model; write-capable
-docs-researcher: tools [read, tool_search, mcp__context7__resolve-library-id, mcp__context7__query-docs]
+reviewer: 4 tools (read-only)
+writer: 6 tools (write-capable); model my-provider/my-model
+docs-researcher: 4 tools (read-only)
 ```
 
 ### YAML features OMPS rejects
@@ -498,47 +516,50 @@ Run `/reload` after you install, update or remove the package. Changes to the ag
 Errors appear in Pi as `OMPS: <field>: <problem>`. The field shows the place in the mapping file, for example `agents.reader.tools`.
 OMPS reports the first problem it finds. Fix it, then run `/omps list` again.
 
-| Message (or part of it)                                                  | Cause                                                            | Fix                                                                                                      |
-| ------------------------------------------------------------------------ | ---------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| `No personas mapped.`                                                    | No mapping file, or `agents: {}`                                 | Create the mapping file. See [Set up your first agent](#set-up-your-first-agent).                        |
-| `version: required`                                                      | No `version` key. An empty mapping file also gives this.         | Add `version: 1` as the first line.                                                                      |
-| `version: unsupported ...; expected 1`                                   | `version` is not the number 1                                    | Write `version: 1` without quotes.                                                                       |
-| `agents: required mapping (use {} for no agents)`                        | `agents` is missing or is not a mapping                          | Add `agents:` with agents under it, or `agents: {}`.                                                     |
-| `<key>: unknown field`                                                   | A top-level key other than `version`, `agents`, `limits` or `ui` | Remove the key or correct its spelling.                                                                  |
-| `ui.<field>: unknown field`                                              | A key under `ui` other than the three supported fields           | Use `maxVisibleAgents`, `toggleKey` or `inspectKey`.                                                     |
-| `ui.maxVisibleAgents: must be a safe integer from 1 to 256`              | The value is zero, too large, fractional or not a number         | Write a whole number from 1 to 256.                                                                      |
-| `ui.toggleKey: must be a ... Pi key specification ... or "off"`          | A misspelt or uppercase key, for example `Alt+O`                 | Write the key in lowercase, such as `alt+o`, or `off`.                                                   |
-| `ui.<key>: ... unsafe ... same as Tab`                                   | `tab` or `ctrl+i`                                                | Choose another key; legacy terminals send one byte for both.                                             |
-| `ui.inspectKey: duplicate of ui.toggleKey`                               | Both shortcuts use the same key                                  | Give each shortcut its own key, or set one to `off`.                                                     |
-| `agents.<name>.<field>: unknown field`                                   | A misspelt or unsupported agent field, such as `toolz`           | Use only the fields in [Agent fields](#agent-fields).                                                    |
-| `invalid name; use [a-z][a-z0-9-]{0,63}`                                 | Capital letter, underscore, leading digit or too long            | Rename the agent. See [Agent names](#agent-names).                                                       |
-| `agents.<name>: must be a mapping`                                       | The agent has no fields under it                                 | Indent its fields under the name.                                                                        |
-| `persona: required path`                                                 | No `persona` field, or it is empty                               | Add `persona: ./om-pi-subagents/personas/<name>.md`.                                                     |
-| `persona: cannot read <path>`                                            | The persona file does not exist                                  | Create the file, or correct the path relative to the mapping folder.                                     |
-| `resolves outside the extension directory`                               | The path or a symbolic link leads outside the mapping folder     | Move the persona into the mapping file's folder.                                                         |
-| `cannot read <path> as a file`                                           | The path is a folder, or you have no read permission             | Point to a file. Check its permissions.                                                                  |
-| `<path> is empty`                                                        | The persona has only spaces or blank lines                       | Write the persona text.                                                                                  |
-| `has frontmatter; put settings in om-pi-subagents.yaml`                  | The persona starts with `---`                                    | Remove the block at the top. Move its settings to the mapping file.                                      |
-| `larger than 262144 bytes`                                               | The persona or mapping file is over 256 KiB                      | Make the file shorter.                                                                                   |
-| `tools: required (use [] for no tools)`                                  | No `tools` field                                                 | Add `tools: [...]`, or `tools: []`.                                                                      |
-| `tools: must be a list of tool names`                                    | `tools` is not a list                                            | Write it as `[read, grep]` or as a `-` list.                                                             |
-| `is not an exact tool name (no wildcards or selectors)`                  | A wildcard, space, colon or empty name                           | Write each tool's exact name.                                                                            |
-| `thinking: required; set one of off, minimal, ...`                       | No `thinking` field                                              | Add `thinking: off` or another level.                                                                    |
-| `thinking: must be one of off, minimal, ...`                             | Unknown level, a number or an empty value                        | Use one of the listed levels.                                                                            |
-| `model: must be a non-empty string`                                      | `model` is empty, a number or a list                             | Write `provider/id`, or remove the field.                                                                |
-| `skills: must be a list of paths`, `extensions: must be a list of paths` | The value is not a list                                          | Write the paths as a list.                                                                               |
-| `skills[0]: cannot read <path>`, `extensions[0]: cannot read <path>`     | The path does not exist. For skills, a folder also gives this.   | Correct the path. Point a skill to its `SKILL.md` file.                                                  |
-| `malformed YAML (...)`                                                   | YAML syntax error, such as a missing bracket                     | Fix the line named in the message.                                                                       |
-| `duplicate key`                                                          | The same key appears twice, often an agent name                  | Rename or remove the second one.                                                                         |
-| `aliases are not allowed`                                                | The file uses `&` anchors or `*` aliases                         | Write each value out in full.                                                                            |
-| `custom tag ... is not allowed`                                          | The file uses a tag such as `!custom`                            | Remove the tag.                                                                                          |
-| `top level must be a mapping`                                            | The file is a list or a single value                             | Start with `version: 1` and `agents:`.                                                                   |
-| `unknown agent "<name>"; mapped agents: ...`                             | The name in `/omps run` is not in the mapping file               | Use a name that `/omps list` shows.                                                                      |
-| `the task cannot start with a slash`                                     | The task starts with `/`                                         | Reword the task.                                                                                         |
-| `child is not ready: tool "<name>" is not registered`                    | A listed tool does not exist in the child                        | Check the exact name. For MCP tools, configure the server in Pi. For extension tools, add the extension. |
-| `model ... is not in the model registry`                                 | The child does not know the model                                | Correct `model`, or add the provider extension.                                                          |
-| `model ... has no configured authentication`                             | The model has no credentials                                     | Log in to the provider or set its key in Pi.                                                             |
-| `permission violation: <tool> is not approved`                           | The model called a tool that is not on the list                  | Add the tool if the agent needs it. Otherwise tighten the persona.                                       |
+| Message (or part of it)                                                  | Cause                                                            | Fix                                                                                                                |
+| ------------------------------------------------------------------------ | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `No personas mapped.`                                                    | No mapping file, or `agents: {}`                                 | Create the mapping file. See [Set up your first agent](#set-up-your-first-agent).                                  |
+| `config.yaml: OMPS now reads ... Move your settings:`                    | Only the old default registry exists                             | Follow [Move settings into the OMPS folder](INSTALL.md#move-settings-into-the-omps-folder), then run `/omps list`. |
+| `resolves inside the OMPS run folder`                                    | The persona points to saved run evidence                         | Move trusted instructions into `omps/personas/` and update the mapping.                                            |
+| `version: required`                                                      | No `version` key. An empty mapping file also gives this.         | Add `version: 1` as the first line.                                                                                |
+| `version: unsupported ...; expected 1`                                   | `version` is not the number 1                                    | Write `version: 1` without quotes.                                                                                 |
+| `agents: required mapping (use {} for no agents)`                        | `agents` is missing or is not a mapping                          | Add `agents:` with agents under it, or `agents: {}`.                                                               |
+| `<key>: unknown field`                                                   | A top-level key other than `version`, `agents`, `limits` or `ui` | Remove the key or correct its spelling.                                                                            |
+| `ui.<field>: unknown field`                                              | A key under `ui` other than the four supported fields            | Use `maxVisibleAgents`, `fleetView`, `toggleKey` or `inspectKey`.                                                  |
+| `ui.maxVisibleAgents: must be a safe integer from 1 to 256`              | The value is zero, too large, fractional or not a number         | Write a whole number from 1 to 256.                                                                                |
+| `ui.toggleKey: must be a ... Pi key specification ... or "off"`          | A misspelt or uppercase key, for example `Alt+O`                 | Write the key in lowercase, such as `alt+o`, or `off`.                                                             |
+| `ui.fleetView: must be "expanded", "collapsed" or "off"`                 | Another word, or a capital letter                                | Write `expanded`, `collapsed` or `off`.                                                                            |
+| `ui.<key>: ... unsafe ... same as Tab`                                   | `tab` or `ctrl+i`                                                | Choose another key; legacy terminals send one byte for both.                                                       |
+| `ui.inspectKey: duplicate of ui.toggleKey`                               | Both shortcuts use the same key                                  | Give each shortcut its own key, or set one to `off`.                                                               |
+| `agents.<name>.<field>: unknown field`                                   | A misspelt or unsupported agent field, such as `toolz`           | Use only the fields in [Agent fields](#agent-fields).                                                              |
+| `invalid name; use [a-z][a-z0-9-]{0,63}`                                 | Capital letter, underscore, leading digit or too long            | Rename the agent. See [Agent names](#agent-names).                                                                 |
+| `agents.<name>: must be a mapping`                                       | The agent has no fields under it                                 | Indent its fields under the name.                                                                                  |
+| `persona: required path`                                                 | No `persona` field, or it is empty                               | Add `persona: ./personas/<name>.md`.                                                                               |
+| `persona: cannot read <path>`                                            | The persona file does not exist                                  | Create the file, or correct the path relative to the mapping folder.                                               |
+| `resolves outside the extension directory`                               | The path or a symbolic link leads outside the mapping folder     | Move the persona into the mapping file's folder.                                                                   |
+| `cannot read <path> as a file`                                           | The path is a folder, or you have no read permission             | Point to a file. Check its permissions.                                                                            |
+| `<path> is empty`                                                        | The persona has only spaces or blank lines                       | Write the persona text.                                                                                            |
+| `has frontmatter; put settings in config.yaml`                           | The persona starts with `---`                                    | Remove the block at the top. Move its settings to the mapping file.                                                |
+| `larger than 262144 bytes`                                               | The persona or mapping file is over 256 KiB                      | Make the file shorter.                                                                                             |
+| `tools: required (use [] for no tools)`                                  | No `tools` field                                                 | Add `tools: [...]`, or `tools: []`.                                                                                |
+| `tools: must be a list of tool names`                                    | `tools` is not a list                                            | Write it as `[read, grep]` or as a `-` list.                                                                       |
+| `is not an exact tool name (no wildcards or selectors)`                  | A wildcard, space, colon or empty name                           | Write each tool's exact name.                                                                                      |
+| `thinking: required; set one of off, minimal, ...`                       | No `thinking` field                                              | Add `thinking: off` or another level.                                                                              |
+| `thinking: must be one of off, minimal, ...`                             | Unknown level, a number or an empty value                        | Use one of the listed levels.                                                                                      |
+| `model: must be a non-empty string`                                      | `model` is empty, a number or a list                             | Write `provider/id`, or remove the field.                                                                          |
+| `skills: must be a list of paths`, `extensions: must be a list of paths` | The value is not a list                                          | Write the paths as a list.                                                                                         |
+| `skills[0]: cannot read <path>`, `extensions[0]: cannot read <path>`     | The path does not exist. For skills, a folder also gives this.   | Correct the path. Point a skill to its `SKILL.md` file.                                                            |
+| `malformed YAML (...)`                                                   | YAML syntax error, such as a missing bracket                     | Fix the line named in the message.                                                                                 |
+| `duplicate key`                                                          | The same key appears twice, often an agent name                  | Rename or remove the second one.                                                                                   |
+| `aliases are not allowed`                                                | The file uses `&` anchors or `*` aliases                         | Write each value out in full.                                                                                      |
+| `custom tag ... is not allowed`                                          | The file uses a tag such as `!custom`                            | Remove the tag.                                                                                                    |
+| `top level must be a mapping`                                            | The file is a list or a single value                             | Start with `version: 1` and `agents:`.                                                                             |
+| `unknown agent "<name>"; mapped agents: ...`                             | The name in `/omps run` is not in the mapping file               | Use a name that `/omps list` shows.                                                                                |
+| `the task cannot start with a slash`                                     | The task starts with `/`                                         | Reword the task.                                                                                                   |
+| `child is not ready: tool "<name>" is not registered`                    | A listed tool does not exist in the child                        | Check the exact name. For MCP tools, configure the server in Pi. For extension tools, add the extension.           |
+| `model ... is not in the model registry`                                 | The child does not know the model                                | Correct `model`, or add the provider extension.                                                                    |
+| `model ... has no configured authentication`                             | The model has no credentials                                     | Log in to the provider or set its key in Pi.                                                                       |
+| `permission violation: <tool> is not approved`                           | The model called a tool that is not on the list                  | Add the tool if the agent needs it. Otherwise tighten the persona.                                                 |
 
 ## Security
 

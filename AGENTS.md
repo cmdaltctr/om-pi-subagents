@@ -110,7 +110,7 @@ Tooling tests live in `test/docs.test.ts`, `test/pi-bin.test.ts` and `test/setup
 - Use argument arrays with `shell: false` for child processes.
 - Preserve approved tool names exactly. Listing a tool does not load its MCP server.
 - Treat custom provider extensions as trusted executable code.
-- Ship no mapping, persona, model or personal path. The operator keeps their mapping in `~/.pi/agent/om-pi-subagents.yaml`.
+- Ship no mapping, persona, model or personal path. The operator keeps their mapping in `~/.pi/agent/omps/config.yaml`.
 - Add settings and abstractions only for a stated requirement.
 - Keep files below about 500 lines and split by responsibility.
 

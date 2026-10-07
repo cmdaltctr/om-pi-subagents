@@ -4,14 +4,17 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createRegistryStore, loadRegistry } from "../src/config.ts";
 
+let root: string;
 let dir: string;
 let path: string;
 beforeEach(async () => {
-	dir = await mkdtemp(join(tmpdir(), "omps-limits-"));
-	path = join(dir, "om-pi-subagents.yaml");
+	root = await mkdtemp(join(tmpdir(), "omps-limits-"));
+	dir = join(root, "omps");
+	await mkdir(dir, { recursive: true });
+	path = join(dir, "config.yaml");
 });
 afterEach(async () => {
-	await rm(dir, { recursive: true, force: true });
+	await rm(root, { recursive: true, force: true });
 });
 
 const write = (limits: string) => writeFile(path, `version: 1\n${limits}agents: {}\n`);

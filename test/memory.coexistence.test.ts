@@ -1,3 +1,4 @@
+import { writeFixturePersona } from "./fixtures/registry.ts";
 // Task 5.4: concurrent same-project memory children, another-project cwd, parent load order,
 // memory failures and sibling absence. True lifecycle outcomes stay independent, and every
 // store stays disposable with fake providers only.
@@ -112,11 +113,11 @@ describeMemory("memory coexistence", () => {
 			const extension = resolveMemoryExtension()!;
 			const workspace = await createWorkspace({ mcp: false });
 			await seedMemoryConfig(workspace.isolationEnv.HOME, workspace.model);
-			const registry = join(workspace.agentDir, "om-pi-subagents.yaml");
-			await writeFile(join(workspace.agentDir, "leaf.md"), "MEMORY-CHILD-PERSONA-MARKER");
+			const registry = join(workspace.agentDir, "omps/config.yaml");
+			await writeFixturePersona(workspace.agentDir, "leaf.md", "MEMORY-CHILD-PERSONA-MARKER");
 			await writeFile(
 				registry,
-				`version: 1\nlimits: { maxDepth: 1, maxConcurrentRuns: 1 }\nagents:\n  leaf:\n    persona: ./leaf.md\n    tools: [memory]\n    thinking: off\n    extensions: [${JSON.stringify(extension)}]\n`,
+				`version: 1\nlimits: { maxDepth: 1, maxConcurrentRuns: 1 }\nagents:\n  leaf:\n    persona: ./personas/leaf.md\n    tools: [memory]\n    thinking: off\n    extensions: [${JSON.stringify(extension)}]\n`,
 			);
 			const index = new URL("../src/index.ts", import.meta.url).pathname;
 			const parent = await startPi({

@@ -9,10 +9,68 @@ one YAML file and plain Markdown files. OMPS ships no agents of its own.
 - The parent gets the `omps` tool, `/omps` commands and an operator-only `/omps-settings` menu.
 - Each run is one child Pi process in the background.
 - YAML limits set each parent's direct-child capacity and maximum nesting depth. Both default to one.
-- YAML `ui` settings set visible rows, default 5, and the Alt+O fleet and Alt+I inspection shortcuts.
+- YAML `ui` settings set visible rows (default 5), the fleet view (default `expanded`) and optional view shortcuts.
 - The result arrives as a follow-up message when the child finishes.
 
-OMPS does not use `pi-subagents`. It does not import it, copy it, or need it.
+The `● Agents` tree and the navigation list are adapted from
+[tintinweb/pi-subagents](https://github.com/tintinweb/pi-subagents) under its MIT licence.
+OMPS does not import or need that package. Its own runtime, settings and inspection stay separate.
+
+## Features
+
+![The OMPS agent tree above the editor in a real Pi session, with one finished agent and three running agents](docs/assets/omps-agent-tree.png)
+
+The screenshot is a real Pi 1.0.4 session with four real child Pi processes. A local fake model drives
+the agents, so the task names and answers are synthetic. `scripts/readme-demo.tape` records it with
+[vhs](https://github.com/charmbracelet/vhs).
+
+- **Agent tree.** The `● Agents` tree above the editor shows each running agent with a spinner, its task,
+  its tool-use count, the elapsed time and what it does now. Finished agents show `✓`, `✗` or `■` for a
+  short time. The tree is adapted from [tintinweb/pi-subagents](https://github.com/tintinweb/pi-subagents)
+  under its MIT licence.
+- **Arrow-key list.** From an empty prompt, press Down to select an agent in the list below the editor.
+  Press Enter to inspect it and Escape to go back. No modifier keys are needed.
+- **Inspector.** `/omps inspect` opens the whole run tree, including nested agents, with live tools and
+  saved output.
+- **Isolated children.** Each agent runs as its own Pi process. Before the task is sent, OMPS checks that
+  the child loaded its tool guard, its tools, its model and its working directory. The guard refuses
+  any tool the mapping does not approve.
+- **Limits.** YAML limits set how many direct children each parent may run at once and how deep agents
+  may nest.
+- **Saved runs.** Each run keeps its task, events, output and status in a private run folder.
+- **Settings.** `/omps-settings` edits the limits, the fleet view, the shortcuts and the optional
+  capabilities of each agent.
+- **Short agent list.** `/omps list` shows one line per agent, such as `reader: 4 tools (read-only)`.
+  The model still receives every tool name.
+
+![Selecting an agent in the list below the editor with the arrow keys](docs/assets/omps-agent-list.png)
+
+<details>
+<summary>Recording of the whole run</summary>
+
+![Four agents start, work and finish while the tree updates](docs/assets/omps-demo.gif)
+
+</details>
+
+## Works with om-pi-todo and OMMS
+
+Both [om-pi-todo](https://www.npmjs.com/package/om-pi-todo) and OMMS (`om-memory-system`) are optional.
+They are off for every new agent. To turn one on for an agent:
+
+1. Run `/omps-settings`.
+2. Choose **Agent capabilities**, then the agent, then **Todo** or **Memory**.
+3. Select **Enable** and confirm the exact changes to that agent's tools and extensions.
+
+The change applies to the next launch. OMPS installs no package.
+
+**Todo.** Each child starts with its own empty task list in normal mode. It never sees or changes the
+parent's tasks, and it never ticks the parent's OpenSpec checkboxes. The parent's todo widget and the
+OMPS tree both show above the editor without changing each other. After you check a child's saved result, update the parent's tasks yourself.
+
+**Memory.** OMMS keeps its own recall, tools and capture. OMPS never reads, copies or changes memory
+stores. A child gets the `memory` tool, and the OMMS skill if mapped, only when you enable it. That
+child then works in the same project scope as OMMS normally uses, under its own session. The shipped
+OMPS skill guides the parent to search memory before it delegates and to pass on only verified context.
 
 ## What to read
 
@@ -43,14 +101,27 @@ local checkout instead, see [installation](docs/INSTALL.md).
 
 Each agent needs a Markdown persona and a YAML mapping. Both live in your Pi
 agent directory, `~/.pi/agent/`, so package updates never touch them. Persona
-paths are relative to the mapping file.
+paths are relative to the mapping file, inside `omps/`:
+
+```text
+~/.pi/agent/omps/
+├── config.yaml
+├── personas/
+│   └── reader.md
+└── runs/<session-id>/<run-id>/
+```
+
+**Breaking upgrade:** move existing settings and personas with the
+[migration guide](docs/INSTALL.md#move-settings-into-the-omps-folder).
+When only the old registry exists, OMPS blocks listing, launches and settings saves
+with migration commands. `OMPS_REGISTRY` can explicitly select another file.
 
 You create both. The install makes neither the mapping file nor the persona
-folder. Keep persona files in `~/.pi/agent/om-pi-subagents/personas/`. OMPS
+folder. Keep persona files in `~/.pi/agent/omps/personas/`. OMPS
 reads only the files that your `persona:` lines name. For the full explanation,
 see [Set up agents](docs/SETUP.md#persona-persona-folder-and-omps-the-difference).
 
-Persona file `~/.pi/agent/om-pi-subagents/personas/reader.md`:
+Persona file `~/.pi/agent/omps/personas/reader.md`:
 
 <!-- docs-test: persona -->
 
@@ -59,7 +130,7 @@ You read files and answer questions about them.
 Give short answers. Name the file for every claim.
 ```
 
-Mapping file `~/.pi/agent/om-pi-subagents.yaml`:
+Mapping file `~/.pi/agent/omps/config.yaml`:
 
 <!-- docs-test: yaml -->
 
@@ -67,7 +138,7 @@ Mapping file `~/.pi/agent/om-pi-subagents.yaml`:
 version: 1
 agents:
   reader:
-    persona: ./om-pi-subagents/personas/reader.md
+    persona: ./personas/reader.md
     tools: [read, grep, find, ls]
     thinking: off
 ```
@@ -115,8 +186,9 @@ then confirm the shown value and save destination:
 | Maximum nesting depth               | Safe integers of at least 0; root depth 0                       | `limits.maxDepth` in the registry YAML  |
 | Parallel direct children per parent | Safe integers of at least 1                                     | `limits.maxConcurrentRuns` in that YAML |
 | Visible agents                      | Safe integers from 1 to 256; default 5                          | `ui.maxVisibleAgents` in that YAML      |
-| Fleet list shortcut                 | A Pi key specification such as `alt+o`, or `off`; default Alt+O | `ui.toggleKey` in that YAML             |
-| Inspection shortcut                 | A Pi key specification such as `alt+i`, or `off`; default Alt+I | `ui.inspectKey` in that YAML            |
+| Fleet view                          | `expanded`, `collapsed` or `off`; default `expanded`            | `ui.fleetView` in that YAML             |
+| Fleet list shortcut                 | A Pi key specification such as `alt+o`, or `off`; default `off` | `ui.toggleKey` in that YAML             |
+| Inspection shortcut                 | A Pi key specification such as `alt+i`, or `off`; default `off` | `ui.inspectKey` in that YAML            |
 
 `OMPS_REGISTRY` selects the registry when set. The menu shows its resolved path.
 Execution limits and UI settings stay in that one YAML file. OMPS leaves todo preferences
@@ -135,7 +207,8 @@ YAML. YAML wins once it declares the field. OMPS no longer writes the legacy fil
 
 Cancelling an input or declining confirmation leaves that setting unchanged.
 Earlier confirmed saves remain in effect. Creating a missing registry requires confirmation;
-it starts with `agents: {}`. Malformed files must be corrected before saving.
+it starts with `agents: {}`. OMPS creates `omps/` with mode `0700` and `config.yaml`
+with mode `0600`, without creating a persona folder. Malformed files must be corrected before saving.
 Conflicting edits are rejected: reopen settings to load the newer values.
 
 Saved limits apply to fresh launches. Existing runs continue, and an existing branch keeps its inherited depth ceiling.
@@ -155,18 +228,33 @@ what they started with. See [optional child capabilities](docs/USAGE.md#optional
 
 ### Compact fleet and inspection
 
-One fleet strip below the editor reports every active direct run. It starts collapsed to a single
-content row; Alt+O or `/omps fleet` expands it into a bounded root list with task labels, states, elapsed times and
-tool names. The default budget is five root rows, so expansion uses at most seven content rows and
-never more than one third of a small terminal:
+The `● Agents` tree above the editor shows every running direct agent with no key press.
+Its look is adapted from [tintinweb/pi-subagents](https://github.com/tintinweb/pi-subagents)
+(MIT; see [third-party notices](THIRD_PARTY_NOTICES.md)). Each running agent has two lines:
+a spinner, the name, the task, the tool-use count and the elapsed time, then what it is doing
+now. The tree uses at most 12 lines, running agents first:
 
 ```text
-Agents: 5 active | 3 observed descendants | alt+o list | alt+i inspect
+● Agents
+├─ ⠹ reviewer  Map the API · 3 tool uses · 4.2s
+│    ⎿  searching…
+├─ ⠹ planner  Draft the rollout · 1.9s
+│    ⎿  thinking…
+└─ ✓ explorer  List TypeScript files · 2 tool uses · 3.1s
 ```
 
-With the strip expanded and the editor empty, arrows select a root, Enter inspects it and Escape
-collapses without stopping work. Every active root stays reachable; hidden runs continue normally.
-When all work ends, the strip keeps one compact summary of the latest finished root.
+A list below the editor shows the same runs for navigation. From an empty prompt:
+
+1. Press Down to select the first agent.
+2. Press Up or Down to move. Press Enter to inspect the selected agent.
+3. Press Escape to return to the prompt. The runs continue.
+
+Outside the list, Up and Escape keep their normal Pi actions. Every active root stays
+reachable; the list shows `ui.maxVisibleAgents` rows (default 5) with `↑ N more` and
+`↓ N more` markers. `/omps inspect` still opens runs after they leave both widgets.
+
+Set `ui.fleetView` to `collapsed` for the tree heading only, or `off` to hide both widgets.
+`/omps fleet` switches between expanded and collapsed for the current session.
 
 Each launch leaves one compact acknowledgement row in the transcript. Pi's native expansion action,
 `app.tools.expand` with Ctrl+O by default, reveals the acknowledgement text only. It never creates a
@@ -198,6 +286,7 @@ truncated output shows its saved location. See [inspection](docs/USAGE.md#agent-
 | `skills`     | no       | Paths to `SKILL.md` files. Paths may start with `~/`.              |
 | `extensions` | no       | Paths to trusted extensions. See "Provider extensions".            |
 
+Personas cannot resolve into `omps/runs/`, including through symbolic links. Run evidence can contain model output.
 OMPS rejects unknown fields, duplicate keys, aliases, and custom YAML tags.
 A bad file stops every launch until you fix it. OMPS never runs on old
 settings after a failed load.
@@ -212,14 +301,16 @@ that already started keeps the settings it started with.
 ## Tools and MCP
 
 Write each tool by its exact name. Native MCP tools are named
-`mcp__<server>__<tool>`. The server name comes from your `mcp.json`.
+`mcp__<server>__<tool>`. The server name comes from your `mcp.json`. On Pi 1.0
+and newer, hyphens in the name become underscores. See
+[Tools](docs/SETUP.md#tools).
 
 ```yaml
 tools:
   - read
   - tool_search
-  - mcp__context7-mcp__resolve-library-id
-  - mcp__context7-mcp__query-docs
+  - mcp__context7_mcp__resolve_library_id
+  - mcp__context7_mcp__query_docs
 ```
 
 - Add `tool_search` if the agent must find deferred MCP tools.
@@ -273,15 +364,17 @@ Run `/omps` without arguments to see current-session status. Whitespace-only
 arguments also show status. A fresh session answers `No runs in this session.`
 Use `/omps status <run-id>` for one run, or `/omps cancel <run-id>` to stop it.
 
-The fleet strip appears below the editor. Collapsed, it is one content row with the active count
-and observed descendants. Alt+O expands it into at most `ui.maxVisibleAgents` root rows plus a
-summary and a navigation row. When all work ends, it retains one compact summary of the latest
-finished root. Cancellation sends no automatic result message.
+The `● Agents` tree appears above the editor and the navigation list below it. A completed
+run stays in the tree until the next parent turn and for at least 4 seconds. A failed or
+cancelled run stays for two parent turns. The list keeps a finished run for 4 seconds.
+With `ui.fleetView: collapsed`, the tree shows only its heading and the running count.
+Cancellation sends no automatic result message.
 
-The strip excludes tool arguments, raw tool results, thinking, stderr and answer previews.
-Terminal controls are removed from displayed text. The full saved answer and
-result message stay on their existing paths. Clients without widget support
-can use `/omps` or the status line. OMPS opens no extra Orca terminals.
+The tree shows task labels, tool-use counts, elapsed times, active tool names and the first
+line of the agent's visible answer so far. It never shows tool arguments, raw tool results,
+thinking or stderr. Terminal controls are removed from displayed text. The full saved answer
+and the result message stay on their existing paths. Clients without widget support can use
+`/omps` or the status line. OMPS opens no extra Orca terminals.
 
 ## Run files
 
@@ -335,7 +428,7 @@ Skills that promise these features need edits before you use them with OMPS.
 3. Run `/reload`.
 
 Run files stay in `~/.pi/agent/omps/runs/` until you delete them. Your mapping
-in `~/.pi/agent/om-pi-subagents.yaml` and your persona folder also stay. You
+in `~/.pi/agent/omps/config.yaml` and your persona folder also stay. You
 created them, so you remove them. For the steps, see
 [How to uninstall](docs/UNINSTALL.md#remove-your-own-files-optional).
 

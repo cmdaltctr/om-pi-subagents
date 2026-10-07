@@ -1,4 +1,5 @@
-import { stat, writeFile } from "node:fs/promises";
+import { writeFixtureRegistry } from "./fixtures/registry.ts";
+import { stat } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { loadRegistry } from "../src/config.ts";
@@ -13,18 +14,14 @@ describe.skipIf(!PI_AVAILABLE)("native RPC settings dialogs", () => {
 			mcp: false,
 			args: ["-e", index],
 			seed: async ({ agentDir }) => {
-				await writeFile(
-					// nosemgrep: AIK_ts_generic_path_traversal -- agentDir is a disposable fixture directory, followed by a constant filename.
-					join(agentDir, "om-pi-subagents.yaml"),
-					"version: 1\nlimits: { maxDepth: 3, maxConcurrentRuns: 4 }\nagents: {}\n",
-				);
+				await writeFixtureRegistry(agentDir, "version: 1\nlimits: { maxDepth: 3, maxConcurrentRuns: 4 }\nagents: {}\n");
 			},
 		});
 		try {
 			expect((await editRpcSettings(fixture, 0, "0")).data.disposition).toBe("handled");
 			expect((await editRpcSettings(fixture, 1, "2")).data.disposition).toBe("handled");
 			expect((await editRpcSettings(fixture, 2, "2")).data.disposition).toBe("handled");
-			const registry = join(fixture.agentDir, "om-pi-subagents.yaml");
+			const registry = join(fixture.agentDir, "omps/config.yaml");
 			const saved = await loadRegistry(registry);
 			expect(saved.limits).toEqual({ maxDepth: 0, maxConcurrentRuns: 2 });
 			expect(saved.ui.maxVisibleAgents).toBe(2);
@@ -43,10 +40,10 @@ describe.skipIf(!PI_AVAILABLE)("native RPC settings dialogs", () => {
 	it("saves view shortcuts through the alias command", async () => {
 		const fixture = await startPi({ mcp: false, args: ["-e", index] });
 		try {
-			expect((await editRpcSettings(fixture, 3, "alt+p", true, "/subagents-settings")).data.disposition).toBe(
+			expect((await editRpcSettings(fixture, 4, "alt+p", true, "/subagents-settings")).data.disposition).toBe(
 				"handled",
 			);
-			const saved = await loadRegistry(join(fixture.agentDir, "om-pi-subagents.yaml"));
+			const saved = await loadRegistry(join(fixture.agentDir, "omps/config.yaml"));
 			expect(saved.ui.toggleKey).toBe("alt+p");
 			expect(fixture.model.requests).toHaveLength(0);
 			expect(await fixture.exit()).toBe(0);
@@ -60,7 +57,7 @@ describe.skipIf(!PI_AVAILABLE)("native RPC settings dialogs", () => {
 		try {
 			await editRpcSettings(fixture, 0, "2", false);
 			await editRpcSettings(fixture, 2, "8", false);
-			await expect(stat(join(fixture.agentDir, "om-pi-subagents.yaml"))).rejects.toMatchObject({ code: "ENOENT" });
+			await expect(stat(join(fixture.agentDir, "omps/config.yaml"))).rejects.toMatchObject({ code: "ENOENT" });
 			await expect(stat(join(fixture.root, "config", "pi-subagents", "config.json"))).rejects.toMatchObject({
 				code: "ENOENT",
 			});

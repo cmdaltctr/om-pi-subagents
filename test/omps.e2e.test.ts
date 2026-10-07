@@ -35,10 +35,10 @@ async function setup(script: Turn[]) {
 	workspace = await createWorkspace();
 	workspace.model.script = script;
 	scratch = await mkdtemp(join(tmpdir(), "omps-e2e-"));
-	await mkdir(join(scratch, "personas"));
-	await writeFile(join(scratch, "personas/reader.md"), "You read.");
+	await mkdir(join(scratch, "omps/personas"), { recursive: true });
+	await writeFile(join(scratch, "omps/personas/reader.md"), "You read.");
 	await writeFile(
-		join(scratch, "om-pi-subagents.yaml"),
+		join(scratch, "omps/config.yaml"),
 		"version: 1\nagents:\n  reader:\n    persona: ./personas/reader.md\n    tools: [read]\n    thinking: off\n",
 	);
 
@@ -56,7 +56,7 @@ async function setup(script: Turn[]) {
 		{ onChange: persistence.onChange },
 	);
 	const service = createService({
-		registry: createRegistryStore(join(scratch, "om-pi-subagents.yaml")),
+		registry: createRegistryStore(join(scratch, "omps/config.yaml")),
 		manager,
 		directoryFor: (o, r) => store.directoryFor(o, r),
 	});

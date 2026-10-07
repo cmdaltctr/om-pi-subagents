@@ -1,3 +1,5 @@
+import { writeFixturePersona } from "./registry.ts";
+import { stripVTControlCharacters } from "node:util";
 import assert from "node:assert/strict";
 import { mkdir, readFile, realpath, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
@@ -9,11 +11,15 @@ import { FleetStrip } from "../../src/fleet.ts";
 import { createWorkspace } from "./pi-rpc.ts";
 import { resolveTodoExtension, seedTodoPreferences } from "./todo.ts";
 import { createTodoViewerHost } from "./todo-viewer-host.mjs";
+import { createSnapshotCapture } from "./capture-snapshot.mjs";
 
 // Bounded coexistence harness: real factories and hooks, native Pi input/widgets/overlays/dialogs.
 // Registration is captured locally; sessions are native in-memory sessions, not a full AgentSession.
 // No child is spawned here. viewer.todo.test.ts separately exercises the managed-child bootstrap.
 const [modules, terminalMode, todoMode, order] = process.argv.slice(2);
+const piVersion = JSON.parse(
+	await readFile(join(modules, "@earendil-works/pi-coding-agent/package.json"), "utf8"),
+).version;
 const extension = await resolveTodoExtension();
 const todoRoot = dirname(extension);
 const loadTodo = (file) => import(pathToFileURL(join(todoRoot, file)).href);
@@ -31,11 +37,11 @@ await writeFile(join(workspace.cwd, "openspec", "config.yaml"), "schema: spec-dr
 const tasksPath = join(change, "tasks.md");
 await writeFile(tasksPath, "# Tasks\n\n- [ ] 1.1 Preserve parent task\n");
 await writeFile(join(change, "proposal.md"), "# Preserve parent tasks\n");
-await writeFile(join(workspace.agentDir, "leaf.md"), "Child-only persona");
-const registryPath = join(workspace.agentDir, "om-pi-subagents.yaml");
+await writeFixturePersona(workspace.agentDir, "leaf.md", "Child-only persona");
+const registryPath = join(workspace.agentDir, "omps/config.yaml");
 await writeFile(
 	registryPath,
-	`# Preserve mapping\nversion: 1\nlimits: { maxDepth: 3, maxConcurrentRuns: 4 }\nagents:\n  leaf:\n    persona: ./leaf.md\n    tools: [todo]\n    model: fake/counter\n    thinking: off\n    extensions: [${JSON.stringify(extension)}]\n`,
+	`# Preserve mapping\nversion: 1\nlimits: { maxDepth: 3, maxConcurrentRuns: 4 }\n# Opt-in keys, so the coexistence check still covers both extensions' shortcuts.\nui: { toggleKey: alt+o, inspectKey: alt+i }\nagents:\n  leaf:\n    persona: ./personas/leaf.md\n    tools: [todo]\n    model: fake/counter\n    thinking: off\n    extensions: [${JSON.stringify(extension)}]\n`,
 );
 const mappingBefore = parse(await readFile(registryPath, "utf8")).agents;
 // The legacy display file is a read-only import source now; seed it as an upgrading operator would have it.
@@ -215,30 +221,48 @@ try {
 	// Exercise the real compact panel and session-bound messenger without launching a process.
 	const binding = new SessionBinding();
 	binding.bind(ctx);
-	// The real below-editor fleet strip over a session-bound messenger, without launching a process.
+	// The real fleet widgets over a session-bound messenger, without launching a process.
 	const fleet = new FleetWidget({
 		messenger: (sessionOwner) => binding.messenger(api("omps"), sessionOwner),
 		runs: (sessionOwner) => (sessionOwner === owner ? [{ ...root, id: root.id }] : []),
 		trees: (sessionOwner) => runtime.observations.trees(sessionOwner),
+		toolUses: () => 2,
 		visibleAgents: () => 4,
-		keys: () => ({ toggle: "alt+o", inspect: "alt+i" }),
-		strip: new FleetStrip(),
+		// Start collapsed so the toggle path below still proves the opt-in expansion.
+		strip: new FleetStrip(() => "collapsed"),
 		mode: () => "tui",
 		now: () => root.startedAt + 1000,
 	});
 	fleet.attach(owner);
 	fleet.onChange(root);
 	await flush();
-	assert.deepEqual([...host.extensionWidgetsAbove.keys()].toSorted(), ["rpiv-todos"]);
+	// The OMPS tree joins todo above the editor under its own key; the list stays below.
+	assert.deepEqual([...host.extensionWidgetsAbove.keys()].toSorted(), ["omps-agents", "rpiv-todos"]);
 	assert.deepEqual([...host.extensionWidgetsBelow.keys()].toSorted(), ["omps"]);
-	const fleetText = () => host.extensionWidgetsBelow.get("omps").render(100).join("\n");
-	assert(
-		fleetText().includes("Agents: 1 active | 1 observed descendants"),
-		"the strip reports the run and its observed descendant",
-	);
-	assert(fleetText().includes("alt+o list"));
+	// Pi's theme colours the tree; compare the visible text.
+	const treeText = () => stripVTControlCharacters(host.extensionWidgetsAbove.get("omps-agents").render(100).join("\n"));
+	assert.equal(treeText(), "● Agents · 1 running", "the collapsed tree reports the run in its heading");
 	const todoWidget = host.extensionWidgetsAbove.get("rpiv-todos");
 	const todoText = () => todoWidget.render(100).join("\n");
+	// Visual evidence: the expanded tree beside the todo widget, then the list below the editor.
+	fleet.toggle();
+	await flush();
+	assert.match(treeText(), /└─ \S leaf/);
+	await createSnapshotCapture({
+		ui,
+		terminal,
+		directory: workspace.root,
+		version: piVersion,
+		mode: terminalMode,
+		theme: todoMode,
+	})(`beside-todo-${order}`, [
+		...todoWidget.render(100),
+		...host.extensionWidgetsAbove.get("omps-agents").render(100),
+		"─".repeat(20),
+		...host.extensionWidgetsBelow.get("omps").render(100),
+	]);
+	fleet.toggle();
+	await flush();
 	assert(todoText().includes(todoMode === "normal" ? "Parent-only task" : "Preserve parent task"));
 	const widgetBefore = todoText();
 	editor.setText("Preserved parent prompt");
@@ -274,8 +298,8 @@ try {
 	await edit(1, "2");
 	await edit(2, "1");
 	await edit(0, "0", false);
-	// Done follows the two shortcut fields and the per-agent capabilities menu.
-	await choose(6);
+	// Done follows the fleet view, the two shortcut fields and the per-agent capabilities menu.
+	await choose(7);
 	await settings;
 	assert.equal(ui.getFocusedComponent(), editor);
 	assert.equal(editor.getText(), "Preserved parent prompt");

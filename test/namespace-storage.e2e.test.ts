@@ -1,3 +1,4 @@
+import { writeFixturePersona } from "./fixtures/registry.ts";
 import { mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -21,10 +22,10 @@ describe.skipIf(!PI_AVAILABLE)("canonical run storage", () => {
 			await mkdir(join(oldRoot, "old-session", "old-run"), { recursive: true, mode: 0o700 });
 			await writeFile(oldFile, evidence, { mode: 0o600 });
 		}
-		await writeFile(join(fixture.agentDir, "reader.md"), "Read only.");
+		await writeFixturePersona(fixture.agentDir, "reader.md", "Read only.");
 		await writeFile(
-			join(fixture.agentDir, "om-pi-subagents.yaml"),
-			"version: 1\nagents:\n  reader:\n    persona: reader.md\n    tools: []\n    thinking: off\n",
+			join(fixture.agentDir, "omps/config.yaml"),
+			"version: 1\nagents:\n  reader:\n    persona: ./personas/reader.md\n    tools: []\n    thinking: off\n",
 		);
 		fixture.model.script = [{ text: "SAVED ANSWER" }];
 		await fixture.send({ type: "prompt", message: "/omps run reader Inspect storage" });

@@ -1,3 +1,4 @@
+import { fixtureRegistryPath } from "./registry.ts";
 import { existsSync } from "node:fs";
 import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -69,7 +70,7 @@ export function childHarness() {
 				personaFile: join(workspace.root, "persona.md"),
 				guardPath: GUARD,
 				runToken: "run-token",
-				lineage: fixtureLineage(join(workspace.agentDir, "om-pi-subagents.yaml")),
+				lineage: fixtureLineage(fixtureRegistryPath(workspace.agentDir)),
 				piBin: PI_BIN,
 				parentModel: "fake/counter",
 				env: { ...process.env, ...workspace.isolationEnv, ...options.env },

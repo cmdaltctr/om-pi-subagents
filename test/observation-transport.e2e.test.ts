@@ -1,3 +1,4 @@
+import { writeFixturePersona } from "./fixtures/registry.ts";
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -16,16 +17,16 @@ async function startHost(injected = false, failedSubscription = false): Promise<
 		seed: async ({ agentDir }) => {
 			for (const name of ["delegator", "middle", "leaf"]) {
 				// nosemgrep: AIK_ts_generic_path_traversal -- Synthetic createWorkspace directory and three literal persona names. Evidence: docs/local-docs/agent-tree-viewer-review-evidence.md.
-				await writeFile(join(agentDir, `${name}.md`), `OBSERVATION_${name.toUpperCase()}_PERSONA`);
+				await writeFixturePersona(agentDir, `${name}.md`, `OBSERVATION_${name.toUpperCase()}_PERSONA`);
 			}
 			await writeFile(
 				// nosemgrep: AIK_ts_generic_path_traversal -- Synthetic createWorkspace directory plus a constant registry filename; no external path input.
-				join(agentDir, "om-pi-subagents.yaml"),
+				join(agentDir, "omps/config.yaml"),
 				`version: 1\nlimits: { maxConcurrentRuns: 4, maxDepth: 3 }\nagents:\n` +
 					["delegator", "middle", "leaf"]
 						.map(
 							(name) =>
-								`  ${name}:\n    persona: ./${name}.md\n    tools: [${name === "leaf" ? "write" : "omps"}]\n    thinking: off\n` +
+								`  ${name}:\n    persona: ./personas/${name}.md\n    tools: [${name === "leaf" ? "write" : "omps"}]\n    thinking: off\n` +
 								(injected && name === "delegator" ? `    extensions: [${JSON.stringify(emitter)}]\n` : "") +
 								(failedSubscription && name === "middle"
 									? `    extensions: [${JSON.stringify(brokenSubscription)}]\n`

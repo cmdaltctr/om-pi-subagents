@@ -63,7 +63,7 @@ const ctx = (notify: Notify = vi.fn()): Ctx => ({
 function fakeService() {
 	const calls: Array<[string, ...unknown[]]> = [];
 	const service = {
-		list: async () => (calls.push(["list"]), "LIST"),
+		listForms: async () => (calls.push(["list"]), { full: "LIST", compact: "LIST" }),
 		run: async (...args: unknown[]) => (calls.push(["run", ...args]), "RUN"),
 		status: (...args: unknown[]) => (calls.push(["status", ...args]), "STATUS"),
 		cancel: (...args: unknown[]) => (calls.push(["cancel", ...args]), "CANCEL"),
@@ -93,8 +93,8 @@ describe("registration", () => {
 		for (const [name, spy] of Object.entries(processSpies)) expect(spy, name).not.toHaveBeenCalled();
 	});
 
-	it("listens for the session start and shutdown", () => {
-		expect([...loadExtension().handlers.keys()].sort()).toEqual(["session_shutdown", "session_start"]);
+	it("listens for the session start, parent turns and shutdown", () => {
+		expect([...loadExtension().handlers.keys()].sort()).toEqual(["session_shutdown", "session_start", "turn_start"]);
 	});
 
 	it("registers nothing when OMPS_CHILD=1, so a child never exposes another launcher", () => {
@@ -326,7 +326,11 @@ describe("SessionBinding", () => {
 		const old = binding.messenger(pi(sendMessage))!;
 		binding.end();
 		expect(setStatus).toHaveBeenCalledExactlyOnceWith("omps", undefined);
-		expect(setWidget).toHaveBeenCalledExactlyOnceWith("omps", undefined);
+		// Both fleet widgets go: the list under the original key and the tree under its own.
+		expect(setWidget.mock.calls).toEqual([
+			["omps", undefined],
+			["omps-agents", undefined],
+		]);
 		old.setStatus!("late");
 		old.setWidget!(["late"]);
 		// A dropped send must reject, so the delivery record cannot claim success.
@@ -337,7 +341,7 @@ describe("SessionBinding", () => {
 			),
 		).rejects.toThrow("the owning session has ended");
 		expect(sendMessage).not.toHaveBeenCalled();
-		expect(setWidget).toHaveBeenCalledTimes(1);
+		expect(setWidget).toHaveBeenCalledTimes(2);
 		expect(setStatus).toHaveBeenCalledTimes(1);
 	});
 
@@ -400,7 +404,7 @@ describe("old namespace rejection", () => {
 	});
 
 	it("ignores the old registry environment override", () => {
-		expect(resolveRegistryPath("/agent", { OMPSS_REGISTRY: "/old/agents.yaml" })).toBe("/agent/om-pi-subagents.yaml");
+		expect(resolveRegistryPath("/agent", { OMPSS_REGISTRY: "/old/agents.yaml" })).toBe("/agent/omps/config.yaml");
 	});
 
 	it("refuses a process marked only as an old child before registering an unguarded launcher", () => {
@@ -434,7 +438,7 @@ describe("resolveRegistryPath", () => {
 		expect(resolveRegistryPath("/agent", { OMPS_REGISTRY: "/custom/agents.yaml" })).toBe("/custom/agents.yaml");
 	});
 
-	it("reads the operator's file in the agent directory, outside the installed package", () => {
-		expect(resolveRegistryPath("/agent", {})).toBe("/agent/om-pi-subagents.yaml");
+	it("reads the operator's file in the OMPS folder, outside the installed package", () => {
+		expect(resolveRegistryPath("/agent", {})).toBe("/agent/omps/config.yaml");
 	});
 });

@@ -1,3 +1,4 @@
+import { writeFixtureRegistry } from "./registry.ts";
 import assert from "node:assert/strict";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -49,18 +50,20 @@ class MemoryTerminal {
 }
 
 const directory = await mkdtemp(join(tmpdir(), "omps-native-shortcuts-"));
-const registry = join(directory, "om-pi-subagents.yaml");
+const registry = join(directory, "omps/config.yaml");
 process.env.PI_CODING_AGENT_DIR = directory;
 process.env.OMPS_REGISTRY = registry;
 
 const registryText = {
 	defaults: "version: 1\nagents: {}\n",
 	off: "version: 1\nui: { toggleKey: off, inspectKey: off }\nagents: {}\n",
-	conflict: "version: 1\nui: { toggleKey: ctrl+o }\nagents: {}\n",
+	conflict: "version: 1\nui: { toggleKey: ctrl+o, inspectKey: alt+i }\nagents: {}\n",
+	// Pi binds `shift+ctrl+o` to the session-tree filter; the same key in another order must be refused.
+	reorder: "version: 1\nui: { toggleKey: ctrl+shift+o, inspectKey: alt+i }\nagents: {}\n",
 	tab: "version: 1\nui: { toggleKey: tab }\nagents: {}\n",
 	custom: "version: 1\nui: { toggleKey: alt+p, inspectKey: alt+q }\nagents: {}\n",
 };
-await writeFile(registry, registryText[scenario] ?? registryText.defaults);
+await writeFixtureRegistry(directory, registryText[scenario] ?? registryText.defaults);
 
 const terminal = new MemoryTerminal();
 const ui = createInteractiveTui({ terminal, tuiMode: "regular", logDirectory: directory });
@@ -73,7 +76,8 @@ const widgets = [];
 const uiContext = {
 	notify: (message, level) => notifications.push({ message, level }),
 	setStatus() {},
-	setWidget: (_key, lines) => widgets.push(lines),
+	// The tree registers beside the list; counting the list key keeps one count per fleet action.
+	setWidget: (key, lines) => key === "omps" && widgets.push(lines),
 	custom() {},
 	select: async () => undefined,
 	confirm: async () => false,
@@ -151,29 +155,17 @@ try {
 	if (scenario !== "tab") await createRuntime();
 	await flush();
 	// Real host order: session_start registers the shortcuts, then the editor binds them.
-	InteractiveMode.prototype.setupExtensionShortcuts.call(host, {
-		getShortcuts: () => shortcuts,
-		getModelRegistry: () => ({}),
-	});
+	const bindShortcuts = () =>
+		InteractiveMode.prototype.setupExtensionShortcuts.call(host, {
+			getShortcuts: () => shortcuts,
+			getModelRegistry: () => ({}),
+		});
+	bindShortcuts();
 	const initial = widgetCount();
 
-	if (scenario === "defaults" || scenario === "tab") {
-		// A tab-misconfigured registry falls back to defaults without binding Tab.
-		assert.deepEqual([...shortcuts.keys()].toSorted(), ["alt+i", "alt+o"], "default keys must bind");
-		if (scenario === "defaults") {
-			// Kitty press followed by release dispatches exactly one fleet action.
-			terminal.input("\x1b[111;3u");
-			await flush();
-			const afterPress = widgetCount();
-			assert.equal(afterPress, initial + 1, "fleet press must run the action once");
-			terminal.input("\x1b[111;3:3u");
-			await flush();
-			assert.equal(widgetCount(), afterPress, "key release must not repeat the action");
-			terminal.input("\x1b[105;3u");
-			await flush();
-			assert.equal(widgetCount(), afterPress, "inspection with no retained runs must not toggle the fleet");
-		}
-	} else if (scenario === "off") {
+	if (scenario === "defaults" || scenario === "tab" || scenario === "off") {
+		// Shipped defaults bind no key; a tab-misconfigured registry falls back to them without binding Tab.
+		assert.equal(shortcuts.size, 0, "defaults and off must register no shortcut");
 		assert.equal(shortcuts.size, 0, "off must register no shortcut");
 		terminal.input("\x1b[111;3u");
 		await flush();
@@ -187,11 +179,19 @@ try {
 		terminal.input("\x0f");
 		await flush();
 		assert.equal(widgetCount(), initial, "native ctrl+o must not run an OMPS action");
+	} else if (scenario === "reorder") {
+		assert.deepEqual([...shortcuts.keys()], ["alt+i"], "ctrl+shift+o must stay with the host action");
+		assert(
+			notifications.some(({ message, level }) => level === "warning" && /ctrl\+shift\+o.*built-in/.test(message)),
+			"the reordered refusal must be surfaced with guidance",
+		);
 	} else if (scenario === "custom" || scenario === "reload") {
 		if (scenario === "reload") {
-			assert.deepEqual([...shortcuts.keys()].toSorted(), ["alt+i", "alt+o"], "initial bind uses defaults");
+			assert.equal(shortcuts.size, 0, "initial bind uses the keyless defaults");
 			await writeFile(registry, registryText.custom);
+			// `/reload` runs session_start again, then the host binds the new registrations.
 			await sessionStart();
+			bindShortcuts();
 		}
 		assert(shortcuts.has("alt+p"), "the configured fleet key must bind");
 		terminal.input("\x1b[112;3u");

@@ -65,6 +65,8 @@ describe("the package is ready to publish", () => {
 		for (const required of [
 			"README.md",
 			"LICENSE",
+			"THIRD_PARTY_NOTICES.md",
+			"src/agent-tree-widget.ts",
 			"docs/INSTALL.md",
 			"docs/SETUP.md",
 			"docs/USAGE.md",
@@ -85,7 +87,7 @@ describe("the package is ready to publish", () => {
 		])
 			expect(files, required).toContain(required);
 		const allowed =
-			/^(src\/[a-z-]+\.ts|docs\/[A-Z-]+\.md|docs\/assets\/om-pi-subagents-logo\.svg|skills\/om-pi-subagents\/SKILL\.md|README\.md|LICENSE|CHANGELOG\.md|package\.json)$/;
+			/^(src\/[a-z-]+\.ts|docs\/[A-Z-]+\.md|docs\/assets\/om-pi-subagents-logo\.svg|skills\/om-pi-subagents\/SKILL\.md|README\.md|LICENSE|THIRD_PARTY_NOTICES\.md|CHANGELOG\.md|package\.json)$/;
 		expect(files.filter((f) => !allowed.test(f))).toEqual([]);
 	});
 

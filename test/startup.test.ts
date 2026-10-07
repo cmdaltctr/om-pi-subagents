@@ -70,7 +70,7 @@ async function attempt(options: Attempt = {}): Promise<ReadyChild | StartupError
 		personaFile: join(workspace.root, "persona.md"),
 		guardPath: options.guardPath ?? GUARD,
 		runToken: "run-token",
-		lineage: fixtureLineage(join(workspace.agentDir, "om-pi-subagents.yaml")),
+		lineage: fixtureLineage(join(workspace.agentDir, "omps/config.yaml")),
 		piBin: options.piBin ?? PI_BIN,
 		parentModel: options.model ?? "fake/counter",
 		startupDeadlineMs: options.startupDeadlineMs ?? 15_000,
