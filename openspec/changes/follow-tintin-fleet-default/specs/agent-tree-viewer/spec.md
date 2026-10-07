@@ -2,13 +2,14 @@
 
 ### Requirement: Navigate the fleet from an empty prompt
 
-OMPS SHALL provide fleet navigation that needs no modifier key. Down SHALL enter fleet selection only when the editor owns focus, the draft is empty and the fleet shows run rows. In fleet selection, Up and Down SHALL move through every active root, Enter SHALL open inspection at the selected run, and Escape SHALL leave selection and return input to the editor. Outside fleet selection, OMPS MUST NOT consume Up, Escape or Enter. Navigation MUST NOT pause, cancel or restart runs.
+OMPS SHALL provide fleet navigation that needs no modifier key, using the below-editor list. The list SHALL follow `tintinweb/pi-subagents` `fleet-list.ts`: a dim hint row, `●` on the selected row and `○` on the others. Down SHALL enter fleet selection only when the editor owns focus, the draft is empty and the list shows run rows. In fleet selection, Up and Down SHALL move through every active root, Enter SHALL open inspection at the selected run, and Escape SHALL leave selection and return input to the editor. Outside fleet selection, OMPS MUST NOT consume Up, Escape or Enter. Navigation MUST NOT pause, cancel or restart runs.
 
 #### Scenario: The operator enters the fleet
 
-- **WHEN** the editor is focused and empty and the fleet shows run rows
+- **WHEN** the editor is focused and empty and the list shows run rows
 - **AND** the operator presses Down
-- **THEN** the first visible root becomes selected
+- **THEN** the first visible root gets the `●` marker
+- **AND** the hint row reads `↑↓ select · enter inspect · esc back`
 - **AND** the editor draft stays empty
 
 #### Scenario: The operator moves and inspects
@@ -26,7 +27,7 @@ OMPS SHALL provide fleet navigation that needs no modifier key. Down SHALL enter
 
 #### Scenario: Up and Escape belong to Pi outside selection
 
-- **WHEN** fleet selection is not active and the fleet shows run rows
+- **WHEN** fleet selection is not active and the list shows run rows
 - **AND** the operator presses Up or Escape in an empty editor
 - **THEN** OMPS does not consume the key
 - **AND** Pi applies its own history or interrupt behaviour
@@ -39,7 +40,7 @@ OMPS SHALL provide fleet navigation that needs no modifier key. Down SHALL enter
 
 #### Scenario: No fleet rows are shown
 
-- **WHEN** the fleet view is `off`, the fleet is empty or the fleet is collapsed
+- **WHEN** the fleet view is `off` or `collapsed`, or the list has no rows
 - **THEN** Down reaches the editor
 - **AND** fleet selection does not start
 
@@ -100,7 +101,7 @@ The fleet toggle and inspection shortcuts SHALL both default to `off`. Operators
 
 ### Requirement: Update public operator guidance
 
-`README.md` and the public setup, installation, usage and removal guides SHALL describe the implemented fleet/modal, the expanded default, `ui.fleetView`, empty-prompt navigation, opt-in shortcuts, the macOS Option-as-Alt setting, YAML/settings authority, migration and optional per-agent capabilities. Their examples SHALL match real extension behaviour and preserve private operator data. These guide updates SHALL ship in the same change as the supported behaviour.
+`README.md` and the public setup, installation, usage and removal guides SHALL describe the implemented tree, list and modal, the expanded default, the linger rules, the compact `omps list`, the tintin credit, `ui.fleetView`, empty-prompt navigation, opt-in shortcuts, the macOS Option-as-Alt setting, YAML/settings authority, migration and optional per-agent capabilities. Their examples SHALL match real extension behaviour and preserve private operator data. These guide updates SHALL ship in the same change as the supported behaviour.
 
 #### Scenario: An operator follows the updated guides
 

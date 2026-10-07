@@ -1,5 +1,59 @@
 ## MODIFIED Requirements
 
+### Requirement: Preserve explicit commands and useful validation
+
+Existing `list`, `run`, `status`, `cancel` and `inspect [run-id]` forms SHALL keep their meaning and ownership checks. The additive `fleet` form SHALL provide current-session fleet access without execution. Unknown or malformed subcommands SHALL show actionable usage guidance. Service failures SHALL remain error notifications. Bare `/omps` SHALL remain status rather than opening a view. The `list` output shown to the operator SHALL be compact: one line for each agent with its name, its approved tool count, `read-only` or `write-capable`, and its model and delegation capability when they apply. The `omps` tool SHALL keep every exact approved tool name in the text returned to the model, and SHALL show that full list to the operator only when the tool output is expanded.
+
+#### Scenario: An explicit command is valid
+
+- **WHEN** the operator enters a supported execution command with required arguments
+- **THEN** it calls the same current-session operation as before
+
+#### Scenario: The operator lists agents
+
+- **WHEN** the operator enters `/omps list` and an agent has 24 approved tools without write tools
+- **THEN** that agent appears on one line as `<name>: 24 tools (read-only)`
+- **AND** no individual tool name is printed
+
+#### Scenario: The model lists agents
+
+- **WHEN** the model calls the `omps` tool with action `list`
+- **THEN** the returned text names every approved tool for every agent
+- **AND** the collapsed tool output shows the compact one-line form
+- **AND** expanding the tool output with the host expansion action shows the full list
+
+#### Scenario: A subcommand is incomplete or unknown
+
+- **WHEN** a command is unknown or lacks required arguments
+- **THEN** usage guidance is shown at warning level and no child starts
+
+#### Scenario: A valid command reaches a service error
+
+- **WHEN** a requested operation fails in the service
+- **THEN** the parent receives its actionable error notification
+
+#### Scenario: Inspection syntax is malformed
+
+- **WHEN** inspect receives extra arguments or an invalid run id
+- **THEN** usage guidance includes `inspect [run-id]` before any file read or launch
+
+#### Scenario: Fleet is used in interactive Pi
+
+- **WHEN** the operator enters `/omps fleet`
+- **THEN** the current fleet toggles between expanded and collapsed without starting a model request or process
+- **AND** an empty session receives a clear empty-state message
+
+#### Scenario: Fleet is used through RPC
+
+- **WHEN** `/omps fleet` is requested by an RPC client
+- **THEN** it receives bounded plain current-session summary text
+- **AND** no custom terminal widget or modal is attempted
+
+#### Scenario: Fleet syntax is malformed
+
+- **WHEN** `fleet` receives extra arguments
+- **THEN** usage guidance is shown before file access or execution
+
 ### Requirement: Provide native operator settings dialogs
 
 `/omps-settings` SHALL be the canonical operator settings command, with `/subagents-settings` as an alias. Native dialogs SHALL expose depth, per-parent concurrency, visible roots, fleet view, fleet/inspection shortcuts and per-agent Memory/Todo switches. The menu SHALL show effective values, sources, selected YAML destination and reload needs. Opening settings SHALL start no process or model request and change no mapping. Registration MUST perform no file access.
@@ -50,7 +104,7 @@ Version-one YAML SHALL accept optional `ui.maxVisibleAgents`, `ui.fleetView`, `u
 #### Scenario: UI settings are omitted
 
 - **WHEN** valid existing YAML has no `ui` mapping or legacy display value
-- **THEN** the default settings apply and the fleet starts expanded while runs are active
+- **THEN** the default settings apply and the tree shows expanded above the editor while runs are active
 - **AND** no view shortcut is registered
 - **AND** rendering creates no settings file
 
