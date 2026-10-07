@@ -81,11 +81,12 @@ Depth zero disables new launches. Explain that per-parent branching can multiply
 
 ## Navigate the fleet and inspect saved evidence
 
-The below-editor fleet shows the agent tree by default while runs are active (`ui.fleetView: expanded`).
-Set `ui.fleetView` to `collapsed` for one summary row, or `off` to hide it. `/omps fleet` switches the view for the session.
+The `● Agents` tree above the editor shows each running agent by default (`ui.fleetView: expanded`), adapted from tintinweb/pi-subagents. A list below the editor offers navigation.
+Set `ui.fleetView` to `collapsed` for the tree heading only, or `off` to hide both widgets. `/omps fleet` switches the view for the session.
 Press Down in an empty prompt to select an agent. Up and Down move, Enter inspects and Escape returns to the prompt.
 Outside that selection, Up and Escape keep their Pi actions. The view shortcuts default to `off`; use `/omps inspect` or set keys.
-The default expansion shows at most five root rows, a summary and one navigation row.
+The tree uses at most 12 lines, running agents first. The list shows five rows by default with more markers.
+`omps list` gives the model every tool name; `/omps list` and the collapsed tool row show a tool count per agent.
 Incomplete descendant observations stay labelled. A hidden row is still reachable by scrolling.
 
 Pi's native `app.tools.expand` action (Ctrl+O by default) expands transcript output only.

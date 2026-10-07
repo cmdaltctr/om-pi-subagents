@@ -126,7 +126,7 @@ This procedure makes an agent called `reader`. It reads files and answers questi
 7. In Pi, run `/omps list`. The answer is:
 
    ```text
-   reader: tools [read, grep, find, ls]
+   reader: 4 tools (read-only)
    ```
 
 8. Start a run:
@@ -284,8 +284,8 @@ Only `version`, `agents`, `limits` and `ui` are allowed at the top level.
 See [configured limits and nesting](USAGE.md#configured-limits-and-nesting) for the table, depth examples and branch ceilings.
 
 `ui.maxVisibleAgents` accepts safe integers from one to 256 and defaults to five.
-`ui.fleetView` sets how the fleet first appears: `expanded` (default) shows the agent tree, `collapsed` shows one
-summary row and `off` hides the strip. `/omps fleet` and a bound toggle key change the view for the current session only.
+`ui.fleetView` sets how the fleet first appears: `expanded` (default) shows the `● Agents` tree above the editor and the list below it,
+`collapsed` shows only the tree heading and `off` hides both. `/omps fleet` and a bound toggle key change the view for the current session only.
 `ui.toggleKey` and `ui.inspectKey` accept lowercase Pi key specifications, such as `alt+o`
 or `ctrl+alt+p`, or `off` to disable the shortcut. Both default to `off`. Empty-prompt arrows, `/omps fleet` and
 `/omps inspect` give full access without a shortcut.
@@ -504,9 +504,9 @@ agents:
 Each persona file must exist before `/omps list` succeeds. `/omps list` then shows:
 
 ```text
-reviewer: tools [read, grep, find, ls]
-writer: tools [read, grep, find, ls, edit, write]; model my-provider/my-model; write-capable
-docs-researcher: tools [read, tool_search, mcp__context7__resolve_library_id, mcp__context7__query_docs]
+reviewer: 4 tools (read-only)
+writer: 6 tools (write-capable); model my-provider/my-model
+docs-researcher: 4 tools (read-only)
 ```
 
 ### YAML features OMPS rejects

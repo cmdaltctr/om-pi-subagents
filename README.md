@@ -12,7 +12,9 @@ one YAML file and plain Markdown files. OMPS ships no agents of its own.
 - YAML `ui` settings set visible rows (default 5), the fleet view (default `expanded`) and optional view shortcuts.
 - The result arrives as a follow-up message when the child finishes.
 
-OMPS does not use `pi-subagents`. It does not import it, copy it, or need it.
+The `● Agents` tree and the navigation list are adapted from
+[tintinweb/pi-subagents](https://github.com/tintinweb/pi-subagents) under its MIT licence.
+OMPS does not import or need that package. Its own runtime, settings and inspection stay separate.
 
 ## What to read
 
@@ -156,29 +158,33 @@ what they started with. See [optional child capabilities](docs/USAGE.md#optional
 
 ### Compact fleet and inspection
 
-One fleet strip below the editor shows every active direct run. By default it shows the agent tree
-with no key press: task labels, states, elapsed times and tool names. The default budget is five root
-rows, so the tree uses at most seven content rows and never more than one third of a small terminal:
+The `● Agents` tree above the editor shows every running direct agent with no key press.
+Its look is adapted from [tintinweb/pi-subagents](https://github.com/tintinweb/pi-subagents)
+(MIT; see [third-party notices](THIRD_PARTY_NOTICES.md)). Each running agent has two lines:
+a spinner, the name, the task, the tool-use count and the elapsed time, then what it is doing
+now. The tree uses at most 12 lines, running agents first:
 
 ```text
-Agents: 2 active | 0 observed descendants
-  Map the API running 4s read
-  Review the tests running 2s
-↓ select
+● Agents
+├─ ⠹ reviewer  Map the API · 3 tool uses · 4.2s
+│    ⎿  searching…
+├─ ⠹ planner  Draft the rollout · 1.9s
+│    ⎿  thinking…
+└─ ✓ explorer  List TypeScript files · 2 tool uses · 3.1s
 ```
 
-Navigate from an empty prompt:
+A list below the editor shows the same runs for navigation. From an empty prompt:
 
 1. Press Down to select the first agent.
 2. Press Up or Down to move. Press Enter to inspect the selected agent.
 3. Press Escape to return to the prompt. The runs continue.
 
-Outside the list, Up and Escape keep their normal Pi actions. Every active root stays reachable;
-hidden runs continue normally. When all work ends, the strip shows a summary of the latest finished
-root for 10 seconds and then clears. `/omps inspect` still opens those runs.
+Outside the list, Up and Escape keep their normal Pi actions. Every active root stays
+reachable; the list shows `ui.maxVisibleAgents` rows (default 5) with `↑ N more` and
+`↓ N more` markers. `/omps inspect` still opens runs after they leave both widgets.
 
-Set `ui.fleetView` to `collapsed` for one summary row, or to `off` to hide the strip. `/omps fleet`
-switches between the tree and one row for the current session.
+Set `ui.fleetView` to `collapsed` for the tree heading only, or `off` to hide both widgets.
+`/omps fleet` switches between expanded and collapsed for the current session.
 
 Each launch leaves one compact acknowledgement row in the transcript. Pi's native expansion action,
 `app.tools.expand` with Ctrl+O by default, reveals the acknowledgement text only. It never creates a
@@ -287,15 +293,17 @@ Run `/omps` without arguments to see current-session status. Whitespace-only
 arguments also show status. A fresh session answers `No runs in this session.`
 Use `/omps status <run-id>` for one run, or `/omps cancel <run-id>` to stop it.
 
-The fleet strip appears below the editor. By default it shows at most `ui.maxVisibleAgents` root
-rows plus a summary and a navigation row. With `ui.fleetView: collapsed`, it is one content row with
-the active count and observed descendants. When all work ends, it shows a summary of the latest
-finished root for 10 seconds and then clears. Cancellation sends no automatic result message.
+The `● Agents` tree appears above the editor and the navigation list below it. A completed
+run stays in the tree until the next parent turn and for at least 4 seconds. A failed or
+cancelled run stays for two parent turns. The list keeps a finished run for 4 seconds.
+With `ui.fleetView: collapsed`, the tree shows only its heading and the running count.
+Cancellation sends no automatic result message.
 
-The strip excludes tool arguments, raw tool results, thinking, stderr and answer previews.
-Terminal controls are removed from displayed text. The full saved answer and
-result message stay on their existing paths. Clients without widget support
-can use `/omps` or the status line. OMPS opens no extra Orca terminals.
+The tree shows task labels, tool-use counts, elapsed times, active tool names and the first
+line of the agent's visible answer so far. It never shows tool arguments, raw tool results,
+thinking or stderr. Terminal controls are removed from displayed text. The full saved answer
+and the result message stay on their existing paths. Clients without widget support can use
+`/omps` or the status line. OMPS opens no extra Orca terminals.
 
 ## Run files
 
