@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.8.0](https://github.com/cmdaltctr/om-pi-subagents/compare/v0.7.0...v0.8.0) (2026-10-08)
+
+
+### Features
+
+* accept forgiving typed shortcuts in settings ([44457b3](https://github.com/cmdaltctr/om-pi-subagents/commit/44457b312f4543548135c3fba14ef3f6e7d157c2))
+* add inspector margins and wrap picker text ([44457b3](https://github.com/cmdaltctr/om-pi-subagents/commit/44457b312f4543548135c3fba14ef3f6e7d157c2))
+* detect installed capability packages from Pi settings ([44457b3](https://github.com/cmdaltctr/om-pi-subagents/commit/44457b312f4543548135c3fba14ef3f6e7d157c2))
+* fold result messages and add a result shortcut ([44457b3](https://github.com/cmdaltctr/om-pi-subagents/commit/44457b312f4543548135c3fba14ef3f6e7d157c2))
+* launch mapped agents from interactive at-mentions ([44457b3](https://github.com/cmdaltctr/om-pi-subagents/commit/44457b312f4543548135c3fba14ef3f6e7d157c2))
+
 ## [0.7.0](https://github.com/cmdaltctr/om-pi-subagents/compare/v0.6.0...v0.7.0) (2026-10-08)
 
 
