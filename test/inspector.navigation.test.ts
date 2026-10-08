@@ -6,7 +6,8 @@ import { inspectorFixture, flushInspector, keys, mouse } from "./fixtures/inspec
 const view = (fixture: ReturnType<typeof inspectorFixture>, width = 100) =>
 	fixture.inspector.render(width).map(stripVTControlCharacters);
 const range = (fixture: ReturnType<typeof inspectorFixture>) => {
-	const footer = view(fixture).at(-1)!;
+	// The bottom margin now follows the footer, so read the final non-blank row.
+	const footer = view(fixture).findLast((line) => line.trim())!;
 	const match = /Lines (\d+)–(\d+)\/(\d+)/.exec(footer);
 	expect(match, footer).not.toBeNull();
 	return match!.slice(1).map(Number);
@@ -20,7 +21,7 @@ function preview(fixture: ReturnType<typeof inspectorFixture>, count = 80) {
 }
 
 describe("single-column inspector viewport", () => {
-	it.each([30, 100, 160])("opens full-width picker-origin details at %i columns", async (width) => {
+	it.each([30, 100, 160])("opens padded single-column picker-origin details at %i columns", async (width) => {
 		const fixture = inspectorFixture();
 		fixture.read.mockResolvedValue({
 			node: fixture.observations.node("session", "root", "root")!,
@@ -35,7 +36,8 @@ describe("single-column inspector viewport", () => {
 		fixture.inspector.handleInput(keys.enter);
 		await flushInspector();
 		const lines = view(fixture, width);
-		expect(lines.find((line) => line.includes("FULL-WIDTH-TASK"))).toBe("FULL-WIDTH-TASK");
+		// Wide terminals now reserve two columns on each side of the detail body.
+		expect(lines.find((line) => line.includes("FULL-WIDTH-TASK"))).toBe(`${width >= 40 ? "  " : ""}FULL-WIDTH-TASK`);
 		expect(lines.join("\n")).not.toContain("reader-1");
 		fixture.inspector.handleInput(keys.escape);
 		expect(view(fixture, width).join("\n")).toContain("reader-1");
@@ -49,9 +51,10 @@ describe("single-column inspector viewport", () => {
 		fixture.read.mockImplementation(async () => new Promise(() => {}));
 		fixture.inspector.render(45);
 		fixture.inspector.handleInput(keys.enter);
-		const before = view(fixture, 45).slice(1, -1).join("\n");
+		// Exclude the top margin, both narrow-detail headers, the footer and the bottom margin.
+		const before = view(fixture, 45).slice(3, -2).join("\n");
 		fixture.inspector.handleInput(keys.pageDown);
-		const after = view(fixture, 45).slice(1, -1).join("\n");
+		const after = view(fixture, 45).slice(3, -2).join("\n");
 		expect(after).not.toBe(before);
 		expect(after).toContain("Live line");
 		expect(fixture.read).toHaveBeenCalledTimes(1);
@@ -62,7 +65,8 @@ describe("single-column inspector viewport", () => {
 		await flushInspector();
 		for (const width of [18, 100, 160]) {
 			const lines = view(fixture, width);
-			expect(lines[0]).toContain("OMPS inspector");
+			// The normal-height header now follows the top margin at every width.
+			expect(lines[1]).toContain("OMPS inspector");
 			expect(lines.join("\n")).not.toContain("reader-6");
 			for (const line of lines) expect(visibleWidth(line)).toBeLessThanOrEqual(width);
 		}
@@ -143,7 +147,8 @@ describe("single-column inspector viewport", () => {
 			{ assistantPreview: "changed with enough synthetic content to wrap ".repeat(90) },
 		);
 		expect(range(fixture)[0]).toBe(stopped);
-		expect(view(fixture, 30).at(-1)).toContain(`Lines ${stopped}–`);
+		// Width changes preserve the vertical margin, with the footer on the penultimate row.
+		expect(view(fixture, 30).at(-2)).toContain(`Lines ${stopped}–`);
 		expect(range(fixture)[0]).toBe(stopped);
 		fixture.resize(8);
 		expect(range(fixture)[0]).toBe(stopped);
@@ -228,6 +233,44 @@ describe("single-column inspector viewport", () => {
 		await flushInspector();
 		expect(fixture.read).toHaveBeenLastCalledWith("root", "child-17", expect.any(AbortSignal));
 		expect(view(fixture).join("\n")).toContain("Task for child-17");
+		fixture.inspector.dispose();
+	});
+	it.each([0, 1, 2, 3])("maps wrapped picker line %i to its agent after the top margin", async (offset) => {
+		const fixture = inspectorFixture();
+		const child = fixture.observations.node("session", "root", "child-1")!;
+		expect(
+			fixture.observations.ingest(
+				{ owner: "session", runId: "root" },
+				{
+					...child,
+					revision: child.revision + 1,
+					taskSummary: "WRAPPED " + "summary ".repeat(18),
+				},
+			),
+		).toBe("accepted");
+		const lines = view(fixture, 44);
+		const row = lines.findIndex((line) => line.includes("reader-1 "));
+		expect(row).toBeGreaterThan(0);
+		expect(fixture.inspector.handleMouse(mouse("click", row + offset))?.handled).toBe(true);
+		await flushInspector();
+		expect(fixture.read).toHaveBeenLastCalledWith("root", "child-1", expect.any(AbortSignal));
+		fixture.inspector.dispose();
+	});
+	it("leaves picker margins, header and footer outside the row map", () => {
+		const fixture = inspectorFixture();
+		fixture.resize(24);
+		fixture.inspector.render(80);
+		for (const y of [0, 1, 22, 23]) expect(fixture.inspector.handleMouse(mouse("click", y))).toBeUndefined();
+		expect(fixture.read).not.toHaveBeenCalled();
+		fixture.inspector.dispose();
+	});
+	it("keeps the padded detail header outside the wheel viewport", async () => {
+		const fixture = inspectorFixture();
+		fixture.inspector.handleInput(keys.enter);
+		await flushInspector();
+		fixture.inspector.render(100);
+		expect(fixture.inspector.handleMouse(mouse("wheel", 1))).toBeUndefined();
+		expect(fixture.inspector.handleMouse(mouse("wheel", 2))?.handled).toBe(true);
 		fixture.inspector.dispose();
 	});
 	it("keeps selected picker identity visible at tiny heights with incomplete evidence", () => {

@@ -119,18 +119,18 @@ describe("management settings", () => {
 
 	it("saves navigation keys with reload guidance and shows the active pair", async () => {
 		const h = harness();
-		h.key("Management next / enter key", "ctrl+shift+down");
-		h.key("Management previous key", "ctrl+shift+up");
+		h.key("Management next / enter key", "ctrl+1");
+		h.key("Management previous key", "ctrl+2");
 		await h.run();
 		expect((await loadRegistry(path)).ui).toMatchObject({
-			navigationDownKey: "ctrl+shift+down",
-			navigationUpKey: "ctrl+shift+up",
+			navigationDownKey: "ctrl+1",
+			navigationUpKey: "ctrl+2",
 		});
 		expect(h.ui.select.mock.calls.at(-1)?.[1]).toEqual(
 			expect.arrayContaining([
 				"Fleet view shortcut: off",
-				"Management next / enter key: ctrl+shift+down (active down; /reload to apply)",
-				"Management previous key: ctrl+shift+up (active off; /reload to apply)",
+				"Management next / enter key: ctrl+1 (active down; /reload to apply)",
+				"Management previous key: ctrl+2 (active off; /reload to apply)",
 			]),
 		);
 		expect(h.ui.confirm.mock.calls.every(([, text]) => text.includes("/reload"))).toBe(true);
@@ -154,7 +154,7 @@ describe("management settings", () => {
 
 	it.each(["cancel", "decline", "revision", "write"])("retains confirmed navigation on %s", async (failure) => {
 		const h = harness();
-		h.key("Management next / enter key", failure === "cancel" ? undefined : "ctrl+shift+down");
+		h.key("Management next / enter key", failure === "cancel" ? undefined : "ctrl+1");
 		if (failure === "decline") h.ui.confirm.mockResolvedValueOnce(false);
 		if (failure === "revision")
 			h.ui.confirm.mockImplementationOnce(async () => {

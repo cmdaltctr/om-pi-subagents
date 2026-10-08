@@ -54,7 +54,8 @@ describe("fleet refinement guidance", () => {
 		async (path) => {
 			const text = await read(path);
 			expect(text).toMatch(/picker/i);
-			expect(text).toMatch(/full-width/);
+			// Margins replace the former full-width layout without adding another column.
+			expect(text).toMatch(/single-column|one column/);
 			for (const key of ["PageUp", "PageDown", "Home", "End"]) expect(text, key).toContain(key);
 			expect(text).toMatch(/wheel/i);
 			expect(text).toMatch(/provisional/i);

@@ -4,11 +4,19 @@ import {
 	checkDistinctUiKeys,
 	FLEET_VIEWS,
 	UI_KEY_FIELDS,
+	typedKeyToSpec,
 	RegistryError,
 	type UiKeyField,
 	type UiSettings,
 } from "./config.ts";
-import { capabilityEdit, inspectCapability, selectPublishedPackage, type Capability } from "./capabilities.ts";
+import {
+	capabilityEdit,
+	detectPublishedPackages,
+	inspectCapability,
+	selectPublishedPackage,
+	type Capability,
+} from "./capabilities.ts";
+import { resolveAgentDir } from "./registry-path.ts";
 import {
 	readLimitSettings,
 	saveCapabilityMapping,
@@ -17,6 +25,7 @@ import {
 	type LimitSettings,
 } from "./settings-persistence.ts";
 import type { UiSettingsCache, UiSettingsState } from "./ui-settings.ts";
+import { shortcutConflict } from "./shortcuts.ts";
 
 export interface SettingsResources {
 	readonly registryPath: string;
@@ -27,6 +36,9 @@ export interface SettingsResources {
 	/** Drop the session fleet toggle after a saved `ui.fleetView` change. */
 	onFleetViewSaved?(): void;
 }
+
+const SHORTCUT_INPUT_NOTE =
+	"Type the key, for example ctrl+1. Do not press the keys. Common modifiers: ctrl, shift, alt.";
 
 const sourceLabel: Record<UiSettingsState["maxVisibleAgentsSource"], string> = {
 	yaml: "YAML",
@@ -68,6 +80,7 @@ function menuItems(limits: LimitSettings, ui: UiSettingsState, active: UiSetting
 		`Management list: ${ui.value.showManagementList ? "Show" : "Hide"}`,
 		shortcutItem("Management next / enter key", ui.value.navigationDownKey, active, "navigationDownKey"),
 		shortcutItem("Management previous key", ui.value.navigationUpKey, active, "navigationUpKey"),
+		shortcutItem("Result shortcut", ui.value.resultKey, active, "resultKey"),
 	];
 	if (ui.maxVisibleAgentsSource === "legacy")
 		items.push(`Import legacy visible agents (${ui.value.maxVisibleAgents}) into YAML`);
@@ -130,8 +143,8 @@ async function showSettings(ctx: ExtensionCommandContext, resources: SettingsRes
 			if (saved) await repaint(resources, ctx);
 			continue;
 		}
-		if ([4, 5, 7, 8].includes(index)) {
-			const field = UI_KEY_FIELDS[[4, 5, 7, 8].indexOf(index)];
+		if ([4, 5, 7, 8, 9].includes(index)) {
+			const field = UI_KEY_FIELDS[[4, 5, 7, 8, 9].indexOf(index)];
 			await editShortcut(ctx, resources, limits, ui, field, choice);
 			limits = await readLimitSettings(resources.registryPath);
 			ui = await resources.ui.refresh();
@@ -261,21 +274,30 @@ async function editShortcut(
 	field: UiKeyField,
 	label: string,
 ): Promise<void> {
-	const answer = await ctx.ui.input(label.split(" (")[0], ui.value[field]);
+	const title = label.split(" (")[0];
+	const answer = await ctx.ui.input(`${title}. ${SHORTCUT_INPUT_NOTE}`, ui.value[field]);
 	if (answer === undefined) return;
-	const value = answer.trim();
+	const value = typedKeyToSpec(answer);
 	try {
 		checkUiKey(field, value);
 		checkDistinctUiKeys({ ...ui.value, [field]: value });
 	} catch (error) {
-		ctx.ui.notify((error as RegistryError).message, "error");
+		const message = (error as RegistryError).message;
+		const modifiers = message.includes("Pi key specification") ? " Accepted modifiers: ctrl, shift, alt, super." : "";
+		ctx.ui.notify(`${message}${modifiers}`, "error");
 		return;
 	}
+	const conflict = shortcutConflict(field, value);
+	if (conflict) {
+		ctx.ui.notify(conflict, "error");
+		return;
+	}
+	const typed = answer === value ? "" : `\nTyped: ${answer}`;
 	const creation = limits.missing ? "Create the missing version-one registry with no mapped agents.\n" : "";
 	if (
 		!(await ctx.ui.confirm(
 			"Save this subagent setting?",
-			`${creation}${label.split(" (")[0]} → ${value}\nSave to: ${limits.path}\nShortcut changes take effect after /reload.`,
+			`${creation}${title} → ${value}${typed}\nSave to: ${limits.path}\nShortcut changes take effect after /reload.`,
 		))
 	)
 		return;
@@ -301,6 +323,26 @@ async function importLegacy(
 	await saveUiSetting(limits, "maxVisibleAgents", value, limits.missing);
 	await repaint(resources, ctx);
 	ctx.ui.notify(`Legacy visible agents saved to ${limits.path}.`, "info");
+}
+
+async function selectCapabilityPackage(ctx: ExtensionCommandContext, capability: Capability) {
+	const candidates = await detectPublishedPackages(resolveAgentDir(), capability);
+	if (candidates.length === 1) return candidates[0];
+	if (candidates.length > 1) {
+		const root = await ctx.ui.select(
+			`Select an installed ${capability} package for this child capability`,
+			candidates.map((candidate) => candidate.root),
+		);
+		return candidates.find((candidate) => candidate.root === root);
+	}
+	const name = capability === "Memory" ? "om-memory-system" : "om-pi-todo";
+	ctx.ui.notify(
+		`No usable ${name} package found in Pi settings. Install with pi install npm:${name}, or enter an installed package path.`,
+		"info",
+	);
+	const path = await ctx.ui.input(`Installed ${capability} package folder or published Pi extension entry path`, "");
+	if (!path?.trim()) return undefined;
+	return selectPublishedPackage(path, capability);
 }
 
 async function showCapabilities(ctx: ExtensionCommandContext, limits: LimitSettings): Promise<void> {
@@ -329,11 +371,8 @@ async function showCapabilities(ctx: ExtensionCommandContext, limits: LimitSetti
 	try {
 		const enabled = action.startsWith("Enable");
 		const includeSkill = action === "Enable with shipped skill";
-		const path = enabled
-			? await ctx.ui.input(`Installed ${capability} package folder or published Pi extension entry path`, "")
-			: undefined;
-		if (enabled && !path?.trim()) return;
-		const resource = enabled ? await selectPublishedPackage(path!, capability) : undefined;
+		const resource = enabled ? await selectCapabilityPackage(ctx, capability) : undefined;
+		if (enabled && !resource) return;
 		if (includeSkill && !resource?.skill)
 			throw new Error(`Installed ${capability} package has no shipped skill. Select another package.`);
 		const mapping = await capabilityEdit(agent, capability, enabled, resource, includeSkill);

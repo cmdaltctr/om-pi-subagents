@@ -43,13 +43,15 @@ function loadExtension(register: (pi: any) => void = (pi) => omps(pi)) {
 	const commands = new Map<string, Command>();
 	const handlers = new Map<string, (event: unknown, ctx: Ctx) => unknown>();
 	const renderers = vi.fn();
+	const messageRenderers = vi.fn();
 	register({
 		registerTool: (tool: Tool) => tools.set(tool.name, tool),
 		registerCommand: (name: string, command: Command) => commands.set(name, command),
 		on: (event: string, handler: (event: unknown, ctx: Ctx) => unknown) => handlers.set(event, handler),
 		registerEntryRenderer: renderers,
+		registerMessageRenderer: messageRenderers,
 	});
-	return { tools, commands, handlers, renderers };
+	return { tools, commands, handlers, renderers, messageRenderers };
 }
 
 const ctx = (notify: Notify = vi.fn()): Ctx => ({
@@ -76,6 +78,30 @@ beforeEach(() => {
 });
 
 describe("registration", () => {
+	it("registers folded result messages and honours host expansion", () => {
+		const { messageRenderers } = loadExtension();
+		const registration = messageRenderers.mock.calls.find(([name]) => name === "omps-result");
+		expect(registration).toBeDefined();
+		const renderer = registration![1];
+		const content = [
+			"OMPS run run-1 (reader) completed.",
+			"Files: /files/run-1",
+			"Result:",
+			...Array.from({ length: 20 }, (_, index) => `answer ${index + 1}`),
+		].join("\n");
+		const message = { customType: "omps-result", content };
+		const collapsed = renderer(message, { expanded: false, outputPad: 0 }, {}).render(120).join("\n");
+		expect(collapsed).toContain("12 more lines");
+		expect(collapsed).toMatch(/expand/);
+		expect(collapsed).toContain("answer 8");
+		expect(collapsed).not.toContain("answer 9");
+		const expanded = renderer(message, { expanded: true, outputPad: 0 }, {})
+			.render(120)
+			.map((line: string) => line.trimEnd())
+			.join("\n");
+		expect(expanded).toBe(content);
+	});
+
 	it("registers only the canonical OMPS tool, commands and transcript renderers", () => {
 		const { tools, commands, renderers } = loadExtension();
 		expect([...tools.keys()]).toEqual(["omps"]);
@@ -93,8 +119,13 @@ describe("registration", () => {
 		for (const [name, spy] of Object.entries(processSpies)) expect(spy, name).not.toHaveBeenCalled();
 	});
 
-	it("listens for the session start, parent turns and shutdown", () => {
-		expect([...loadExtension().handlers.keys()].sort()).toEqual(["session_shutdown", "session_start", "turn_start"]);
+	it("listens for interactive input, session start, parent turns and shutdown", () => {
+		expect([...loadExtension().handlers.keys()].sort()).toEqual([
+			"input",
+			"session_shutdown",
+			"session_start",
+			"turn_start",
+		]);
 	});
 
 	it("registers nothing when OMPS_CHILD=1, so a child never exposes another launcher", () => {

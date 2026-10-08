@@ -1,3 +1,4 @@
+import { SettingsManager } from "@earendil-works/pi-coding-agent";
 import { writeFixturePersona } from "./registry.ts";
 import { stripVTControlCharacters } from "node:util";
 import assert from "node:assert/strict";
@@ -78,9 +79,26 @@ const childCtx = { ...ctx, hasUI: false, mode: "rpc", sessionManager: childManag
 const tools = new Map();
 const commands = new Map();
 const renderers = new Map();
+const messageRenderers = new Map();
 const shortcuts = new Map();
 const hooks = [];
 const messages = [];
+Object.assign(host, {
+	runtimeHost: {
+		session: {
+			sessionManager,
+			settingsManager: SettingsManager.inMemory({ enableSkillCommands: false }),
+			promptTemplates: [],
+			extensionRunner: {
+				getRegisteredCommands: () =>
+					[...commands].map(([name, command]) => ({ ...command, name, invocationName: name })),
+			},
+		},
+	},
+	autocompleteProviderWrappers: [],
+	skillCommands: new Map(),
+});
+host.setupAutocompleteProvider();
 const forbidden = () => {
 	throw Error("Viewer/settings must not change model, permissions or request a turn");
 };
@@ -94,6 +112,7 @@ const api = (source) => ({
 		commands.set(name, command);
 	},
 	registerEntryRenderer: (name, renderer) => renderers.set(name, renderer),
+	registerMessageRenderer: (name, renderer) => messageRenderers.set(name, renderer),
 	registerShortcut: (key, shortcut) => {
 		assert(!shortcuts.has(key));
 		shortcuts.set(key, { ...shortcut, source });
@@ -131,6 +150,7 @@ try {
 		await loadRealTodo();
 		loadOmps();
 	}
+	assert(messageRenderers.has("omps-result"), "OMPS registers its result renderer beside the todo entry renderer");
 	await emit("session_start", ctx);
 	await emit("session_start", childCtx, "todo");
 	if (todoMode === "normal") await todo({ action: "create", subject: "Parent-only task" });
@@ -155,9 +175,10 @@ try {
 	assert.deepEqual(getSessionMode(childSessionId), { mode: "normal" });
 	const cacheBefore = getPreferences();
 	assert.deepEqual([...shortcuts].map(([key, value]) => [key, value.source]).toSorted(), [
-		// Todo's default shortcut and OMPS's view keys coexist in either load order.
+		// Todo's default shortcut and OMPS's view/result keys coexist in either load order.
 		["alt+i", "omps"],
 		["alt+o", "omps"],
+		["ctrl+shift+e", "omps"],
 		["ctrl+shift+t", "todo"],
 	]);
 	const definitionsBefore = [...tools].map(([name, tool]) => [name, JSON.stringify(tool.parameters)]);
@@ -237,7 +258,11 @@ try {
 	fleet.onChange(root);
 	await flush();
 	// The OMPS tree joins todo above the editor under its own key; the list stays below.
-	assert.deepEqual([...host.extensionWidgetsAbove.keys()].toSorted(), ["omps-agents", "rpiv-todos"]);
+	assert.deepEqual([...host.extensionWidgetsAbove.keys()].toSorted(), [
+		"omps-agents",
+		"omps-result-render",
+		"rpiv-todos",
+	]);
 	assert.deepEqual([...host.extensionWidgetsBelow.keys()].toSorted(), ["omps"]);
 	// Pi's theme colours the tree; compare the visible text.
 	const treeText = () => stripVTControlCharacters(host.extensionWidgetsAbove.get("omps-agents").render(100).join("\n"));
@@ -265,6 +290,9 @@ try {
 	await flush();
 	assert(todoText().includes(todoMode === "normal" ? "Parent-only task" : "Preserve parent task"));
 	const widgetBefore = todoText();
+	await shortcuts.get("ctrl+shift+e").handler(ctx);
+	await flush();
+	assert.equal(todoText(), widgetBefore, "OMPS result expansion leaves the sibling todo widget unchanged");
 	editor.setText("Preserved parent prompt");
 	await flush();
 	assert.equal(card.expanded, false);
@@ -298,8 +326,8 @@ try {
 	await edit(1, "2");
 	await edit(2, "1");
 	await edit(0, "0", false);
-	// The three management controls precede capabilities and Done in the refreshed menu.
-	await choose(10);
+	// The new result shortcut precedes capabilities and Done in the refreshed menu.
+	await choose(11);
 	await settings;
 	assert.equal(ui.getFocusedComponent(), editor);
 	assert.equal(editor.getText(), "Preserved parent prompt");
@@ -334,6 +362,7 @@ try {
 	assert.deepEqual([...shortcuts].map(([key, value]) => [key, value.source]).toSorted(), [
 		["alt+i", "omps"],
 		["alt+o", "omps"],
+		["ctrl+shift+e", "omps"],
 		["ctrl+shift+t", "todo"],
 	]);
 	assert.equal(workspace.model.requests.length, 0);

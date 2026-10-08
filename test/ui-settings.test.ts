@@ -33,6 +33,7 @@ const defaults = {
 	showManagementList: true,
 	navigationDownKey: "down",
 	navigationUpKey: "up",
+	resultKey: "ctrl+shift+e",
 };
 
 const emptyRegistry = "version: 1\nagents: {}\n";
@@ -134,6 +135,28 @@ describe("legacy display preferences", () => {
 		expect(state.value).toEqual(defaults);
 		expect(state.maxVisibleAgentsSource).toBe("default");
 		expect(state.diagnostics).toEqual([]);
+	});
+});
+
+describe("result shortcut cache", () => {
+	it("retains the confirmed result key across failed refreshes", async () => {
+		await write("omps/config.yaml", emptyRegistry + "ui: { resultKey: alt+r }\n");
+		const cache = createUiSettings(registry(), legacy());
+		await cache.ensureLoaded();
+		expect(cache.value.resultKey).toBe("alt+r");
+		const confirmed = cache.value;
+		await write("omps/config.yaml", emptyRegistry + "ui: { resultKey: tab }\n");
+		expect((await cache.refresh()).diagnostics.join(" ")).toContain("ui.resultKey");
+		expect(cache.value).toBe(confirmed);
+		await write("omps/config.yaml", emptyRegistry + "ui: { resultKey: off }\n");
+		expect((await cache.refresh()).value.resultKey).toBe("off");
+	});
+
+	it("takes only visible rows from legacy settings", async () => {
+		await write("pi-subagents/config.json", '{"maxVisibleAgents":7,"resultKey":"alt+r"}\n');
+		const state = await createUiSettings(registry(), legacy()).ensureLoaded();
+		expect(state.value.resultKey).toBe("ctrl+shift+e");
+		expect(state.value.maxVisibleAgents).toBe(7);
 	});
 });
 

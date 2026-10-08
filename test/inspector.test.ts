@@ -1,10 +1,12 @@
+import { stripVTControlCharacters } from "node:util";
 import { visibleWidth } from "@earendil-works/pi-tui";
 import { describe, expect, it, vi } from "vitest";
 import { ObservationStore } from "../src/observation.ts";
 import { Inspector } from "../src/inspector.ts";
 import type { RunDetails } from "../src/details.ts";
+import { inspectorFixture, flushInspector, keys, syntheticTheme } from "./fixtures/inspector-synthetic.ts";
 
-function setup(count = 8) {
+function setup(count = 8, maxDepth = 3) {
 	const observations = new ObservationStore();
 	observations.updateRoot({
 		id: "root",
@@ -13,7 +15,7 @@ function setup(count = 8) {
 		cwd: "/work",
 		state: "running",
 		startedAt: 1,
-		nesting: { registryPath: "/r", rootSessionId: "session", depth: 1, maxDepth: 3 },
+		nesting: { registryPath: "/r", rootSessionId: "session", depth: 1, maxDepth },
 	});
 	observations.bindChildSession({ owner: "session", runId: "root" }, "child-session");
 	for (let id = 1; id < count; id++)
@@ -139,14 +141,15 @@ describe("read-only inspector", () => {
 	it("consumes fullscreen row clicks and opens the selected details", async () => {
 		const fixture = setup();
 		fixture.inspector.render(80);
+		// The top margin moves the child row down by one terminal row.
 		expect(
 			fixture.inspector.handleMouse({
 				type: "click",
 				button: "left",
 				x: 3,
-				y: 2,
+				y: 3,
 				screenX: 3,
-				screenY: 2,
+				screenY: 3,
 				width: 80,
 				height: 20,
 				shift: false,
@@ -194,14 +197,15 @@ describe("read-only inspector", () => {
 		const sibling = fixture.observations.node("session", "root", "child-2");
 		expect(sibling?.parentRunId).toBe("child-1");
 		fixture.inspector.render(100);
+		// The top margin moves the grandchild row down by one terminal row.
 		expect(
 			fixture.inspector.handleMouse({
 				type: "click",
 				button: "left",
 				x: 3,
-				y: 3,
+				y: 4,
 				screenX: 3,
-				screenY: 3,
+				screenY: 4,
 				width: 100,
 				height: 40,
 				shift: false,
@@ -391,6 +395,230 @@ describe("read-only inspector", () => {
 	});
 });
 
+describe("inspector margins and wrapped picker text", () => {
+	it.each(["picker", "details"])("keeps four margins and the footer at 80x24 on %s", async (screen) => {
+		const fixture = inspectorFixture();
+		fixture.resize(24);
+		fixture.observations.updateRoot(fixture.root, { taskSummary: "X".repeat(160) });
+		fixture.read.mockResolvedValue({
+			node: fixture.observations.node("session", "root", "root")!,
+			task: "X".repeat(200),
+			outputPath: "/synthetic/output.md",
+			partial: false,
+			taskTruncated: false,
+			outputTruncated: false,
+		});
+		if (screen === "details") {
+			fixture.inspector.handleInput(keys.enter);
+			await flushInspector();
+		}
+		const lines = fixture.inspector.render(80).map(stripVTControlCharacters);
+		expect(lines).toHaveLength(24);
+		expect(lines[0].trim()).toBe("");
+		expect(lines[23].trim()).toBe("");
+		expect(lines[1].slice(0, 16)).toBe("  OMPS inspector");
+		for (const line of lines.filter((value) => value.trim())) {
+			expect(line.startsWith("  ")).toBe(true);
+			expect(visibleWidth(line)).toBeLessThanOrEqual(78);
+		}
+		expect(lines.some((line) => visibleWidth(line) === 78)).toBe(true);
+		expect(lines[22]).toContain(screen === "picker" ? "Esc close" : "Esc back");
+		fixture.inspector.dispose();
+	});
+
+	it.each(["picker", "details"])("drops only the unavailable margins on %s", async (screen) => {
+		const fixture = inspectorFixture();
+		if (screen === "details") {
+			fixture.inspector.handleInput(keys.enter);
+			await flushInspector();
+		}
+		for (const [width, height] of [
+			[30, 24],
+			[80, 8],
+			[30, 8],
+			[39, 9],
+			[40, 10],
+		]) {
+			fixture.resize(height);
+			const lines = fixture.inspector.render(width).map(stripVTControlCharacters);
+			const x = width >= 40 ? 2 : 0;
+			const y = height >= 10 ? 1 : 0;
+			expect(lines).toHaveLength(height);
+			expect(lines[y].slice(0, x + 14)).toBe(`${" ".repeat(x)}OMPS inspector`);
+			if (y) {
+				expect(lines[0].trim()).toBe("");
+				expect(lines.at(-1)!.trim()).toBe("");
+			}
+			const footer = lines[height - y - 1];
+			expect(footer).toContain(screen === "picker" ? "↑↓ select" : "Lines ");
+			for (const line of lines) expect(visibleWidth(line)).toBeLessThanOrEqual(width - x);
+		}
+		fixture.inspector.dispose();
+	});
+
+	it.each(["picker", "details"])("reserves the footer at height two on %s", async (screen) => {
+		const fixture = inspectorFixture();
+		fixture.resize(2);
+		if (screen === "details") {
+			fixture.inspector.handleInput(keys.enter);
+			await flushInspector();
+		}
+		const lines = fixture.inspector.render(80);
+		expect(lines).toHaveLength(2);
+		expect(lines[0]).toContain("builder");
+		expect(lines[1]).toContain(screen === "picker" ? "Esc close" : "Esc back");
+		fixture.inspector.dispose();
+	});
+
+	it("keeps the selected agent alone at height one", () => {
+		const fixture = inspectorFixture();
+		fixture.inspector.handleInput(keys.down);
+		fixture.resize(1);
+		const lines = fixture.inspector.render(80);
+		expect(lines).toHaveLength(1);
+		expect(lines[0]).toContain(">   reader-1");
+		expect(lines[0]).not.toContain("Esc");
+		fixture.inspector.dispose();
+	});
+
+	it.each([18, 30, 80])("keeps the selected detail agent visible at height one and width %i", async (width) => {
+		const fixture = inspectorFixture();
+		fixture.inspector.handleInput(keys.down);
+		fixture.inspector.handleInput(keys.enter);
+		await flushInspector();
+		fixture.resize(1);
+		const lines = fixture.inspector.render(width).map(stripVTControlCharacters);
+		expect(lines).toHaveLength(1);
+		expect(lines[0]).toContain("reader-1");
+		expect(lines[0]).not.toContain("Esc");
+		expect(visibleWidth(lines[0])).toBeLessThanOrEqual(width);
+		fixture.inspector.dispose();
+	});
+
+	it("wraps a nested summary at its agent indent and caps it at three lines with an ellipsis", () => {
+		const fixture = inspectorFixture();
+		const child = fixture.observations.node("session", "root", "child-1")!;
+		expect(
+			fixture.observations.ingest(
+				{ owner: "session", runId: "root" },
+				{
+					...child,
+					revision: child.revision + 1,
+					taskSummary: "Summary " + "界 segment ".repeat(14) + "TAIL",
+				},
+			),
+		).toBe("accepted");
+		fixture.inspector.handleInput(keys.down);
+		fixture.resize(24);
+		const lines = fixture.inspector.render(44).map(stripVTControlCharacters);
+		const row = lines.findIndex((line) => line.includes(">   reader-1"));
+		const summaries = lines.slice(row + 1, row + 4);
+		expect(summaries).toHaveLength(3);
+		expect(summaries[0]).toContain("Summary");
+		for (const line of summaries) {
+			expect(line).toMatch(/^ {6}\S/);
+			expect(line).toContain("segment");
+			expect(visibleWidth(line)).toBeLessThanOrEqual(42);
+		}
+		expect(summaries[2]).toMatch(/…$/);
+		expect(summaries.join("\n")).not.toContain("TAIL");
+		expect(lines[row + 4]).toContain("reader-2");
+		fixture.inspector.dispose();
+	});
+
+	it.each([18, 30, 31])(
+		"bounds deep-chain indentation to keep the selected name and summary visible at width %i",
+		(width) => {
+			const fixture = setup(1, 21);
+			fixture.resize(10);
+			const connection = { owner: "session", runId: "root" };
+			try {
+				for (let index = 1; index <= 20; index++) {
+					expect(
+						fixture.observations.ingest(connection, {
+							owner: index === 1 ? "child-session" : `chain-session-${index}`,
+							rootSessionId: "session",
+							runId: `chain-${index}`,
+							parentRunId: index === 1 ? "root" : `chain-${index - 1}`,
+							childSessionId: `chain-session-${index + 1}`,
+							depth: index + 1,
+							agent: `reader-${index}`,
+							state: "running",
+							startedAt: 1,
+							revision: 1,
+							activeTools: [],
+							...(index === 20 ? { taskSummary: "界".repeat(100) + "TAIL" } : {}),
+						}),
+					).toBe("accepted");
+					fixture.inspector.handleInput(keys.down);
+				}
+				const lines = fixture.inspector.render(width).map(stripVTControlCharacters);
+				const row = lines.findIndex((line) => line.startsWith("> "));
+				expect(lines[row]).toContain("reader-20");
+				for (const line of lines) expect(visibleWidth(line)).toBeLessThanOrEqual(width);
+				if (width < 30) {
+					expect(lines.join("\n")).not.toContain("界");
+				} else {
+					const nameColumn = lines[row].indexOf("reader-20");
+					expect(width - nameColumn).toBeGreaterThanOrEqual(2);
+					const summaries = lines.slice(row + 1, row + 4);
+					expect(summaries).toHaveLength(3);
+					for (const line of summaries) {
+						expect(line.indexOf("界")).toBe(nameColumn);
+						expect(line.trim()).toMatch(/^界+…?$/);
+					}
+					expect(summaries[2]).toMatch(/…$/);
+					expect(lines[row + 4]).not.toContain("界");
+					expect(summaries.join("\n")).not.toContain("TAIL");
+				}
+				expect(fixture.read).not.toHaveBeenCalled();
+			} finally {
+				fixture.inspector.dispose();
+			}
+		},
+	);
+
+	it("wraps a complete summary without adding an ellipsis", () => {
+		const fixture = inspectorFixture();
+		const summary = "Summary " + "word ".repeat(18) + "END";
+		fixture.observations.updateRoot(fixture.root, { taskSummary: summary });
+		const lines = fixture.inspector.render(80).map(stripVTControlCharacters);
+		const row = lines.findIndex((line) => line.includes("> builder"));
+		const summaries = lines.slice(row + 1, row + 3);
+		expect(summaries.map((line) => line.trim()).join(" ")).toBe(summary);
+		expect(lines[row + 3]).toContain("reader-1");
+		expect(summaries.join("")).not.toContain("…");
+		fixture.inspector.dispose();
+	});
+
+	it("wraps the complete warning beyond three lines and retains its warning colour", () => {
+		const fixture = inspectorFixture({ theme: syntheticTheme() });
+		fixture.resize(24);
+		const connection = { owner: "session", runId: "root" };
+		for (const reason of [
+			"connection-lost",
+			"nodes-omitted",
+			"tools-omitted",
+			"ancestor-terminal",
+			"backlog-expired",
+		] as const)
+			fixture.observations.markIncomplete(connection, reason);
+		const warning = `Tree observation incomplete: ${fixture.observations.tree("session", "root")!.reasons.join(", ")}`;
+		const lines = fixture.inspector.render(30);
+		const start = lines.findIndex((line) => stripVTControlCharacters(line).includes("Tree observation"));
+		const end = lines.findIndex((line, index) => index > start && stripVTControlCharacters(line).includes("reader-1"));
+		const wrapped = lines.slice(start, end);
+		expect(wrapped.length).toBeGreaterThan(3);
+		expect(wrapped.map((line) => stripVTControlCharacters(line).trim()).join(" ")).toBe(warning);
+		for (const line of wrapped) {
+			expect(line).toContain("\x1b[33m");
+			expect(visibleWidth(line)).toBeLessThanOrEqual(30);
+			expect(line).not.toContain("…");
+		}
+		fixture.inspector.dispose();
+	});
+});
+
 /** Root, two direct children and one grandchild beneath the first child. */
 function nestedSetup() {
 	const observations = new ObservationStore();
@@ -504,7 +732,8 @@ describe("session tree modal", () => {
 		inspector.handleInput("\x1b[B");
 		inspector.handleInput("\x1b[D");
 		expect(inspector.render(100).join("\n")).not.toContain("grandchild");
-		expect(inspector.render(100).some((line) => line.startsWith("> ") && line.includes("child-1"))).toBe(true);
+		// The horizontal margin now precedes the selected-row marker.
+		expect(inspector.render(100).some((line) => line.startsWith("  > ") && line.includes("child-1"))).toBe(true);
 		inspector.handleInput("\x1b[C");
 		// A fresh refresh keeps the same selected run id on a later sibling.
 		inspector.handleInput("\x1b[B");
@@ -519,7 +748,8 @@ describe("session tree modal", () => {
 			nesting: { registryPath: "/r", rootSessionId: "session", depth: 1, maxDepth: 3 },
 		});
 		const lines = inspector.render(100);
-		expect(lines.some((line) => line.startsWith("> ") && line.includes("child-2"))).toBe(true);
+		// Selection still uses the same marker inside the horizontal margin.
+		expect(lines.some((line) => line.startsWith("  > ") && line.includes("child-2"))).toBe(true);
 		inspector.dispose();
 	});
 

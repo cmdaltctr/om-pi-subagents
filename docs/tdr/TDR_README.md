@@ -9,15 +9,19 @@ TDRs record implementation-level findings: platform workarounds, debugging resul
 
 ## Index
 
-| TDR                                                                   | Title                                                 | Date       | Status   |
-| --------------------------------------------------------------------- | ----------------------------------------------------- | ---------- | -------- |
-| [001](./001-make-tests-pass-on-linux.md)                              | Make process, path and clean-up tests pass on Linux   | 2026-10-01 | Accepted |
-| [002](./002-allow-tool-events-before-the-prompt-response-in-tests.md) | Allow tool events before the prompt response in tests | 2026-10-02 | Accepted |
-| [003](./003-leave-the-generated-changelog-out-of-format-checks.md)    | Leave the generated changelog out of format checks    | 2026-10-02 | Accepted |
-| [004](./004-wait-for-descendants-while-the-turn-can-be-aborted.md)    | Wait for descendants while the turn can be aborted    | 2026-10-05 | Accepted |
-| [005](./005-match-ci-launch-overrides-and-declare-test-tools.md)      | Match CI launch overrides and declare test tools      | 2026-10-05 | Accepted |
-| [006](./006-use-underscore-mcp-tool-names-on-pi-1.md)                 | Use underscore MCP tool names on Pi 1.0               | 2026-10-07 | Accepted |
-| [007](./007-macos-option-key-and-pi-modifier-order.md)                | Handle the macOS Option key and Pi modifier order     | 2026-10-07 | Accepted |
+| TDR                                                                   | Title                                                 | Date       | Status                                          |
+| --------------------------------------------------------------------- | ----------------------------------------------------- | ---------- | ----------------------------------------------- |
+| [001](./001-make-tests-pass-on-linux.md)                              | Make process, path and clean-up tests pass on Linux   | 2026-10-01 | Accepted                                        |
+| [002](./002-allow-tool-events-before-the-prompt-response-in-tests.md) | Allow tool events before the prompt response in tests | 2026-10-02 | Accepted                                        |
+| [003](./003-leave-the-generated-changelog-out-of-format-checks.md)    | Leave the generated changelog out of format checks    | 2026-10-02 | Accepted                                        |
+| [004](./004-wait-for-descendants-while-the-turn-can-be-aborted.md)    | Wait for descendants while the turn can be aborted    | 2026-10-05 | Accepted                                        |
+| [005](./005-match-ci-launch-overrides-and-declare-test-tools.md)      | Match CI launch overrides and declare test tools      | 2026-10-05 | Accepted                                        |
+| [006](./006-use-underscore-mcp-tool-names-on-pi-1.md)                 | Use underscore MCP tool names on Pi 1.0               | 2026-10-07 | Accepted                                        |
+| [007](./007-macos-option-key-and-pi-modifier-order.md)                | Handle the macOS Option key and Pi modifier order     | 2026-10-07 | Accepted                                        |
+| [009](./009-confirm-pi-0-99-1-package-layout.md)                      | Confirm the Pi 0.99.1 package layout                  | 2026-10-08 | Accepted                                        |
+| [011](./011-redraw-result-messages-and-preserve-legacy-ctrl-e.md)     | Redraw result messages and preserve legacy Ctrl+E     | 2026-10-08 | Accepted                                        |
+| [012](./012-at-mention-autocomplete-on-pi.md)                         | At-mention autocomplete on Pi                         | 2026-10-08 | Accepted (application partly superseded by 013) |
+| [013](./013-replace-the-whole-agent-completion-token.md)              | Replace the whole agent completion token              | 2026-10-08 | Accepted                                        |
 
 ## Status values
 

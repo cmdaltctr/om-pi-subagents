@@ -75,6 +75,48 @@ async function published(path: string, capability: Capability): Promise<Publishe
 	}
 }
 
+/** Find listed installed packages through metadata only, regardless of parent resource filters. */
+export async function detectPublishedPackages(agentDir: string, capability: Capability): Promise<PublishedPackage[]> {
+	let listed: unknown;
+	try {
+		const settings: unknown = JSON.parse(await readFile(join(agentDir, "settings.json"), "utf8"));
+		if (!settings || typeof settings !== "object") return [];
+		listed = (settings as { packages?: unknown }).packages;
+	} catch {
+		return [];
+	}
+	if (!Array.isArray(listed)) return [];
+	const results: PublishedPackage[] = [];
+	const roots = new Set<string>();
+	for (const item of listed) {
+		const source: unknown =
+			typeof item === "string"
+				? item
+				: item && typeof item === "object" && !Array.isArray(item)
+					? (item as { source?: unknown }).source
+					: undefined;
+		if (typeof source !== "string" || !source.trim()) continue;
+		let path: string;
+		if (source.startsWith("npm:")) {
+			const name = /^npm:((?:@[^/@\s]+\/)?[^/@\s]+)(?:@[a-zA-Z0-9.*^~<>=| +_-]+)?$/.exec(source)?.[1];
+			if (name !== packages[capability].name) continue;
+			path = join(agentDir, "npm", "node_modules", name);
+		} else {
+			if (source.startsWith("~") || (!isAbsolute(source) && source.includes(":"))) continue;
+			path = resolve(agentDir, source);
+		}
+		try {
+			const resource = await published(path, capability);
+			if (!resource || roots.has(resource.root)) continue;
+			roots.add(resource.root);
+			results.push(resource);
+		} catch {
+			// A failed filesystem check must not discard later valid candidates.
+		}
+	}
+	return results;
+}
+
 /** Inspect only declared paths and package metadata; never import or execute a sibling extension. */
 export async function inspectCapability(
 	agent: AgentSnapshot,

@@ -383,13 +383,47 @@ Settings SHALL offer Memory and Todo controls for existing mapped agents. Their 
 
 ### Requirement: Confirm coherent capability edits
 
-Enabling SHALL validate operator-selected installed resources and propose the selected agent's exact tool, extension and optional shipped skill entries. Disabling SHALL remove its matching tool and recognised sibling resources together. Related changes MUST be confirmed and saved atomically with conflict checks. Repeated requests SHALL be idempotent. Other tools, agents and settings MUST remain unchanged. Ambiguous ownership MUST NOT cause guessed removal.
+Enabling SHALL find installed Memory or Todo resources from Pi's configured package list, validate them, and propose the selected agent's exact tool, extension and optional shipped skill entries. When detection finds no usable package, enabling SHALL offer an operator-typed installed package folder or published entry path. Disabling SHALL remove its matching tool and recognised sibling resources together. Related changes MUST be confirmed and saved atomically with conflict checks. Repeated requests SHALL be idempotent. Other tools, agents and settings MUST remain unchanged. Ambiguous ownership MUST NOT cause guessed removal. Detection MUST read package metadata only and MUST NOT import, execute or load a sibling extension.
 
 #### Scenario: A capability is enabled later
 
 - **WHEN** the operator selects an existing agent and confirms valid installed Memory or Todo resources
 - **THEN** its related YAML lists are saved together without duplicate entries
 - **AND** the capability is available to future launches through normal readiness and exact-tool checks
+
+#### Scenario: One installed package is detected
+
+- **WHEN** the operator enables Memory or Todo and Pi's package list names exactly one installed package that passes validation
+- **THEN** OMPS proposes that package without asking for a path
+- **AND** the confirmation dialog still shows the exact resources and destination
+
+#### Scenario: Several installed packages are detected
+
+- **WHEN** more than one distinct installed package passes validation for the same capability
+- **THEN** OMPS asks the operator to choose one
+- **AND** it does not select a package by order or guess
+
+#### Scenario: A local package uses a relative source
+
+- **WHEN** Pi lists a relative local package source
+- **THEN** detection resolves it against the Pi agent directory before validation
+
+#### Scenario: Parent package resources are filtered
+
+- **WHEN** a listed package passes validation but its object entry disables automatic loading or filters resources
+- **THEN** detection still offers it for an explicitly confirmed child capability mapping
+
+#### Scenario: No installed package is detected
+
+- **WHEN** Pi's package list names no usable package for the capability, or the settings file is missing or unreadable
+- **THEN** OMPS shows installation guidance and offers the typed path prompt
+- **AND** YAML stays unchanged unless the operator supplies a valid path and confirms
+
+#### Scenario: A listed package is not usable
+
+- **WHEN** a listed folder is missing, has a different package name, or has an invalid extension entry
+- **THEN** OMPS skips that entry for detection
+- **AND** it does not report the entry as an error unless no other package is usable
 
 #### Scenario: Memory approval is confirmed
 
@@ -443,3 +477,65 @@ Confirmed capability edits SHALL take effect on the selected agent's next fresh 
 - **WHEN** an approved parent delegates to a different mapped agent
 - **THEN** that target's own saved lists determine its capabilities
 - **AND** the delegator's Memory/Todo state is not copied into the target
+
+### Requirement: Accept forgiving typed shortcut input in settings
+
+The `/omps-settings` shortcut prompts SHALL tell the operator to type the key as text, with an example such as `ctrl+1`, and not to press the keys. The prompt SHALL name the common modifiers `ctrl`, `shift` and `alt`. Before validation, settings SHALL convert the typed text to a canonical key specification: lowercase, no spaces around `+`, `ctr`, `ctl` and `control` as `ctrl`, `opt` and `option` as `alt`, and `cmd`, `command` and `win` as `super`. The converted key MUST pass the existing unsafe-key and duplicate checks. Before confirmation or saving, settings MUST check conflicts against effective Pi bindings using the same policy and guidance as shortcut registration. The existing direction-specific exceptions for default Up/Down navigation MUST remain available. The confirmation SHALL show the converted key and, when it differs, the typed text. The saved value SHALL be the converted key. The YAML loader MUST NOT accept these aliases.
+
+#### Scenario: A modifier is spelled loosely
+
+- **WHEN** the operator types `Control + 1` for a shortcut
+- **THEN** settings proposes `ctrl+1`
+- **AND** the confirmation shows both the typed text and `ctrl+1`
+
+#### Scenario: A canonical key is typed
+
+- **WHEN** the operator types `ctrl+shift+i`
+- **THEN** settings proposes it unchanged
+- **AND** the confirmation does not show a conversion
+
+#### Scenario: The prompt explains typing
+
+- **WHEN** a shortcut prompt opens
+- **THEN** it says to type the key as text and gives `ctrl+1` as an example
+- **AND** it names `ctrl`, `shift` and `alt` as common modifiers
+
+#### Scenario: A converted key is unsafe or conflicts
+
+- **WHEN** the converted key is `tab`, `ctrl+i`, a duplicate OMPS key or a key owned by an effective Pi action outside the permitted default navigation overlaps
+- **THEN** settings rejects it with the existing guidance before showing a save confirmation
+- **AND** nothing is saved
+
+#### Scenario: Default navigation uses permitted Pi overlaps
+
+- **WHEN** the operator types `Down` for `navigationDownKey` or `Up` for `navigationUpKey`
+- **AND** effective Pi owners are limited to the existing direction-specific cursor, history and selection actions
+- **THEN** settings allows confirmation and saves `down` or `up`
+- **AND** shortcut registration accepts the same permitted overlaps
+
+#### Scenario: Another Pi action owns a default navigation key
+
+- **WHEN** an effective Pi action outside the permitted direction-specific overlaps owns `down` or `up`
+- **AND** the operator assigns that key to its default navigation field
+- **THEN** settings rejects the edit before confirmation and leaves the registry unchanged
+- **AND** shortcut registration refuses the key with the same owner-specific guidance
+
+#### Scenario: Remapping a Pi action frees a key
+
+- **WHEN** a Pi action has been remapped away from the converted key
+- **AND** no effective Pi action owns that key
+- **AND** the key passes the unsafe-key and duplicate checks
+- **THEN** settings permits confirmation and saving
+- **AND** shortcut registration permits the key under those effective bindings
+
+#### Scenario: An unknown word is typed
+
+- **WHEN** the operator types a modifier that is not a known spelling, such as `hyper+1`
+- **THEN** settings rejects it with the existing key error
+- **AND** the error lists the accepted modifiers
+
+#### Scenario: YAML uses an alias
+
+- **WHEN** the registry YAML sets `ui.toggleKey: control+1`
+- **THEN** the loader rejects it with the existing lowercase key error
+- **AND** the settings input remains the only place that converts aliases

@@ -6,7 +6,8 @@ OMPS lets Pi hand a task to a specialist agent that you defined. The agent runs 
 
 - [Before you start](#before-you-start)
 - [Quick start](#quick-start)
-- [Two ways to start a run](#two-ways-to-start-a-run)
+- [Start a run](#start-a-run)
+- [At-mention launch](#at-mention-launch)
 - [While a run works](#while-a-run-works)
 - [Agent trees and inspection](#agent-trees-and-inspection)
 - [Getting the result](#getting-the-result)
@@ -54,9 +55,60 @@ The examples below use an agent called `reader` that may only read files.
 
 Pi shows full paths in its output. This guide writes `~` for your home folder.
 
-## Two ways to start a run
+## Start a run
 
-You can type a slash command. You can also ask Pi in plain words, for example "Ask the reader agent to summarise the README". Pi's model then calls the `omps` tool for you. Both ways do the same work and give the same messages.
+Use `/omps run`, or ask Pi's model to call the `omps` tool.
+Use `@<agent> <task>` as a shortcut in Pi's interactive terminal interface.
+All use the same launch rules and result messages.
+
+### At-mention launch
+
+1. Open Pi's interactive terminal interface.
+2. Type `@` at the very start of the first editor line.
+3. Select a mapped agent, or type its name.
+4. Add a task after the space.
+5. Submit the line.
+
+For the mapped `reader` agent:
+
+```text
+@reader Summarise the README
+```
+
+Completion labels contain agent names only, without descriptions. Matching agent items appear above Pi's file items
+when both use the same text to replace. Pi's file items keep their order.
+Selecting an agent leaves exactly one space after its name, with the cursor ready for the task.
+OMPS offers no agents after other text, after leading spaces, or on later editor lines.
+
+Pi trims submissions before OMPS receives them. Submitting ` @reader Summarise the README`
+therefore launches `reader`, even though the leading space prevented agent completion while typing.
+
+OMPS launches through the same path as `/omps run`, in Pi's current working folder.
+It sends no parent model request to route the launch. The child still calls its model;
+the later result message can start a parent model turn as described in [Getting the result](#getting-the-result).
+Capacity or depth refusal shows the command's error. An admitted run that fails readiness keeps its acknowledgement
+and later failed result.
+
+| Submitted input                            | Outcome                                                            |
+| ------------------------------------------ | ------------------------------------------------------------------ |
+| `@reader Summarise the README`             | Launches mapped `reader`.                                          |
+| `@reader` or a whitespace-only task        | Shows usage; starts nothing and sends nothing to the model.        |
+| `@nobody do it`, when `nobody` is unmapped | Shows mapped names; starts nothing and sends nothing to the model. |
+| `@README.md summarise this`, when unmapped | Continues to Pi as a file reference.                               |
+| `@src/x.ts explain this`, when unmapped    | Continues to Pi as a file reference.                               |
+| `Please ask @reader to read this`          | Continues as ordinary text.                                        |
+| Bare `@`                                   | Continues to Pi.                                                   |
+
+An unmapped name containing `/` or `.` stays a file reference. For a bare directory name, use a path:
+`@./docs summarise these files`. An unknown bare `@docs` shows agent guidance, and a mapped `docs` takes the agent route.
+Pass-through text stays unchanged as OMPS receives it, after Pi's submission trimming.
+
+Each completion request and submission reads fresh mappings. A failed completion read keeps Pi's items and adds no agents.
+If the registry cannot be read on submission of an initial `@`, OMPS shows the error and sends nothing to the model.
+Fix the reported registry field, then retry.
+
+At-mention launch requires interactive input in terminal mode (`tui`). Input through RPC, another extension,
+or a non-terminal mode passes through without launching. Use `/omps run` or the `omps` tool for those clients.
 
 ### Slash commands
 
@@ -118,7 +170,7 @@ Cancel one run:
 { "action": "cancel", "runId": "3f2c9b1e-8a4d-4c7e-9b2a-1d5e6f7a8b9c" }
 ```
 
-Only the tool can set a different working folder. The slash command always uses Pi's current folder.
+Only the tool can set a different working folder. The slash command and at-mention launch use Pi's current folder.
 
 The `run` action returns at once. It does not wait for the agent to answer.
 
@@ -193,7 +245,7 @@ Custom bindings that Pi owns remain inactive, with the owning action named and n
 In Pi 1.0.4, Ctrl+Shift+Up/Down belong to `tui.altScreen.previousPrompt` and `tui.altScreen.nextPrompt`.
 OMPS never rewrites Pi keybindings. Follow the [manual remapping example](SETUP.md#management-navigation-keys),
 keep other entries, check `/hotkeys`, then run `/reload`. Some terminals consume modified arrows;
-test your pair locally or choose other keys. View shortcuts default to `off`; see [operator settings](#operator-settings).
+test your pair locally or choose other keys. Fleet and inspection shortcuts default to `off`; see [operator settings](#operator-settings).
 
 The widgets never show tool arguments, tool results, the agent's thinking or error logs. OMPS removes terminal control characters from the text. Saved answers appear in inspection and in the result message.
 
@@ -242,14 +294,28 @@ Status counts still include all active direct children.
 1. Run `/omps inspect` to open the picker of retained nodes.
 2. Move with Up/Down. Rows sit beneath their immediate parent, indented by depth.
 3. Fold with Left or unfold with Right. Folded rows stay retained.
-4. Press Enter to open full-width details.
+4. Press Enter to open details.
 5. Scroll with Up/Down, PageUp/PageDown or Home/End.
 6. Switch agents with Left/Right while details are open.
 7. Press Escape to return to the picker with its selection and folds intact.
 8. Press Escape again to return to Pi's editor.
 
-Every width uses one column. A header identifies the selected agent, state and elapsed time.
+Every width uses one column. Both the picker and details keep a margin on all four sides when space permits:
+
+- At widths of at least 40 columns, each side margin is 2 columns. Below 40 columns, side margins are zero.
+- At heights of at least 10 rows, the top and bottom margins are 1 blank row each. Below 10 rows, these margins are zero.
+
+The header, body and footer sit inside the margins. The footer hint keeps its row at heights of at least 2 rows.
+At height one, the picker shows the selected agent row and omits the footer.
+
+Long task summaries wrap below their agent row, with matching indentation. Each summary uses at most 3 lines.
+A summary shortened by that cap ends with an ellipsis. Open details to read the full retained task.
+Summaries stay hidden when the available content width is below 30 columns.
+Picker observation warnings wrap fully without a separate line cap or ellipsis; the available body still limits visible lines.
+
+A header identifies the selected agent, state and elapsed time.
 The scrollable body separates task, current activity, **Live answer · provisional** and **Saved output**.
+Each section heading has a blank line before and after it. A heading at the start of the body has no leading blank line.
 Answers use Pi's themed Markdown. The footer shows controls and the visible line range when content exceeds the viewport.
 Scrolling works while saved reads load or fail, including provisional-only answers.
 New content preserves your reading position. Reaching the bottom follows updates until you scroll upwards.
@@ -257,7 +323,7 @@ Terminal duration freezes at the retained end time. With no observed tool, detai
 Tool names and concurrent counts describe current activity; they provide no complete tool history.
 
 `/omps inspect <run-id>` and Enter on a management row open details directly; Escape closes without a picker step.
-Fullscreen mode supports picker-row clicks and mouse-wheel scrolling over the detail body.
+Fullscreen mode supports picker-row clicks, including wrapped continuation lines, and mouse-wheel scrolling over the detail body.
 Regular mode uses keyboard input because the terminal owns mouse scrollback.
 The modal includes retained hidden descendants and completed short runs, and it updates while agents run.
 Resizing keeps the selected run. Closing the modal restores your editor draft and releases its pending reads; the run continues.
@@ -313,6 +379,35 @@ The README explains how to install OMPS and map agents...
 - A cancelled run sends no message.
 - If the session ended before the message was sent, nothing is sent. `notification.json` in the run folder records the failure.
 
+### Folded results and expansion keys
+
+Interactive Pi folds long result messages by default. The heading, files line and `Result:` label stay visible.
+Any `Error:` line and `PARTIAL OUTPUT` note remain visible too. The fold shows the first eight other result lines.
+Lines are counted before wrapping, so a long line can occupy several screen rows.
+A short result shows in full without a hint.
+
+When lines are hidden, the hint shows their count, the active result shortcut and the host expansion key.
+Pi's host action is `app.tools.expand`, Ctrl+O by default. The hint follows its current binding.
+If Pi cannot supply the key name, the hint says `expand with the host expansion key`.
+
+- Press Ctrl+Shift+E to toggle expansion for every OMPS result in the session, including later results.
+- Use the host expansion key to toggle Pi's expansion state, which also affects tool output and later results.
+- Each key toggles its own state. A result folds only when both expansion states are off.
+
+The result shortcut leaves unrelated tool output unchanged. Its session state resets when the session ends or Pi reloads.
+Choose **Result shortcut** in `/omps-settings` to change `ui.resultKey` or set it to `off`.
+Run `/reload` after saving. With the result key off or inactive, the host expansion action remains available.
+
+Ctrl+Shift+E needs extended-key reporting, which preserves modifiers in terminal input.
+Pi accepts kitty CSI-u and xterm `modifyOtherKeys` sequences.
+Without confirmed kitty support, OMPS warns that terminal support is unverified and keeps a conflict-free binding active.
+OMPS cannot reliably confirm `modifyOtherKeys` support. Raw Ctrl+E keeps Pi's move-to-line-end action.
+If Ctrl+Shift+E does nothing or moves the cursor, use the host key in the hint or choose another free result key.
+An effective Pi key conflict leaves the OMPS binding inactive and names the owning action; check `/hotkeys`.
+
+Folding changes only the terminal display. The model receives the same message text, including the existing 4000-character answer limit.
+`output.md` and `notification.json` stay unchanged. JSON, print and RPC result content keeps its existing behaviour.
+
 ### Nested results and local todos
 
 Each result reaches the run's immediate parent, once and separately from other results.
@@ -353,12 +448,55 @@ own mapping, even when its immediate parent has either capability enabled.
 1. Install `om-memory-system` or `om-pi-todo` separately if needed.
 2. Run `/omps-settings` and choose **Agent capabilities**.
 3. Choose an existing agent, then **Memory** or **Todo**.
-4. Choose **Enable** and enter the installed package folder or its published Pi extension entry.
-5. Confirm the exact changes to that agent's lists and the YAML destination.
+4. Choose **Enable**, or **Enable with shipped skill** for Memory when you also need `omms-memory`.
+5. Choose a package folder if OMPS finds several valid installations.
+6. Enter an installed package folder or published extension entry if detection offers the fallback prompt.
+7. Review the exact list changes and YAML destination before confirming.
 
-The helper reads the package's published `pi.extensions` metadata. Memory also offers
-**Enable with shipped skill** when `omms-memory` is present in its published skills.
-It adds `memory` or `todo` to `tools`, and the selected entry to `extensions`.
+OMPS first reads `packages` in `<agent-dir>/settings.json`.
+The agent directory defaults to `~/.pi/agent`; `PI_CODING_AGENT_DIR` selects another directory.
+One valid package skips the path prompt. Several distinct package folders require your choice.
+With no usable match, OMPS shows installation guidance and offers manual entry.
+Cancelling a package choice or the fallback prompt leaves YAML unchanged.
+
+Detection accepts string sources and objects with a string `source`.
+Matching `npm:om-memory-system` and `npm:om-pi-todo` entries resolve under `<agent-dir>/npm/node_modules/`.
+A version, range or tag suffix selects the same installed package folder.
+Absolute local paths are checked directly; relative paths resolve from the agent directory.
+Repeated sources and symbolic links to the same package folder count as one installation.
+
+Parent `autoload: false` and resource filters, such as `extensions: []`, do not hide valid candidates.
+Your confirmation approves the child's resources separately. Parent settings stay unchanged.
+Detection reads metadata and checks filesystem paths without importing, executing or loading either extension.
+
+**Manual path fallback**
+
+Detection skips sources beginning with `~`, `file://`, git sources and URLs.
+An unlisted checkout, project-only package or legacy global npm install also needs manual entry.
+Missing, unreadable or invalid Pi settings use this fallback. Unusable package entries are skipped.
+
+1. Use `pi list` to locate the installed package.
+2. Enter its absolute package folder or published Pi extension entry path in the prompt.
+3. Review the exact resources and YAML destination.
+4. Confirm the save, or cancel to leave YAML unchanged.
+
+For a skipped source, supply its installed filesystem path in place of the source string.
+If the package is absent, install the required sibling separately, then reopen `/omps-settings`:
+
+```sh
+pi install npm:om-memory-system
+```
+
+For Todo:
+
+```sh
+pi install npm:om-pi-todo
+```
+
+OMPS runs neither command and writes nothing to Pi's settings.
+Both detection and manual entry validate the package name and its published `pi.extensions` metadata.
+**Enable with shipped skill** also requires the published `omms-memory` skill; select another package if it is missing.
+The confirmed edit adds `memory` or `todo` to `tools`, and the selected entry to `extensions`.
 No separate permission flag or sibling configuration block is needed:
 
 ```yaml
@@ -456,7 +594,7 @@ There is no machine-wide budget. Concurrent writers need separate safe working d
 
 1. Run `/omps-settings` with no arguments. `/subagents-settings` is an alias of the same menu.
 2. Select a setting from the menu.
-3. Enter a whole number for limits and visible rows, or a key specification for a shortcut.
+3. Enter a whole number for limits and visible rows, or type shortcut text such as `ctrl+1`.
 4. Read the value, destination and any load warning.
 5. Confirm the save, or decline it.
 6. Select Done to close the menu.
@@ -464,19 +602,20 @@ There is no machine-wide budget. Concurrent writers need separate safe working d
 Native selection, input and confirmation dialogs work in interactive Pi and supported RPC clients.
 The command starts no agent or model request. Clients without dialogs receive an error before any settings file access.
 
-| Menu item                           | Validation                                           | Save destination                        |
-| ----------------------------------- | ---------------------------------------------------- | --------------------------------------- |
-| Maximum nesting depth               | Safe integer of at least 0; root depth is 0          | `limits.maxDepth` in registry YAML      |
-| Parallel direct children per parent | Safe integer of at least 1                           | `limits.maxConcurrentRuns` in that YAML |
-| Visible agents                      | Safe integer from 1 to 256; default 5                | `ui.maxVisibleAgents` in that YAML      |
-| Fleet view                          | `expanded`, `collapsed` or `off`; default `expanded` | `ui.fleetView` in that YAML             |
-| Management list                     | Show/Hide; default Show                              | `ui.showManagementList` in that YAML    |
-| Management next / enter key         | Pi key specification or `off`; default `down`        | `ui.navigationDownKey` in that YAML     |
-| Management previous key             | Pi key specification or `off`; default `up`          | `ui.navigationUpKey` in that YAML       |
-| Fleet view shortcut                 | Pi key specification or `off`; default `off`         | `ui.toggleKey` in that YAML             |
-| Inspection shortcut                 | Pi key specification or `off`; default `off`         | `ui.inspectKey` in that YAML            |
-| Agent capabilities                  | Select an agent, then Memory or Todo                 | That agent's existing YAML lists        |
-| Import legacy visible agents        | Offered while a valid legacy value applies           | `ui.maxVisibleAgents` in that YAML      |
+| Menu item                           | Validation                                            | Save destination                        |
+| ----------------------------------- | ----------------------------------------------------- | --------------------------------------- |
+| Maximum nesting depth               | Safe integer of at least 0; root depth is 0           | `limits.maxDepth` in registry YAML      |
+| Parallel direct children per parent | Safe integer of at least 1                            | `limits.maxConcurrentRuns` in that YAML |
+| Visible agents                      | Safe integer from 1 to 256; default 5                 | `ui.maxVisibleAgents` in that YAML      |
+| Fleet view                          | `expanded`, `collapsed` or `off`; default `expanded`  | `ui.fleetView` in that YAML             |
+| Management list                     | Show/Hide; default Show                               | `ui.showManagementList` in that YAML    |
+| Management next / enter key         | Pi key specification or `off`; default `down`         | `ui.navigationDownKey` in that YAML     |
+| Management previous key             | Pi key specification or `off`; default `up`           | `ui.navigationUpKey` in that YAML       |
+| Fleet view shortcut                 | Pi key specification or `off`; default `off`          | `ui.toggleKey` in that YAML             |
+| Inspection shortcut                 | Pi key specification or `off`; default `off`          | `ui.inspectKey` in that YAML            |
+| Result shortcut                     | Pi key specification or `off`; default `ctrl+shift+e` | `ui.resultKey` in that YAML             |
+| Agent capabilities                  | Select an agent, then Memory or Todo                  | That agent's existing YAML lists        |
+| Import legacy visible agents        | Offered while a valid legacy value applies            | `ui.maxVisibleAgents` in that YAML      |
 
 Parallel agents and direct children share the same per-parent limit.
 The menu shows the selected registry path, including any `OMPS_REGISTRY` override, and labels
@@ -484,13 +623,33 @@ the source of the effective visible-agent value: YAML, the legacy display file o
 OMPS does not write todo preferences or Pi's `settings.json`.
 
 A saved fleet view applies at once and replaces any session toggle. Management-list visibility also repaints immediately.
-Navigation-key and view-shortcut edits need `/reload`.
+Navigation-key and shortcut edits, including Result shortcut, need `/reload`.
 
-Shortcut keys are lowercase Pi key specifications, such as `alt+o`. Tab and Ctrl+I are refused,
-and so is a key already bound to an effective built-in action, with guidance to choose another.
+Type the shortcut as text, for example `ctrl+1`. Spell out the modifier instead of holding Ctrl while entering the key.
+Common modifiers are `ctrl`, `shift` and `alt`; `super` is also a valid modifier name.
+Separate a modifier and key with `+`. Type `off` to disable a key.
+Settings accepts any letter case and spaces around `+`. It converts these modifier spellings:
+
+| Typed modifier                   | Saved modifier |
+| -------------------------------- | -------------- |
+| `ctrl`, `ctr`, `ctl`, `control`  | `ctrl`         |
+| `shift`                          | `shift`        |
+| `alt`, `opt`, `option`           | `alt`          |
+| `super`, `cmd`, `command`, `win` | `super`        |
+
+For `Control + 1`, the confirmation shows both your text and `ctrl+1`. YAML stores `ctrl+1` after confirmation.
+Unknown modifiers, including `meta`, are rejected. Manual YAML edits must use strict Pi modifier names.
+
+Shortcut keys are lowercase Pi key specifications, such as `alt+o`. Tab and Ctrl+I are refused.
+Settings checks effective Pi bindings before confirmation and saving, using the same policy as shortcut registration.
+A conflict names the owning actions and points to `keybindings.json`, `/hotkeys` and `/reload`.
 All enabled OMPS keys must differ after modifier normalisation. Each key can be `off`.
 Default Down/Up retain their scoped editor/list use; custom navigation keys must be free of effective Pi actions.
-Shortcuts default to `off`. To restore the old `alt+o` and `alt+i` keys, and for the macOS Option setting they need, see [Restore the Alt keys](SETUP.md#restore-the-alt-keys).
+Fleet and inspection shortcuts default to `off`. The result shortcut defaults to `ctrl+shift+e`.
+On macOS, Option+O can type `ø` unless the terminal sends Option as Alt.
+Set the terminal's Option behaviour before using an Alt shortcut, or choose another key.
+See [Restore the Alt keys](SETUP.md#restore-the-alt-keys) for terminal settings and the old `alt+o` and `alt+i` bindings.
+[TDR-007](https://github.com/cmdaltctr/om-pi-subagents/blob/main/docs/tdr/007-macos-option-key-and-pi-modifier-order.md) records the existing platform finding.
 
 Shortcuts bind when an interactive session starts. A saved shortcut needs `/reload` before it
 becomes active; the menu shows the saved and the active binding until then. A visible-agent
@@ -545,7 +704,7 @@ To recover:
 
 ### Working folder
 
-- The slash command uses Pi's current working folder.
+- The slash command and at-mention launch use Pi's current working folder.
 - The tool's `cwd` must be an absolute path to a folder that exists.
 
 ### Tools

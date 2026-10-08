@@ -7,6 +7,29 @@ const text = (fixture: ReturnType<typeof inspectorFixture>) =>
 	stripVTControlCharacters(fixture.inspector.render(100).join("\n"));
 afterEach(() => vi.useRealTimers());
 describe("inspector themed presentation", () => {
+	it.each([false, true])("separates detail section headings from content (partial: %s)", async (partial) => {
+		const fixture = inspectorFixture();
+		fixture.resize(300);
+		fixture.observations.updateRoot(fixture.root, { assistantPreview: "Visible live answer" });
+		if (partial) fixture.observations.updateRoot({ ...fixture.root, state: "failed", endedAt: 9000 });
+		fixture.inspector.handleInput(keys.enter);
+		await flushInspector();
+		const lines = text(fixture)
+			.split("\n")
+			.map((line) => line.trim());
+		for (const heading of [
+			"Task",
+			"Current activity",
+			"Live answer · provisional",
+			partial ? "Partial output" : "Saved output",
+		]) {
+			const index = lines.indexOf(heading);
+			expect(index).toBeGreaterThan(0);
+			expect(lines[index - 1]).toBe("");
+			expect(lines[index + 1]).toBe("");
+		}
+		fixture.inspector.dispose();
+	});
 	it.each([false, true])("uses supplied semantic colours and sanitised host Markdown (light: %s)", async (light) => {
 		const theme = syntheticTheme(light);
 		const fixture = inspectorFixture({ theme });
@@ -77,7 +100,8 @@ describe("inspector themed presentation", () => {
 		const fixture = inspectorFixture();
 		fixture.inspector.handleInput(keys.enter);
 		await flushInspector();
-		const header = stripVTControlCharacters(fixture.inspector.render(30).slice(0, 2).join("\n"));
+		// The vertical margin precedes both narrow-header rows.
+		const header = stripVTControlCharacters(fixture.inspector.render(30).slice(1, 3).join("\n"));
 		expect(header).toContain("builder");
 		expect(header).toContain("running");
 		expect(header).toContain("8s");
@@ -90,13 +114,20 @@ describe("inspector themed presentation", () => {
 		await flushInspector();
 		fixture.inspector.render(100);
 		fixture.inspector.handleInput(keys.end);
-		const before = text(fixture).split("\n").at(-1);
+		// Compare the line-range footer, not the blank bottom margin.
+		const before = text(fixture)
+			.split("\n")
+			.find((line) => line.includes("Lines "));
 		vi.mocked(theme.fg).mockImplementation((_role, value) => `\x1b[95m${value}\x1b[39m`);
 		fixture.inspector.invalidate();
 		const after = fixture.inspector.render(100).join("\n");
 		expect(after).toContain("\x1b[95m");
 		expect(after).not.toContain("\x1b[37m");
-		expect(stripVTControlCharacters(after).split("\n").at(-1)).toBe(before);
+		expect(
+			stripVTControlCharacters(after)
+				.split("\n")
+				.find((line) => line.includes("Lines ")),
+		).toBe(before);
 		fixture.inspector.dispose();
 	});
 	it.each([
@@ -120,7 +151,8 @@ describe("inspector themed presentation", () => {
 		fixture.observations.updateRoot({ ...fixture.root, state: "completed" });
 		fixture.inspector.handleInput(keys.enter);
 		await flushInspector();
-		const header = stripVTControlCharacters(fixture.inspector.render(100)[0]);
+		// The header sits below the blank top margin.
+		const header = stripVTControlCharacters(fixture.inspector.render(100)[1]);
 		expect(header).toContain("completed · Unavailable");
 		fixture.inspector.dispose();
 	});

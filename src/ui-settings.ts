@@ -6,6 +6,7 @@ import {
 	DEFAULT_SHOW_MANAGEMENT_LIST,
 	DEFAULT_NAVIGATION_DOWN_KEY,
 	DEFAULT_NAVIGATION_UP_KEY,
+	DEFAULT_RESULT_KEY,
 	DEFAULT_TOGGLE_KEY,
 	loadRegistry,
 	type UiSettings,
@@ -43,6 +44,7 @@ const DEFAULTS: UiSettings = Object.freeze({
 	showManagementList: DEFAULT_SHOW_MANAGEMENT_LIST,
 	navigationDownKey: DEFAULT_NAVIGATION_DOWN_KEY,
 	navigationUpKey: DEFAULT_NAVIGATION_UP_KEY,
+	resultKey: DEFAULT_RESULT_KEY,
 });
 
 interface LegacyValue {

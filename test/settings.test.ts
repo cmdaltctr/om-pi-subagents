@@ -3,10 +3,18 @@ import * as fs from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import * as capabilities from "../src/capabilities.ts";
 import omps from "../src/index.ts";
 import { loadRegistry } from "../src/config.ts";
 import { registerOmpsSettings } from "../src/settings.ts";
 import { createUiSettings } from "../src/ui-settings.ts";
+import { registerViewShortcuts } from "../src/shortcuts.ts";
+
+const bindings = vi.hoisted(() => ({ resolved: {} as Record<string, unknown> }));
+vi.mock("@earendil-works/pi-tui", async (importOriginal) => ({
+	...(await importOriginal<typeof import("@earendil-works/pi-tui")>()),
+	getKeybindings: () => ({ getResolvedBindings: () => bindings.resolved }),
+}));
 
 const processes = vi.hoisted(() => ({ spawn: vi.fn(), spawnSync: vi.fn(), execFile: vi.fn(), exec: vi.fn() }));
 vi.mock("node:child_process", () => processes);
@@ -16,6 +24,8 @@ vi.mock("node:fs/promises", async (importOriginal) => {
 		...original,
 		open: vi.fn(original.open),
 		readFile: vi.fn(original.readFile),
+		realpath: vi.fn(original.realpath),
+		stat: vi.fn(original.stat),
 		rename: vi.fn(original.rename),
 	};
 });
@@ -35,6 +45,7 @@ beforeEach(async () => {
 	vi.stubEnv("PI_CODING_AGENT_DIR", join(root, "agent"));
 	vi.stubEnv("XDG_CONFIG_HOME", join(root, "config"));
 	vi.clearAllMocks();
+	bindings.resolved = {};
 });
 afterEach(async () => {
 	vi.unstubAllEnvs();
@@ -50,6 +61,7 @@ function load() {
 		registerTool: (tool: Parameters<ExtensionAPI["registerTool"]>[0]) => tools.push(tool),
 		on: vi.fn(),
 		registerEntryRenderer: vi.fn(),
+		registerMessageRenderer: vi.fn(),
 		appendEntry: vi.fn(),
 		sendMessage: vi.fn(),
 		sendUserMessage: vi.fn(),
@@ -143,6 +155,7 @@ describe("settings commands", () => {
 				"Management list: Show",
 				"Management next / enter key: down",
 				"Management previous key: up",
+				"Result shortcut: ctrl+shift+e",
 				"Agent capabilities",
 				"Done",
 			]);
@@ -380,26 +393,31 @@ describe("view shortcuts", () => {
 			showManagementList: true,
 			navigationDownKey: "down",
 			navigationUpKey: "up",
+			resultKey: "ctrl+shift+e",
 			toggleKey: "off",
 			inspectKey: "ctrl+alt+i",
 		});
 	});
 
-	it.each(["ctrl+i", "tab", "Alt+O", "control+o", "disabled", "alt+p"])(
-		"rejects unsafe or malformed key %j without writing",
-		async (key) => {
-			await fs.writeFile(registry, "version: 1\nui: { inspectKey: alt+p }\nagents: {}\n");
-			const ctx = context();
-			pick(ctx, "Fleet view shortcut", key);
-			await run(ctx);
-			expect(ctx.ui.notify).toHaveBeenCalledWith(
-				expect.stringMatching(/ui\.toggleKey|choose distinct keys|choose another key/i),
-				"error",
-			);
-			expect(ctx.ui.confirm).not.toHaveBeenCalled();
-			expect(await fs.readFile(registry, "utf8")).toBe("version: 1\nui: { inspectKey: alt+p }\nagents: {}\n");
-		},
-	);
+	it.each([
+		["Control + I", /ctrl\+i is unsafe/],
+		["TAB", /tab is unsafe/],
+		["hyper+o", /lowercase Pi key specification/],
+		["meta+o", /lowercase Pi key specification/],
+		["Control+ctr+1", /lowercase Pi key specification/],
+		["disabled", /lowercase Pi key specification/],
+		["", /must be a Pi key specification/],
+		["Alt + P", /duplicate/],
+	] as const)("rejects unsafe or malformed key %j without writing", async (key, problem) => {
+		await fs.writeFile(registry, "version: 1\nui: { inspectKey: alt+p }\nagents: {}\n");
+		const ctx = context();
+		pick(ctx, "Fleet view shortcut", key);
+		await run(ctx);
+		expect(ctx.ui.notify).toHaveBeenCalledWith(expect.stringMatching(problem), "error");
+		expect(ctx.ui.confirm).not.toHaveBeenCalled();
+		expect(fs.rename).not.toHaveBeenCalled();
+		expect(await fs.readFile(registry, "utf8")).toBe("version: 1\nui: { inspectKey: alt+p }\nagents: {}\n");
+	});
 
 	it("refuses a duplicate written in another modifier order before confirmation", async () => {
 		await fs.writeFile(registry, "version: 1\nui: { inspectKey: ctrl+alt+p }\nagents: {}\n");
@@ -418,6 +436,176 @@ describe("view shortcuts", () => {
 		expect((await loadRegistry(registry)).ui.inspectKey).toBe("alt+q");
 		const items = ctx.ui.select.mock.calls.flatMap(([_title, options]) => options);
 		expect(items.some((item) => item.includes("Fleet view shortcut: alt+p"))).toBe(true);
+	});
+});
+
+describe("typed shortcut settings", () => {
+	it.each([
+		["pageUp", "pageUp"],
+		["pageDown", "pageDown"],
+		["ctrl+pageUp", "ctrl+pageUp"],
+		["ctrl+pageDown", "ctrl+pageDown"],
+		[" Control + PAGEUP ", "ctrl+pageUp"],
+		["Option + pageDOWN", "alt+pageDown"],
+	])("confirms and saves the canonical Page key for %j", async (answer, expected) => {
+		const ctx = context();
+		pick(ctx, "Inspection shortcut", answer);
+		await run(ctx);
+		expect(ctx.ui.confirm).toHaveBeenCalledOnce();
+		const confirmation = ctx.ui.confirm.mock.calls[0][1];
+		expect(confirmation).toContain(`→ ${expected}`);
+		if (answer === expected) expect(confirmation).not.toContain("Typed:");
+		else expect(confirmation).toContain(`Typed: ${answer}`);
+		expect((await loadRegistry(registry)).ui.inspectKey).toBe(expected);
+	});
+
+	it("explains typing, confirms both forms and saves the converted YAML value", async () => {
+		const ctx = context();
+		pick(ctx, "Fleet view shortcut", "Control + 1");
+		await run(ctx);
+		expect(ctx.ui.input).toHaveBeenCalledWith(
+			"Fleet view shortcut: off. Type the key, for example ctrl+1. Do not press the keys. Common modifiers: ctrl, shift, alt.",
+			"off",
+		);
+		expect(ctx.ui.confirm.mock.calls[0]?.[1]).toContain("Fleet view shortcut: off → ctrl+1");
+		expect(ctx.ui.confirm.mock.calls[0]?.[1]).toContain("Typed: Control + 1");
+		expect((await loadRegistry(registry)).ui.toggleKey).toBe("ctrl+1");
+		expect(await fs.readFile(registry, "utf8")).toMatch(/toggleKey: ctrl\+1/);
+	});
+
+	it("confirms canonical input without a conversion line", async () => {
+		const ctx = context();
+		pick(ctx, "Inspection shortcut", "ctrl+shift+i");
+		await run(ctx);
+		expect(ctx.ui.confirm.mock.calls[0][1]).toContain("→ ctrl+shift+i");
+		expect(ctx.ui.confirm.mock.calls[0][1]).not.toContain("Typed:");
+		expect((await loadRegistry(registry)).ui.inspectKey).toBe("ctrl+shift+i");
+	});
+
+	it.each([undefined, "decline"])("leaves YAML unchanged when an alias edit is cancelled: %s", async (choice) => {
+		const ctx = context();
+		pick(ctx, "Fleet view shortcut", choice === undefined ? undefined : "Control + 1", false);
+		await run(ctx);
+		if (choice === undefined) expect(ctx.ui.confirm).not.toHaveBeenCalled();
+		else expect(ctx.ui.confirm.mock.calls[0]?.[1]).toContain("→ ctrl+1");
+		expect(await fs.readFile(registry, "utf8")).toBe(yaml);
+		expect(fs.rename).not.toHaveBeenCalled();
+	});
+
+	it("accepts converted off even when Pi has an owner with that spelling", async () => {
+		bindings.resolved = { "app.test": "off" };
+		const ctx = context();
+		pick(ctx, "Fleet view shortcut", " OFF ");
+		await run(ctx);
+		expect(ctx.ui.confirm.mock.calls[0]?.[1]).toContain("→ off");
+		expect((await loadRegistry(registry)).ui.toggleKey).toBe("off");
+	});
+
+	it.each(["hyper+1", "Meta + 1"])("lists accepted modifiers for %s without saving", async (answer) => {
+		const ctx = context();
+		pick(ctx, "Fleet view shortcut", answer);
+		await run(ctx);
+		expect(ctx.ui.notify).toHaveBeenCalledWith(
+			expect.stringMatching(/lowercase Pi key specification.*Accepted modifiers: ctrl, shift, alt, super\./),
+			"error",
+		);
+		expect(ctx.ui.confirm).not.toHaveBeenCalled();
+		expect(await fs.readFile(registry, "utf8")).toBe(yaml);
+		expect(fs.rename).not.toHaveBeenCalled();
+	});
+
+	it("rejects a converted duplicate in a different modifier order", async () => {
+		const original = "version: 1\nui: { inspectKey: ctrl+alt+p }\nagents: {}\n";
+		await fs.writeFile(registry, original);
+		const ctx = context();
+		pick(ctx, "Fleet view shortcut", "Option + Control + P");
+		await run(ctx);
+		expect(ctx.ui.notify).toHaveBeenCalledWith(expect.stringContaining("duplicate of ui.toggleKey"), "error");
+		expect(ctx.ui.confirm).not.toHaveBeenCalled();
+		expect(await fs.readFile(registry, "utf8")).toBe(original);
+		expect(fs.rename).not.toHaveBeenCalled();
+	});
+
+	it.each([
+		["Fleet view shortcut", "toggleKey", "ctrl+o", "ctrl+o", "app.tools.expand", "ctrl+o"],
+		["Fleet view shortcut", "toggleKey", "Control + Shift + O", "ctrl+shift+o", "app.tools.expand", "shift+ctrl+o"],
+		["Management next / enter key", "navigationDownKey", "Down", "down", "app.interrupt", "down"],
+		["Management previous key", "navigationUpKey", "Up", "up", "tui.altScreen.lineUp", "up"],
+		["Management next / enter key", "navigationDownKey", "Down", "down", "tui.select.up", "down"],
+		["Management previous key", "navigationUpKey", "Up", "up", "tui.select.down", "up"],
+		["Management next / enter key", "navigationDownKey", "Option + P", "alt+p", "tui.editor.historyNext", "alt+p"],
+	] as const)(
+		"rejects %s (%s) with registration's exact owner guidance",
+		async (label, field, answer, key, owner, bound) => {
+			bindings.resolved = { [owner]: ["f1", bound] };
+			const ctx = context();
+			pick(ctx, label, answer);
+			await run(ctx);
+			const settings = (await loadRegistry(registry)).ui;
+			const registration = registerViewShortcuts(
+				{ registerShortcut: vi.fn() } as unknown as ExtensionAPI,
+				{ ...settings, [field]: key },
+				{ toggleFleet: vi.fn(), openInspection: vi.fn() },
+				bindings.resolved,
+			);
+			expect(registration.keys[field]).toBe("off");
+			expect(registration.diagnostics).toHaveLength(1);
+			const guidance = registration.diagnostics[0];
+			expect(guidance).toContain(owner);
+			expect(guidance).toMatch(/keybindings\.json.*\/hotkeys.*\/reload/);
+			expect(ctx.ui.notify).toHaveBeenCalledWith(guidance, "error");
+			expect(ctx.ui.confirm).not.toHaveBeenCalled();
+			expect(await fs.readFile(registry, "utf8")).toBe(yaml);
+			expect(fs.rename).not.toHaveBeenCalled();
+		},
+	);
+
+	it.each([
+		["Management next / enter key", "navigationDownKey", "Down", "down"],
+		["Management previous key", "navigationUpKey", "Up", "up"],
+	] as const)("preserves permitted default overlaps for %s", async (label, field, answer, key) => {
+		bindings.resolved = {
+			"tui.editor.cursorDown": "down",
+			"tui.editor.historyNext": "down",
+			"tui.select.down": "down",
+			"tui.editor.cursorUp": "up",
+			"tui.editor.historyPrevious": "up",
+			"tui.select.up": "up",
+		};
+		const ctx = context();
+		pick(ctx, label, answer);
+		await run(ctx);
+		expect(ctx.ui.confirm.mock.calls[0]?.[1]).toContain(`→ ${key}`);
+		const settings = (await loadRegistry(registry)).ui;
+		expect(settings[field]).toBe(key);
+		const registration = registerViewShortcuts(
+			{ registerShortcut: vi.fn() } as unknown as ExtensionAPI,
+			settings,
+			{ toggleFleet: vi.fn(), openInspection: vi.fn() },
+			bindings.resolved,
+		);
+		expect(registration.keys[field]).toBe(key);
+		expect(registration.diagnostics).toEqual([]);
+	});
+
+	it("saves a converted key freed by an effective Pi remapping", async () => {
+		bindings.resolved = { "app.tools.expand": "ctrl+y" };
+		const ctx = context();
+		pick(ctx, "Fleet view shortcut", "Control + O");
+		await run(ctx);
+		expect(ctx.ui.confirm.mock.calls[0]?.[1]).toContain("→ ctrl+o");
+		const settings = (await loadRegistry(registry)).ui;
+		expect(settings.toggleKey).toBe("ctrl+o");
+		const registerShortcut = vi.fn();
+		const registration = registerViewShortcuts(
+			{ registerShortcut } as unknown as ExtensionAPI,
+			settings,
+			{ toggleFleet: vi.fn(), openInspection: vi.fn() },
+			bindings.resolved,
+		);
+		expect(registration.keys.toggleKey).toBe("ctrl+o");
+		expect(registerShortcut).toHaveBeenCalledWith("ctrl+o", expect.anything());
+		expect(registration.diagnostics).toEqual([]);
 	});
 });
 
@@ -778,6 +966,255 @@ describe("per-agent capability settings", () => {
 		expect(ctx.ui.confirm.mock.calls[0][1]).toMatch(/reader|todo|tools|extensions/i);
 		expect(ctx.ui.notify).toHaveBeenCalledWith(expect.stringMatching(/reopen settings/i), "error");
 		expect(await fs.readFile(registry, "utf8")).toBe(newer);
+	});
+});
+
+describe("detectPublishedPackages", () => {
+	const agentDir = () => join(root, "agent");
+
+	async function settings(value: unknown) {
+		await fs.mkdir(agentDir(), { recursive: true });
+		await fs.writeFile(join(agentDir(), "settings.json"), JSON.stringify(value));
+	}
+
+	async function installed(capability: capabilities.Capability) {
+		const resources = await mappedAgent();
+		const source = capability === "Memory" ? resources.memory : resources.todo;
+		const directory = join(
+			agentDir(),
+			"npm",
+			"node_modules",
+			capability === "Memory" ? "om-memory-system" : "om-pi-todo",
+		);
+		await fs.cp(source, directory, { recursive: true });
+		return fs.realpath(directory);
+	}
+
+	it.each(["Memory", "Todo"] as const)("detects one listed npm package for %s", async (capability) => {
+		const directory = await installed(capability);
+		await settings({ packages: [capability === "Memory" ? "npm:om-memory-system" : "npm:om-pi-todo"] });
+		const before = await fs.readFile(join(agentDir(), "settings.json"), "utf8");
+		expect(await capabilities.detectPublishedPackages(agentDir(), capability)).toEqual([
+			{
+				root: directory,
+				entry: join(directory, "extensions", "index.ts"),
+				skill: capability === "Memory" ? join(directory, "skills", "omms-memory", "SKILL.md") : undefined,
+			},
+		]);
+		expect(await fs.readFile(join(agentDir(), "settings.json"), "utf8")).toBe(before);
+		expect(fs.rename).not.toHaveBeenCalled();
+		for (const spy of Object.values(processes)) expect(spy).not.toHaveBeenCalled();
+	});
+
+	it("returns no match without scanning an installed but unlisted package", async () => {
+		await installed("Memory");
+		await settings({ packages: ["npm:om-pi-todo"] });
+		expect(await capabilities.detectPublishedPackages(agentDir(), "Memory")).toEqual([]);
+	});
+
+	it.each(["1.2.3", "1.2.3-beta.1", "^1.2", "~1", ">=1 <2 || >=3", "*", "latest", "next"])(
+		"accepts npm version, range or tag suffix %s",
+		async (suffix) => {
+			const directory = await installed("Memory");
+			await settings({ packages: [`npm:om-memory-system@${suffix}`] });
+			expect(await capabilities.detectPublishedPackages(agentDir(), "Memory")).toEqual([
+				expect.objectContaining({ root: directory }),
+			]);
+		},
+	);
+
+	it("accepts an object source despite autoload and resource filters", async () => {
+		const directory = await installed("Todo");
+		await settings({
+			packages: [
+				{
+					source: "npm:om-pi-todo@latest",
+					autoload: false,
+					extensions: [],
+					skills: [],
+					prompts: [],
+					themes: [],
+				},
+			],
+		});
+		expect(await capabilities.detectPublishedPackages(agentDir(), "Todo")).toEqual([
+			expect.objectContaining({ root: directory, entry: join(directory, "extensions", "index.ts") }),
+		]);
+	});
+
+	it.each(["../om-memory-system", { source: "../om-memory-system" }])(
+		"resolves a relative local source against agentDir: %j",
+		async (source) => {
+			const { memory } = await mappedAgent();
+			await settings({ packages: [source] });
+			expect(await capabilities.detectPublishedPackages(agentDir(), "Memory")).toEqual([
+				expect.objectContaining({ root: await fs.realpath(memory) }),
+			]);
+		},
+	);
+
+	it("accepts absolute local package folders and published entry paths", async () => {
+		const { memory, todo } = await mappedAgent();
+		await settings({ packages: [memory, join(todo, "extensions", "index.ts")] });
+		expect(await capabilities.detectPublishedPackages(agentDir(), "Memory")).toEqual([
+			expect.objectContaining({ root: await fs.realpath(memory) }),
+		]);
+		expect(await capabilities.detectPublishedPackages(agentDir(), "Todo")).toEqual([
+			expect.objectContaining({ root: await fs.realpath(todo) }),
+		]);
+	});
+
+	it("deduplicates canonical roots across npm, local, entry and symlink sources", async () => {
+		const directory = await installed("Memory");
+		await fs.symlink(directory, join(root, "alias"), "dir");
+		await settings({
+			packages: [
+				"npm:om-memory-system",
+				"npm:om-memory-system@latest",
+				directory,
+				join(directory, "extensions", "index.ts"),
+				"../alias",
+			],
+		});
+		expect(await capabilities.detectPublishedPackages(agentDir(), "Memory")).toEqual([
+			expect.objectContaining({ root: directory }),
+		]);
+	});
+
+	it("keeps distinct valid roots in list order", async () => {
+		const directory = await installed("Memory");
+		await settings({ packages: ["npm:om-memory-system", "../om-memory-system"] });
+		const matches = await capabilities.detectPublishedPackages(agentDir(), "Memory");
+		expect(matches.map((match) => match.root)).toEqual([directory, await fs.realpath(join(root, "om-memory-system"))]);
+	});
+
+	it("skips a folder whose manifest has the wrong package name", async () => {
+		const directory = await installed("Memory");
+		await fs.writeFile(
+			join(directory, "package.json"),
+			JSON.stringify({ name: "other-package", pi: { extensions: ["./extensions/index.ts"] } }),
+		);
+		await settings({ packages: ["npm:om-memory-system"] });
+		expect(await capabilities.detectPublishedPackages(agentDir(), "Memory")).toEqual([]);
+	});
+
+	it.each([
+		{ extensions: [] },
+		{ extensions: ["./missing.ts"] },
+		{ extensions: ["./extensions/index.ts", "./other.ts"] },
+		{ extensions: ["../../../om-memory-system/extensions/index.ts"] },
+	])("skips invalid published extension declarations: %j", async ({ extensions }) => {
+		const directory = await installed("Memory");
+		await fs.writeFile(
+			join(directory, "package.json"),
+			JSON.stringify({ name: "om-memory-system", pi: { extensions } }),
+		);
+		await settings({ packages: ["npm:om-memory-system"] });
+		expect(await capabilities.detectPublishedPackages(agentDir(), "Memory")).toEqual([]);
+	});
+
+	it("skips missing npm and local folders", async () => {
+		await settings({ packages: ["npm:om-memory-system", "../missing"] });
+		expect(await capabilities.detectPublishedPackages(agentDir(), "Memory")).toEqual([]);
+	});
+
+	it("returns no matches for missing settings", async () => {
+		expect(await capabilities.detectPublishedPackages(agentDir(), "Memory")).toEqual([]);
+	});
+
+	it.each(["{", "null", "[]", "{}", '{"packages":{}}', '{"packages":"npm:om-memory-system"}'])(
+		"returns no matches for invalid settings or package lists: %s",
+		async (content) => {
+			await fs.mkdir(agentDir());
+			await fs.writeFile(join(agentDir(), "settings.json"), content);
+			expect(await capabilities.detectPublishedPackages(agentDir(), "Memory")).toEqual([]);
+		},
+	);
+
+	it("returns no matches when settings cannot be read", async () => {
+		await settings({ packages: ["npm:om-memory-system"] });
+		vi.mocked(fs.readFile).mockRejectedValueOnce(new Error("synthetic settings read failure"));
+		try {
+			expect(await capabilities.detectPublishedPackages(agentDir(), "Memory")).toEqual([]);
+		} finally {
+			vi.mocked(fs.readFile).mockReset();
+			vi.mocked(fs.readFile).mockImplementation((await vi.importActual<typeof fs>("node:fs/promises")).readFile);
+		}
+	});
+
+	it.each([
+		"~",
+		"~/om-memory-system",
+		"file:///om-memory-system",
+		"git:github.com/example/om-memory-system",
+		"https://example.com/om-memory-system",
+		"ssh://git@example.com/om-memory-system",
+		"git@example.com:om-memory-system",
+		"npm:@scope/om-memory-system@latest",
+		"npm:om-memory-system-other",
+		"npm:../om-memory-system",
+		"npm:om-memory-system@../../outside",
+		"npm:om-memory-system@npm:other",
+		"npm:om-memory-system@https://example.com/package.tgz",
+	])("skips unsupported or nonmatching sources without filesystem validation: %s", async (source) => {
+		await installed("Memory");
+		await settings({ packages: [source] });
+		vi.mocked(fs.realpath).mockClear();
+		expect(await capabilities.detectPublishedPackages(agentDir(), "Memory")).toEqual([]);
+		expect(fs.realpath).not.toHaveBeenCalled();
+	});
+
+	it("skips malformed entries while retaining a later valid candidate", async () => {
+		const directory = await installed("Memory");
+		await settings({
+			packages: [null, false, 4, {}, { source: 4 }, ["npm:om-memory-system"], "", "npm:om-memory-system"],
+		});
+		expect(await capabilities.detectPublishedPackages(agentDir(), "Memory")).toEqual([
+			expect.objectContaining({ root: directory }),
+		]);
+	});
+
+	it("contains a candidate validation failure and still detects a later valid package", async () => {
+		const directory = await installed("Memory");
+		await settings({ packages: ["../om-memory-system", "npm:om-memory-system"] });
+		vi.mocked(fs.stat).mockRejectedValueOnce(new Error("synthetic candidate stat failure"));
+		try {
+			expect(await capabilities.detectPublishedPackages(agentDir(), "Memory")).toEqual([
+				expect.objectContaining({ root: directory }),
+			]);
+			expect(fs.stat).toHaveBeenCalledWith(await fs.realpath(join(root, "om-memory-system")));
+		} finally {
+			vi.mocked(fs.stat).mockReset();
+			vi.mocked(fs.stat).mockImplementation((await vi.importActual<typeof fs>("node:fs/promises")).stat);
+		}
+	});
+
+	it("rejects an extension symlink that escapes the package root", async () => {
+		const directory = await installed("Memory");
+		await fs.symlink(join(root, "om-memory-system", "extensions", "index.ts"), join(directory, "escape.ts"));
+		await fs.writeFile(
+			join(directory, "package.json"),
+			JSON.stringify({ name: "om-memory-system", pi: { extensions: ["./escape.ts"] } }),
+		);
+		await settings({ packages: ["npm:om-memory-system"] });
+		expect(await capabilities.detectPublishedPackages(agentDir(), "Memory")).toEqual([]);
+	});
+
+	it("detects a throwing entry without importing or executing it", async () => {
+		const directory = await installed("Todo");
+		const entry = join(directory, "extensions", "index.ts");
+		const marker = join(root, "executed");
+		await fs.writeFile(
+			entry,
+			`import { writeFileSync } from "node:fs";\nwriteFileSync(${JSON.stringify(marker)}, "executed");\nthrow new Error("detector imported a sibling extension");\n`,
+		);
+		await settings({ packages: ["npm:om-pi-todo"] });
+		expect(await capabilities.detectPublishedPackages(agentDir(), "Todo")).toEqual([
+			{ root: directory, entry, skill: undefined },
+		]);
+		await expect(fs.stat(marker)).rejects.toMatchObject({ code: "ENOENT" });
+		expect(vi.mocked(fs.readFile).mock.calls.some(([path]) => path === entry)).toBe(false);
+		for (const spy of Object.values(processes)) expect(spy).not.toHaveBeenCalled();
 	});
 });
 

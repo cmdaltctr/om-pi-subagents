@@ -59,12 +59,12 @@ describe.skipIf(!PI_AVAILABLE)("native RPC settings dialogs", () => {
 			await editRpcSettings(fixture, 6, "Hide", false);
 			await expect(stat(registry)).rejects.toMatchObject({ code: "ENOENT" });
 			await editRpcSettings(fixture, 6, "Hide");
-			await editRpcSettings(fixture, 7, "ctrl+shift+down");
+			await editRpcSettings(fixture, 7, "Control + 1");
 			await editRpcSettings(fixture, 8, "off", true, "/subagents-settings");
 			expect((await loadRegistry(registry)).ui).toMatchObject({
 				fleetView: "expanded",
 				showManagementList: false,
-				navigationDownKey: "ctrl+shift+down",
+				navigationDownKey: "ctrl+1",
 				navigationUpKey: "off",
 			});
 			await editRpcSettings(fixture, 6, "Show");

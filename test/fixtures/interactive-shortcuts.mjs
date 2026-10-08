@@ -91,6 +91,7 @@ const uiContext = {
 	confirm: async () => false,
 	input: async () => undefined,
 	onTerminalInput: () => () => undefined,
+	addAutocompleteProvider() {},
 };
 
 const shortcuts = new Map();
@@ -103,6 +104,7 @@ const pi = {
 	registerTool: (definition) => tools.push(definition),
 	registerCommand: (name, command) => commands.set(name, command),
 	registerEntryRenderer() {},
+	registerMessageRenderer() {},
 	appendEntry() {},
 	sendMessage() {},
 	sendUserMessage() {},
@@ -174,7 +176,7 @@ try {
 	const initial = widgetCount();
 
 	if (scenario.startsWith("navigation-")) {
-		assert.equal(shortcuts.size, 0, "management navigation must never bind globally");
+		assert.deepEqual([...shortcuts.keys()], ["ctrl+shift+e"], "only the result shortcut binds globally");
 		if (scenario === "navigation-reload") {
 			await writeFile(registry, registryText["navigation-released"]);
 			await commands.get("omps-settings").handler("", ctx);
@@ -196,14 +198,13 @@ try {
 			assert(menus.at(-1).includes("Management previous key: ctrl+shift+up"));
 		}
 	} else if (scenario === "defaults" || scenario === "tab" || scenario === "off") {
-		// Shipped defaults bind no key; a tab-misconfigured registry falls back to them without binding Tab.
-		assert.equal(shortcuts.size, 0, "defaults and off must register no shortcut");
-		assert.equal(shortcuts.size, 0, "off must register no shortcut");
+		// Fleet shortcuts stay off; an invalid registry uses the result default without binding Tab.
+		assert.deepEqual([...shortcuts.keys()], ["ctrl+shift+e"], "only the result default must bind");
 		terminal.input("\x1b[111;3u");
 		await flush();
 		assert.equal(widgetCount(), initial, "alt+o must reach the editor untouched");
 	} else if (scenario === "conflict") {
-		assert.deepEqual([...shortcuts.keys()], ["alt+i"], "ctrl+o must stay with the host action");
+		assert.deepEqual([...shortcuts.keys()], ["alt+i", "ctrl+shift+e"], "ctrl+o must stay with the host action");
 		assert(
 			notifications.some(({ message, level }) => level === "warning" && /ctrl\+o.*built-in/.test(message)),
 			"the refusal must be surfaced with guidance",
@@ -212,14 +213,14 @@ try {
 		await flush();
 		assert.equal(widgetCount(), initial, "native ctrl+o must not run an OMPS action");
 	} else if (scenario === "reorder") {
-		assert.deepEqual([...shortcuts.keys()], ["alt+i"], "ctrl+shift+o must stay with the host action");
+		assert.deepEqual([...shortcuts.keys()], ["alt+i", "ctrl+shift+e"], "ctrl+shift+o must stay with the host action");
 		assert(
 			notifications.some(({ message, level }) => level === "warning" && /ctrl\+shift\+o.*built-in/.test(message)),
 			"the reordered refusal must be surfaced with guidance",
 		);
 	} else if (scenario === "custom" || scenario === "reload") {
 		if (scenario === "reload") {
-			assert.equal(shortcuts.size, 0, "initial bind uses the keyless defaults");
+			assert.deepEqual([...shortcuts.keys()], ["ctrl+shift+e"], "initial bind uses only the result default");
 			await writeFile(registry, registryText.custom);
 			// `/reload` runs session_start again, then the host binds the new registrations.
 			await sessionStart();
@@ -237,7 +238,7 @@ try {
 		await flush();
 		assert.equal(widgetCount(), afterPress, "the configured inspect key must not toggle the fleet");
 	}
-	await handlers.get("session_shutdown")();
+	await handlers.get("session_shutdown")({ type: "session_shutdown" }, ctx);
 } finally {
 	ui.stop();
 	await rm(directory, { recursive: true, force: true });

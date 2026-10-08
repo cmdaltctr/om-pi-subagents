@@ -10,6 +10,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { TUI } from "@earendil-works/pi-tui";
 import { ACK_MAX_AGENT_CHARS } from "./acknowledgement.ts";
+import { registerAtMentionInput, wrapAtMentionProvider } from "./at-mention.ts";
 import { createRegistryStore, type UiSettings } from "./config.ts";
 import { resolveAgentDir, resolveRegistryPath } from "./registry-path.ts";
 export { resolveRegistryPath } from "./registry-path.ts";
@@ -26,6 +27,7 @@ import { RunManager } from "./runs.ts";
 import { createService, type OmpsService, type RunContext } from "./service.ts";
 import { registerOmpsSettings } from "./settings.ts";
 import { registerViewShortcuts } from "./shortcuts.ts";
+import { ResultMessages } from "./result-message.ts";
 import { RunStore } from "./store.ts";
 import { createSupervisor } from "./supervisor.ts";
 import { observationId } from "./observation-validation.ts";
@@ -89,6 +91,11 @@ export class SessionBinding {
 
 	get owner(): string | undefined {
 		return this.ctx?.sessionManager.getSessionId();
+	}
+
+	/** Reject late first use before it can create session-owned resources. */
+	assertActive(): void {
+		if (this.ended) throw new Error("the owning session has ended");
 	}
 
 	/** Host mode: interactive hosts keep a live strip component, others receive plain lines. */
@@ -285,7 +292,21 @@ export function registerOmps(
 	binding?: SessionBinding,
 	getViewer?: () => RunViewer | undefined,
 	getFleet?: () => FleetWidget | undefined,
+	getAgentNames?: () => Promise<readonly string[]>,
 ): void {
+	const launchRun = async (ctx: ExtensionContext, agent: string, task: string): Promise<void> => {
+		binding?.bind(ctx);
+		const { owner, context } = sessionOf(ctx);
+		const text = await getService().run(owner, { agent, task }, context);
+		const identity = acknowledgedRun(text, owner);
+		if (identity) {
+			getViewer?.()?.activate(ctx);
+			if (ctx.mode === "tui") pi.appendEntry(TREE_ENTRY, identity);
+		}
+		ctx.ui.notify(text, "info");
+	};
+	if (getAgentNames) registerAtMentionInput(pi, getAgentNames, launchRun);
+
 	pi.registerTool({
 		name: "omps",
 		label: "omps",
@@ -354,7 +375,7 @@ export function registerOmps(
 			"OMPS subagents: /omps list | run <agent> <task> | status [run-id] | cancel <run-id> | inspect [run-id]",
 		handler: async (args, ctx) => {
 			binding?.bind(ctx);
-			const { owner, context } = sessionOf(ctx);
+			const { owner } = sessionOf(ctx);
 			const input = args.trim();
 			try {
 				if (/^inspect(?:\s+\S+)?$/.test(input)) {
@@ -384,14 +405,8 @@ export function registerOmps(
 				let text: string;
 				const run = /^run\s+(\S+)\s+([\s\S]+)$/.exec(input);
 				if (input === "list") text = (await service.listForms()).compact;
-				else if (run) {
-					text = await service.run(owner, { agent: run[1], task: run[2] }, context);
-					const identity = acknowledgedRun(text, owner);
-					if (identity) {
-						getViewer?.()?.activate(ctx);
-						if (ctx.mode === "tui") pi.appendEntry(TREE_ENTRY, identity);
-					}
-				} else if (input === "" || /^status(\s+\S+)?$/.test(input)) text = service.status(owner, input.split(/\s+/)[1]);
+				else if (run) return await launchRun(ctx, run[1], run[2]);
+				else if (input === "" || /^status(\s+\S+)?$/.test(input)) text = service.status(owner, input.split(/\s+/)[1]);
 				else if (/^cancel\s+\S+$/.test(input)) text = service.cancel(owner, input.split(/\s+/)[1]);
 				else return void ctx.ui.notify(USAGE, "warning");
 				ctx.ui.notify(text, "info");
@@ -406,7 +421,11 @@ export function registerOmps(
 export function registerRuntime(pi: ExtensionAPI, branch?: ChildLineage): () => OmpsRuntime | undefined {
 	const binding = new SessionBinding();
 	let runtime: OmpsRuntime | undefined;
+	const results = new ResultMessages(pi, () => activeKeys?.resultKey);
 	const agentDir = () => resolveAgentDir();
+	const getAgentNames = async () => [
+		...(await createRegistryStore(branch?.registryPath ?? resolveRegistryPath(agentDir())).refresh()).agents.keys(),
+	];
 	let ui: UiSettingsCache | undefined;
 	// One cache per session: settings edits refresh the same values the fleet renders.
 	const getUi = () => (ui ??= createUiSettings(branch?.registryPath ?? resolveRegistryPath(agentDir())));
@@ -424,10 +443,14 @@ export function registerRuntime(pi: ExtensionAPI, branch?: ChildLineage): () => 
 	);
 	registerOmps(
 		pi,
-		() => (runtime ??= createRuntime(pi, binding, visibleAgents, strip, branch)).service,
+		() => {
+			binding.assertActive();
+			return (runtime ??= createRuntime(pi, binding, visibleAgents, strip, branch)).service;
+		},
 		binding,
 		() => runtime?.viewer,
 		() => runtime?.fleet,
+		getAgentNames,
 	);
 	registerOmpsSettings(pi, () => ({
 		registryPath: branch?.registryPath ?? resolveRegistryPath(agentDir()),
@@ -449,6 +472,7 @@ export function registerRuntime(pi: ExtensionAPI, branch?: ChildLineage): () => 
 	pi.on("session_start", async (_event, ctx) => {
 		binding.bind(ctx);
 		if (ctx.mode !== "tui") return;
+		ctx.ui.addAutocompleteProvider((next) => wrapAtMentionProvider(next, getAgentNames));
 		// Refresh, then bind view shortcuts before the host snapshots editor bindings for this session.
 		const state = await getUi().refresh();
 		const registration = registerViewShortcuts(pi, state.value, {
@@ -459,12 +483,14 @@ export function registerRuntime(pi: ExtensionAPI, branch?: ChildLineage): () => 
 				strip.toggle();
 				if (owner) runtime?.fleet.repaint(owner);
 			},
+			toggleResults: () => results.toggle(),
 			openInspection: (view) => {
 				// Inspection opens at the fleet's selected root, keeping one view controller.
 				void runtime?.viewer.inspect(strip.selection(), view).catch(() => undefined);
 			},
 		});
 		activeKeys = registration.keys;
+		results.attach(ctx);
 		for (const diagnostic of registration.diagnostics) ctx.ui.notify(`OMPS shortcuts: ${diagnostic}`, "warning");
 		// Down enters fleet selection only from an empty, focused editor while the expanded strip shows runs.
 		stopInput?.();
@@ -504,8 +530,9 @@ export function registerRuntime(pi: ExtensionAPI, branch?: ChildLineage): () => 
 	});
 	// Quit, reload and session replacement all end here: detach first so no message reaches a successor,
 	// then stop the children and wait until their cleanup is confirmed.
-	pi.on("session_shutdown", async () => {
+	pi.on("session_shutdown", async (_event, ctx) => {
 		const owner = binding.owner;
+		results.dispose(ctx);
 		stopInput?.();
 		stopInput = undefined;
 		runtime?.viewer.dispose();

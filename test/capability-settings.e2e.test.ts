@@ -1,5 +1,5 @@
 import { writeFixturePersona } from "./fixtures/registry.ts";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, realpath, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { loadRegistry, type AgentSnapshot } from "../src/config.ts";
@@ -11,6 +11,104 @@ import { createWorkspace, PI_AVAILABLE, PI_BIN, startPi, type PiFixture, type Wo
 import { resolveTodoExtension, seedTodoPreferences } from "./fixtures/todo.ts";
 
 const index = new URL("../src/index.ts", import.meta.url).pathname;
+
+function settingsDialogs(parent: PiFixture) {
+	const seen = new Set(parent.records.map((record) => record.id).filter(Boolean));
+	return {
+		async next() {
+			const request = await parent.waitFor(
+				(record) =>
+					record.type === "extension_ui_request" &&
+					["select", "input", "confirm"].includes(record.method) &&
+					!seen.has(record.id),
+			);
+			seen.add(request.id);
+			return request;
+		},
+		reply(request: Record<string, any>, response: Record<string, unknown>) {
+			parent.child.stdin!.write(`${JSON.stringify({ type: "extension_ui_response", id: request.id, ...response })}\n`);
+		},
+	};
+}
+
+async function fixturePackage(workspace: Workspace, capability: "Memory" | "Todo", folder: string) {
+	const root = join(workspace.agentDir, folder);
+	const entry = join(root, "entry.ts");
+	await mkdir(root, { recursive: true });
+	await writeFile(entry, 'throw new Error("Discovery must never load this extension");\n');
+	const skill = join(root, "skills/omms-memory/SKILL.md");
+	if (capability === "Memory") {
+		await mkdir(dirname(skill), { recursive: true });
+		await writeFile(skill, "---\nname: omms-memory\ndescription: Fixture memory skill\n---\nFixture only.\n");
+	}
+	await writeFile(
+		join(root, "package.json"),
+		JSON.stringify({
+			name: capability === "Memory" ? "om-memory-system" : "om-pi-todo",
+			pi: { extensions: ["./entry.ts"], ...(capability === "Memory" ? { skills: ["./skills"] } : {}) },
+		}),
+	);
+	return {
+		root: await realpath(root),
+		entry: await realpath(entry),
+		skill: capability === "Memory" ? await realpath(skill) : undefined,
+	};
+}
+
+async function capabilitySession(workspace: Workspace, capability: "Memory" | "Todo", action = "Enable") {
+	const registry = join(workspace.agentDir, "omps/config.yaml");
+	await writeFixturePersona(workspace.agentDir, "reader.md", "READER-DETECTION-FIXTURE");
+	const original =
+		"# Preserve operator comment\nversion: 1\nlimits:\n  maxDepth: 2\nagents:\n  reader:\n    persona: ./personas/reader.md\n    tools: [bash]\n    thinking: off\n  other:\n    persona: ./personas/reader.md\n    tools: [read]\n    thinking: off\n";
+	await writeFile(registry, original);
+	const parent = await startPi({ mcp: false, workspace, args: ["-e", index] });
+	try {
+		const commands = await parent.send({ type: "get_commands" });
+		expect(commands.data.commands.some((command: { name: string }) => command.name === "omps-settings")).toBe(true);
+		const dialogs = settingsDialogs(parent);
+		const pending = parent.send({ type: "prompt", message: "/omps-settings" });
+		// A failed assertion can dispose Pi while this command still waits for a dialog response.
+		void pending.catch(() => undefined);
+		for (const label of ["Agent capabilities", "reader", capability, action]) {
+			const request = await dialogs.next();
+			expect(request.method).toBe("select");
+			const option = request.options.find((item: string) => item.startsWith(label));
+			expect(option, `Missing ${label}: ${request.options}`).toBeDefined();
+			dialogs.reply(request, { value: option });
+		}
+		return {
+			parent,
+			registry: await realpath(registry),
+			original,
+			...dialogs,
+			async finish() {
+				const done = await dialogs.next();
+				expect(done.method).toBe("select");
+				dialogs.reply(done, { value: "Done" });
+				expect((await pending).data.disposition).toBe("handled");
+				expect(workspace.model.requests).toHaveLength(0);
+			},
+		};
+	} catch (error) {
+		await parent.dispose();
+		throw error;
+	}
+}
+
+function checkConfirmation(
+	request: Record<string, any>,
+	registry: string,
+	capability: "Memory" | "Todo",
+	entry: string,
+) {
+	expect(request.method).toBe("confirm");
+	expect(request.message).toContain("Agent: reader");
+	expect(request.message).toContain(`Save to: ${registry}`);
+	expect(request.message).toContain(`tools: + ${capability.toLowerCase()}`);
+	expect(request.message).toContain(`extensions: + ${entry}`);
+	expect(request.message).toContain("Active children and parent extensions stay unchanged.");
+	if (capability === "Memory") expect(request.message).toContain("write and portability modes");
+}
 
 async function editCapability(
 	parent: PiFixture,
@@ -173,6 +271,187 @@ async function scenario(capability: "Memory" | "Todo", entry: string, workspace:
 		}
 	}
 }
+
+describe.skipIf(!PI_AVAILABLE)("detected capability settings through real Pi dialogs", () => {
+	for (const capability of ["Memory", "Todo"] as const) {
+		const packageName = capability === "Memory" ? "om-memory-system" : "om-pi-todo";
+
+		it(`${capability}: proposes one listed npm package without a path prompt`, async () => {
+			const workspace = await createWorkspace({ mcp: false });
+			let session: Awaited<ReturnType<typeof capabilitySession>> | undefined;
+			try {
+				const resource = await fixturePackage(workspace, capability, `npm/node_modules/${packageName}`);
+				await writeFile(
+					join(workspace.agentDir, "settings.json"),
+					JSON.stringify({ packages: [{ source: `npm:${packageName}`, extensions: [], skills: [] }] }),
+				);
+				session = await capabilitySession(workspace, capability);
+				const confirmation = await session.next();
+				checkConfirmation(confirmation, session.registry, capability, resource.entry);
+				expect(await readFile(session.registry, "utf8")).toBe(session.original);
+				session.reply(confirmation, { confirmed: true });
+				await session.finish();
+				const saved = await loadRegistry(session.registry);
+				expect(saved.agents.get("reader")?.tools).toEqual(["bash", capability.toLowerCase()]);
+				expect(saved.agents.get("reader")?.extensions).toEqual([resource.entry]);
+				expect(saved.agents.get("reader")?.skills).toEqual([]);
+				expect(saved.agents.get("other")?.tools).toEqual(["read"]);
+				expect(saved.limits.maxDepth).toBe(2);
+				expect(await readFile(session.registry, "utf8")).toContain("# Preserve operator comment");
+			} finally {
+				await session?.parent.dispose();
+				await workspace.dispose();
+			}
+		});
+
+		it(`${capability}: asks which of several listed packages to map`, async () => {
+			const workspace = await createWorkspace({ mcp: false });
+			let session: Awaited<ReturnType<typeof capabilitySession>> | undefined;
+			try {
+				const first = await fixturePackage(workspace, capability, "first");
+				const second = await fixturePackage(workspace, capability, "second");
+				await writeFile(
+					join(workspace.agentDir, "settings.json"),
+					JSON.stringify({ packages: ["./first", "./second"] }),
+				);
+				session = await capabilitySession(workspace, capability);
+				const choice = await session.next();
+				expect(choice.method).toBe("select");
+				expect(choice.options).toEqual([first.root, second.root]);
+				expect(await readFile(session.registry, "utf8")).toBe(session.original);
+				session.reply(choice, { value: second.root });
+				const confirmation = await session.next();
+				checkConfirmation(confirmation, session.registry, capability, second.entry);
+				session.reply(confirmation, { confirmed: true });
+				await session.finish();
+				expect((await loadRegistry(session.registry)).agents.get("reader")?.extensions).toEqual([second.entry]);
+			} finally {
+				await session?.parent.dispose();
+				await workspace.dispose();
+			}
+		});
+
+		it(`${capability}: cancelling package selection leaves YAML unchanged`, async () => {
+			const workspace = await createWorkspace({ mcp: false });
+			let session: Awaited<ReturnType<typeof capabilitySession>> | undefined;
+			try {
+				await fixturePackage(workspace, capability, "first");
+				await fixturePackage(workspace, capability, "second");
+				await writeFile(
+					join(workspace.agentDir, "settings.json"),
+					JSON.stringify({ packages: ["./first", "./second"] }),
+				);
+				session = await capabilitySession(workspace, capability);
+				const choice = await session.next();
+				expect(choice.method).toBe("select");
+				session.reply(choice, { cancelled: true });
+				await session.finish();
+				expect(await readFile(session.registry, "utf8")).toBe(session.original);
+				expect(session.parent.records.some((record) => ["input", "confirm"].includes(record.method))).toBe(false);
+			} finally {
+				await session?.parent.dispose();
+				await workspace.dispose();
+			}
+		});
+
+		it(`${capability}: gives install guidance before accepting an unlisted manual path`, async () => {
+			const workspace = await createWorkspace({ mcp: false });
+			let session: Awaited<ReturnType<typeof capabilitySession>> | undefined;
+			try {
+				const resource = await fixturePackage(workspace, capability, "unlisted");
+				session = await capabilitySession(workspace, capability);
+				const input = await session.next();
+				expect(input.method).toBe("input");
+				const guidance = session.parent.records.find(
+					(record) => record.method === "notify" && record.message.includes(`pi install npm:${packageName}`),
+				);
+				expect(guidance).toBeDefined();
+				expect(session.parent.records.indexOf(guidance!)).toBeLessThan(session.parent.records.indexOf(input));
+				session.reply(input, { value: resource.root });
+				const confirmation = await session.next();
+				checkConfirmation(confirmation, session.registry, capability, resource.entry);
+				session.reply(confirmation, { confirmed: true });
+				await session.finish();
+				expect((await loadRegistry(session.registry)).agents.get("reader")?.extensions).toEqual([resource.entry]);
+			} finally {
+				await session?.parent.dispose();
+				await workspace.dispose();
+			}
+		});
+
+		it(`${capability}: cancelled fallback leaves YAML unchanged`, async () => {
+			const workspace = await createWorkspace({ mcp: false });
+			let session: Awaited<ReturnType<typeof capabilitySession>> | undefined;
+			try {
+				session = await capabilitySession(workspace, capability);
+				const input = await session.next();
+				expect(input.method).toBe("input");
+				expect(
+					session.parent.records.some(
+						(record) => record.method === "notify" && record.message.includes(`pi install npm:${packageName}`),
+					),
+				).toBe(true);
+				session.reply(input, { cancelled: true });
+				await session.finish();
+				expect(await readFile(session.registry, "utf8")).toBe(session.original);
+				expect(session.parent.records.some((record) => record.method === "confirm")).toBe(false);
+			} finally {
+				await session?.parent.dispose();
+				await workspace.dispose();
+			}
+		});
+
+		it.each(["declined", "conflicting"])(`${capability}: %s confirmation saves no partial mapping`, async (mode) => {
+			const workspace = await createWorkspace({ mcp: false });
+			let session: Awaited<ReturnType<typeof capabilitySession>> | undefined;
+			try {
+				const resource = await fixturePackage(workspace, capability, "installed");
+				await writeFile(join(workspace.agentDir, "settings.json"), JSON.stringify({ packages: ["./installed"] }));
+				session = await capabilitySession(workspace, capability);
+				const confirmation = await session.next();
+				checkConfirmation(confirmation, session.registry, capability, resource.entry);
+				const unchanged = mode === "conflicting" ? `${session.original}# Concurrent operator edit\n` : session.original;
+				if (mode === "conflicting") await writeFile(session.registry, unchanged);
+				session.reply(confirmation, { confirmed: mode === "conflicting" });
+				await session.finish();
+				expect(await readFile(session.registry, "utf8")).toBe(unchanged);
+				if (mode === "conflicting")
+					expect(
+						session.parent.records.some(
+							(record) =>
+								record.method === "notify" && record.notifyType === "error" && /changed/i.test(record.message),
+						),
+					).toBe(true);
+			} finally {
+				await session?.parent.dispose();
+				await workspace.dispose();
+			}
+		});
+	}
+
+	it("Memory: detected package keeps the shipped-skill approval in the atomic edit", async () => {
+		const workspace = await createWorkspace({ mcp: false });
+		let session: Awaited<ReturnType<typeof capabilitySession>> | undefined;
+		try {
+			const resource = await fixturePackage(workspace, "Memory", "installed");
+			await writeFile(join(workspace.agentDir, "settings.json"), JSON.stringify({ packages: ["./installed"] }));
+			session = await capabilitySession(workspace, "Memory", "Enable with shipped skill");
+			const confirmation = await session.next();
+			checkConfirmation(confirmation, session.registry, "Memory", resource.entry);
+			expect(confirmation.message).toContain(`skills: + ${resource.skill}`);
+			expect(await readFile(session.registry, "utf8")).toBe(session.original);
+			session.reply(confirmation, { confirmed: true });
+			await session.finish();
+			const agent = (await loadRegistry(session.registry)).agents.get("reader")!;
+			expect(agent.tools).toEqual(["bash", "memory"]);
+			expect(agent.extensions).toEqual([resource.entry]);
+			expect(agent.skills).toEqual([resource.skill]);
+		} finally {
+			await session?.parent.dispose();
+			await workspace.dispose();
+		}
+	});
+});
 
 describe.skipIf(!PI_AVAILABLE)("per-agent settings with real siblings", () => {
 	it("enables then disables the real todo entry for future children", async () => {
