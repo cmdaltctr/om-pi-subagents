@@ -1,5 +1,13 @@
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
-import { checkUiKey, FLEET_VIEWS, normaliseKey, RegistryError, type UiSettings } from "./config.ts";
+import {
+	checkUiKey,
+	checkDistinctUiKeys,
+	FLEET_VIEWS,
+	UI_KEY_FIELDS,
+	RegistryError,
+	type UiKeyField,
+	type UiSettings,
+} from "./config.ts";
 import { capabilityEdit, inspectCapability, selectPublishedPackage, type Capability } from "./capabilities.ts";
 import {
 	readLimitSettings,
@@ -55,8 +63,11 @@ function menuItems(limits: LimitSettings, ui: UiSettingsState, active: UiSetting
 		`Parallel direct children per parent: ${limits.limits.maxConcurrentRuns}`,
 		`Visible agents: ${ui.value.maxVisibleAgents} (${sourceLabel[ui.maxVisibleAgentsSource]})`,
 		`Fleet view: ${ui.value.fleetView}`,
-		shortcutItem("Fleet list shortcut", ui.value.toggleKey, active, "toggleKey"),
+		shortcutItem("Fleet view shortcut", ui.value.toggleKey, active, "toggleKey"),
 		shortcutItem("Inspection shortcut", ui.value.inspectKey, active, "inspectKey"),
+		`Management list: ${ui.value.showManagementList ? "Show" : "Hide"}`,
+		shortcutItem("Management next / enter key", ui.value.navigationDownKey, active, "navigationDownKey"),
+		shortcutItem("Management previous key", ui.value.navigationUpKey, active, "navigationUpKey"),
 	];
 	if (ui.maxVisibleAgentsSource === "legacy")
 		items.push(`Import legacy visible agents (${ui.value.maxVisibleAgents}) into YAML`);
@@ -112,8 +123,16 @@ async function showSettings(ctx: ExtensionCommandContext, resources: SettingsRes
 			}
 			continue;
 		}
-		if (index === 4 || index === 5) {
-			await editShortcut(ctx, resources, limits, ui, index === 4 ? "toggleKey" : "inspectKey", choice);
+		if (index === 6) {
+			const saved = await editManagementList(ctx, limits, ui);
+			limits = await readLimitSettings(resources.registryPath);
+			ui = await resources.ui.refresh();
+			if (saved) await repaint(resources, ctx);
+			continue;
+		}
+		if ([4, 5, 7, 8].includes(index)) {
+			const field = UI_KEY_FIELDS[[4, 5, 7, 8].indexOf(index)];
+			await editShortcut(ctx, resources, limits, ui, field, choice);
 			limits = await readLimitSettings(resources.registryPath);
 			ui = await resources.ui.refresh();
 			continue;
@@ -211,12 +230,35 @@ async function editFleetView(
 	return true;
 }
 
+async function editManagementList(
+	ctx: ExtensionCommandContext,
+	limits: LimitSettings,
+	ui: UiSettingsState,
+): Promise<boolean> {
+	const choice = await ctx.ui.select(`Management list (now ${ui.value.showManagementList ? "Show" : "Hide"})`, [
+		"Show",
+		"Hide",
+	]);
+	if (choice !== "Show" && choice !== "Hide") return false;
+	const creation = limits.missing ? "Create the missing version-one registry with no mapped agents.\n" : "";
+	if (
+		!(await ctx.ui.confirm(
+			"Save this subagent setting?",
+			`${creation}Management list → ${choice}\nSave to: ${limits.path}\nThe fleet repaints immediately.`,
+		))
+	)
+		return false;
+	await saveUiSetting(limits, "showManagementList", choice === "Show", limits.missing);
+	ctx.ui.notify(`Subagent setting saved to ${limits.path}.`, "info");
+	return true;
+}
+
 async function editShortcut(
 	ctx: ExtensionCommandContext,
 	resources: SettingsResources,
 	limits: LimitSettings,
 	ui: UiSettingsState,
-	field: "toggleKey" | "inspectKey",
+	field: UiKeyField,
 	label: string,
 ): Promise<void> {
 	const answer = await ctx.ui.input(label.split(" (")[0], ui.value[field]);
@@ -224,10 +266,7 @@ async function editShortcut(
 	const value = answer.trim();
 	try {
 		checkUiKey(field, value);
-		const other: "toggleKey" | "inspectKey" = field === "toggleKey" ? "inspectKey" : "toggleKey";
-		const otherKey = ui.value[other];
-		if (value !== "off" && normaliseKey(value) === normaliseKey(otherKey))
-			throw new RegistryError(`ui.${field}`, `duplicate of ui.${other} (${value}); choose distinct keys`);
+		checkDistinctUiKeys({ ...ui.value, [field]: value });
 	} catch (error) {
 		ctx.ui.notify((error as RegistryError).message, "error");
 		return;

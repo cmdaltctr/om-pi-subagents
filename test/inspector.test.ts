@@ -376,7 +376,7 @@ describe("read-only inspector", () => {
 				}),
 		);
 		fixture.inspector.handleInput("\r");
-		fixture.inspector.handleInput("\x1b[B");
+		fixture.inspector.handleInput("\x1b[C");
 		resolve({
 			node: fixture.observations.node("session", "root", "root")!,
 			task: "OLD TASK MUST NOT APPEAR",
@@ -488,6 +488,7 @@ describe("session tree modal", () => {
 		inspector.handleInput("\r");
 		await flush();
 		expect(read).toHaveBeenLastCalledWith("root", "child-1", expect.any(AbortSignal));
+		inspector.handleInput("\x1b");
 		inspector.handleInput("\x1b[C");
 		inspector.handleInput("\x1b[B");
 		inspector.handleInput("\r");
@@ -562,7 +563,8 @@ describe("session tree modal", () => {
 		).toBe("accepted");
 		await flush();
 		const lines = inspector.render(100).join("\n");
-		expect(lines).toMatch(/reader completed \(child-1\)/);
+		expect(lines).toContain("reader · completed");
+		expect(lines).toContain("Run: child-1");
 		expect(lines).toContain("Task for child-1");
 		inspector.dispose();
 	});

@@ -62,19 +62,23 @@ Ask the operator to run `/omps-settings` when a setting needs changing.
 `/subagents-settings` is an alias. Native dialogs work in interactive Pi and supported RPC clients.
 The command is outside the model-callable tool. It requires UI dialogs before reading files.
 
-| Setting                             | Valid values                                 | Storage                             |
-| ----------------------------------- | -------------------------------------------- | ----------------------------------- |
-| Maximum nesting depth               | Safe integer of at least 0; root depth 0     | Registry `limits.maxDepth`          |
-| Parallel direct children per parent | Safe integer of at least 1                   | Registry `limits.maxConcurrentRuns` |
-| Visible agents                      | Safe integer from 1 to 256; default 5        | Registry `ui.maxVisibleAgents`      |
-| Fleet view                          | `expanded`, `collapsed` or `off`             | Registry `ui.fleetView`             |
-| Fleet list / inspection shortcut    | Pi key specification or `off`; default `off` | Registry `ui.toggleKey/inspectKey`  |
-| Agent capabilities                  | Select agent, then Memory or Todo            | That agent's existing YAML lists    |
+| Setting                                   | Valid values                                  | Storage                             |
+| ----------------------------------------- | --------------------------------------------- | ----------------------------------- |
+| Maximum nesting depth                     | Safe integer of at least 0; root depth 0      | Registry `limits.maxDepth`          |
+| Parallel direct children per parent       | Safe integer of at least 1                    | Registry `limits.maxConcurrentRuns` |
+| Visible agents                            | Safe integer from 1 to 256; default 5         | Registry `ui.maxVisibleAgents`      |
+| Fleet view                                | `expanded`, `collapsed` or `off`              | Registry `ui.fleetView`             |
+| Management list                           | Show/Hide; default Show                       | Registry `ui.showManagementList`    |
+| Management next / enter key               | Pi key specification or `off`; default `down` | Registry `ui.navigationDownKey`     |
+| Management previous key                   | Pi key specification or `off`; default `up`   | Registry `ui.navigationUpKey`       |
+| Fleet view shortcut / inspection shortcut | Pi key specification or `off`; default `off`  | Registry `ui.toggleKey/inspectKey`  |
+| Agent capabilities                        | Select agent, then Memory or Todo             | That agent's existing YAML lists    |
 
 The menu shows the resolved registry destination, including `OMPS_REGISTRY` overrides.
 YAML owns limits and UI fields. A valid legacy visible-row value remains read-only fallback
 until the operator confirms its import into YAML. Neither edit writes the old display JSON.
-Shortcut changes require `/reload`. Visible-row changes repaint immediately.
+Shortcut and navigation-key changes require `/reload`. Settings distinguishes saved keys from active keys until reload.
+Visible-row and Management list changes repaint immediately. Hide ends selection without changing the tree.
 OMPS never writes sibling preferences or Pi's `settings.json`.
 
 Each edit requires confirmation. A cancelled input or declined save leaves that setting unchanged;
@@ -90,8 +94,21 @@ Depth zero disables new launches. Explain that per-parent branching can multiply
 
 The `● Agents` tree above the editor shows each running agent by default (`ui.fleetView: expanded`), adapted from tintinweb/pi-subagents. A list below the editor offers navigation.
 Set `ui.fleetView` to `collapsed` for the tree heading only, or `off` to hide both widgets. `/omps fleet` switches the view for the session.
-Press Down in an empty prompt to select an agent. Up and Down move, Enter inspects and Escape returns to the prompt.
-Outside that selection, Up and Escape keep their Pi actions. The view shortcuts default to `off`; use `/omps inspect` or set keys.
+Press Down in an empty focused prompt to select an agent. Up and Down move, Enter inspects and Escape returns to the prompt.
+`ui.navigationDownKey` and `ui.navigationUpKey` default to `down` and `up`; either accepts another safe Pi key or `off`.
+Hints show active keys. With Down off or inactive, keys cannot enter selection. Settings, selectors and overlays keep their keys.
+If actual editor focus cannot be verified, pass input through and use `/omps inspect`.
+Outside selection, Up and Escape keep their Pi actions. The view shortcuts default to `off`; use `/omps inspect` or set keys.
+
+Choose **Management list: Hide** in `/omps-settings`, or set `ui.showManagementList: false`, for tree-only monitoring.
+This boolean defaults to true. Hide removes list rows and hints, ends selection and releases its keys immediately.
+The expanded above-editor tree and `/omps inspect` remain available. Session fleet toggles preserve the saved list preference.
+
+Custom navigation keys occupied by Pi stay inactive; name the action and give recovery guidance without a fallback.
+Pi 1.0.4 binds Ctrl+Shift+Up/Down to `tui.altScreen.previousPrompt` and `tui.altScreen.nextPrompt`.
+OMPS never rewrites Pi keybindings. Ask the operator to merge the manual example in
+[setup](../../docs/SETUP.md#management-navigation-keys), preserve other entries, check `/hotkeys`, then run `/reload`.
+Terminal reporting varies; test modified arrows locally or choose other keys. Do not edit live operator files automatically.
 The tree uses at most 12 lines, running agents first. The list shows five rows by default with more markers.
 `omps list` gives the model every tool name; `/omps list` and the collapsed tool row show a tool count per agent.
 Incomplete descendant observations stay labelled. A hidden row is still reachable by scrolling.
@@ -99,14 +116,22 @@ Incomplete descendant observations stay labelled. A hidden row is still reachabl
 Pi's native `app.tools.expand` action (Ctrl+O by default) expands transcript output only.
 Launch acknowledgements stay compact; native expansion never creates another live tree.
 
-1. Run `/omps inspect` to open the current session's retained tree.
-2. Use arrows to choose a node, Left/Right to fold branches, and Enter to open details.
-3. Use PageUp or PageDown to scroll selected output.
-4. Press Escape to return or close without stopping work.
+1. Run `/omps inspect` to open the retained-node picker.
+2. Use Up/Down to choose; Left/Right folds branches. Enter opens full-width details.
+3. Scroll details with Up/Down, PageUp/PageDown or Home/End, including while saved reads load or fail.
+4. Use Left/Right in details to switch visible picker nodes.
+5. Press Escape to return to the picker, then Escape again to close.
 
-`/omps inspect <run-id>` opens a selected node directly. Fullscreen supports row clicks; regular mode uses keys.
-The modal retains descendants in parent-first order. Narrow terminals show tree and details in sequence.
-Selected previews contain visible assistant text only, capped at 4 KiB and labelled provisional.
+`/omps inspect <run-id>` and management-list inspection open details directly; Escape closes them.
+Every width uses one column. Fullscreen supports picker-row clicks and wheel scrolling over the detail body;
+regular mode uses keys because the terminal owns mouse scrollback.
+The modal retains descendants in parent-first order. Live updates preserve reading position;
+reaching the bottom follows new content until you scroll upwards. The footer reports the visible line range.
+Pi's theme styles sections and Markdown answers. Details show task, current observed tools, elapsed time,
+Live answer · provisional and Saved output. No active tool observed means no current tool evidence;
+current names/counts never imply complete tool history. Terminal elapsed time stays frozen at the end time.
+Selected previews preserve visible Markdown line breaks and indentation, capped at 4 KiB and labelled provisional.
+Terminal controls and direction overrides are removed; hidden thinking and raw tool results stay excluded.
 Only saved output after a clean exit and confirmed cleanup proves completion. Older or missing evidence remains labelled.
 Supported RPC clients receive bounded text rather than a terminal modal.
 Inspection never grants status or cancellation over another immediate parent's child.

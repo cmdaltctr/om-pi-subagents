@@ -60,6 +60,26 @@ describe("display-text validation", () => {
 		expect(parsed?.snapshot.assistantPreview).toBe("Reading the module now");
 	});
 
+	it("preserves preview Markdown line breaks and indentation while flattening task labels", () => {
+		const markdown = "    indented code\n\n# Heading\n- first\n- second\n\n```ts\n  run();\n```";
+		const parsed = parseObservation({ ...base, taskSummary: "First\nsecond", assistantPreview: markdown });
+		expect(parsed?.snapshot.assistantPreview).toBe(markdown);
+		expect(parsed?.snapshot.taskSummary).toBe("First second");
+	});
+
+	it("sanitises multiline preview controls and normalises carriage returns", () => {
+		const parsed = parseObservation({
+			...base,
+			assistantPreview: "# Heading\r\n- \u001b[2Jfirst\u0007\r- second\u202e\n```\n\tcode\n```",
+		});
+		expect(parsed?.snapshot.assistantPreview).toBe("# Heading\n- first\n- second\n```\n    code\n```");
+		expect(parseObservation({ ...base, assistantPreview: "\n\t\u001b[2J\u202e" })).toBeUndefined();
+	});
+
+	it("counts retained preview line breaks against the UTF-8 budget", () => {
+		expect(parseObservation({ ...base, assistantPreview: "\n".repeat(4096) + "answer" })).toBeUndefined();
+	});
+
 	it("keeps older records without display text valid", () => {
 		const parsed = parseObservation(base);
 		expect(parsed?.snapshot.taskSummary).toBeUndefined();
@@ -192,6 +212,18 @@ describe("relay display text", () => {
 		h.relay.onTask(root, "do work");
 		wire.emit(assistant("Visible answer text"));
 		expect(h.tree().nodes[0].assistantPreview).toBe("Visible answer text");
+	});
+
+	it("keeps visible Markdown structure through publication and retained validation", async () => {
+		const h = setup();
+		const wire = channel();
+		h.relay.connect(root, wire, "run-token");
+		await Promise.resolve();
+		h.relay.onTask(root, "do work");
+		const markdown = "    code\n\n# Heading\n- first\n- second\n\n```ts\n  run();\n```";
+		wire.emit(assistant(markdown));
+		expect(h.tree().nodes[0].assistantPreview).toBe(markdown);
+		h.relay.dispose();
 	});
 
 	it("truncates a large preview within 4 KiB and marks the cut", async () => {

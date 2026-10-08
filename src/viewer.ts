@@ -1,4 +1,4 @@
-import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { getMarkdownTheme, type ExtensionContext } from "@earendil-works/pi-coding-agent";
 import type { Component } from "@earendil-works/pi-tui";
 import {
 	createDetailReader,
@@ -8,8 +8,9 @@ import {
 	type RunDetails,
 } from "./details.ts";
 import { Inspector } from "./inspector.ts";
+import { inspectorElapsed, inspectorMarkdownTheme } from "./inspector-presentation.ts";
 import type { ObservationStore, ObservedTree } from "./observation.ts";
-import { plain } from "./plain.ts";
+import { plain, previewText } from "./plain.ts";
 import { LaunchAcknowledgement, type AcknowledgementData } from "./acknowledgement.ts";
 
 /**
@@ -49,12 +50,18 @@ function detailSummary(details: RunDetails, tree: ObservedTree): string {
 				: []),
 			`Run: ${details.node.runId}`,
 			`State: ${details.node.state}`,
+			`Elapsed: ${inspectorElapsed(details.node)}`,
 			`Model: ${details.node.model ? plain(details.node.model, 512) : "unavailable"}`,
 			`Tools: ${details.node.activeTools.map((tool) => plain(tool.name, 128)).join(", ") || "none observed"}`,
 			"Task:",
 			details.task ?? "Unavailable",
 			...(details.taskTruncated ? ["[Task configuration truncated]"] : []),
-			details.partial ? "Partial output:" : "Output:",
+			...(details.node.assistantPreview
+				? ["Live answer · provisional:", previewText(details.node.assistantPreview)]
+				: []),
+			details.partial || details.node.state === "failed" || details.node.state === "cancelled"
+				? "Partial output:"
+				: "Saved output:",
 			details.output ?? "Unavailable",
 			...(details.outputTruncated ? ["[Output truncated at 64 KiB]"] : []),
 			`Saved output: ${plain(details.outputPath, 4096)}`,
@@ -196,7 +203,7 @@ export class RunViewer {
 		let component: Inspector | undefined;
 		try {
 			await ctx.ui.custom<void>(
-				(tui, _theme, _keys, done) => {
+				(tui, theme, _keys, done) => {
 					component = new Inspector({
 						observations: this.options.observations,
 						owner,
@@ -206,6 +213,8 @@ export class RunViewer {
 						close: done,
 						live: () => this.live(owner),
 						selectedRunId: runId,
+						theme,
+						markdownTheme: inspectorMarkdownTheme(theme, getMarkdownTheme()),
 					});
 					this.active = component;
 					return component;

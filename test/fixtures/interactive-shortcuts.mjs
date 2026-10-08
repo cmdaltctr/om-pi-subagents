@@ -62,6 +62,10 @@ const registryText = {
 	reorder: "version: 1\nui: { toggleKey: ctrl+shift+o, inspectKey: alt+i }\nagents: {}\n",
 	tab: "version: 1\nui: { toggleKey: tab }\nagents: {}\n",
 	custom: "version: 1\nui: { toggleKey: alt+p, inspectKey: alt+q }\nagents: {}\n",
+	"navigation-conflict":
+		"version: 1\nui: { navigationDownKey: ctrl+shift+down, navigationUpKey: ctrl+shift+up }\nagents: {}\n",
+	"navigation-released":
+		"version: 1\nui: { navigationDownKey: ctrl+shift+down, navigationUpKey: ctrl+shift+up }\nagents: {}\n",
 };
 await writeFixtureRegistry(directory, registryText[scenario] ?? registryText.defaults);
 
@@ -73,13 +77,17 @@ const editor = new CustomEditor(ui, getEditorTheme(), keys);
 
 const notifications = [];
 const widgets = [];
+const menus = [];
 const uiContext = {
 	notify: (message, level) => notifications.push({ message, level }),
 	setStatus() {},
 	// The tree registers beside the list; counting the list key keeps one count per fleet action.
 	setWidget: (key, lines) => key === "omps" && widgets.push(lines),
 	custom() {},
-	select: async () => undefined,
+	select: async (_title, items) => {
+		menus.push(items);
+		return undefined;
+	},
 	confirm: async () => false,
 	input: async () => undefined,
 	onTerminalInput: () => () => undefined,
@@ -151,6 +159,8 @@ const createRuntime = async () => {
 const widgetCount = () => widgets.length;
 
 try {
+	if (scenario === "navigation-released")
+		keys.setUserBindings({ "tui.altScreen.nextPrompt": ["ctrl+down"], "tui.altScreen.previousPrompt": ["ctrl+up"] });
 	await sessionStart();
 	if (scenario !== "tab") await createRuntime();
 	await flush();
@@ -163,7 +173,29 @@ try {
 	bindShortcuts();
 	const initial = widgetCount();
 
-	if (scenario === "defaults" || scenario === "tab" || scenario === "off") {
+	if (scenario.startsWith("navigation-")) {
+		assert.equal(shortcuts.size, 0, "management navigation must never bind globally");
+		if (scenario === "navigation-reload") {
+			await writeFile(registry, registryText["navigation-released"]);
+			await commands.get("omps-settings").handler("", ctx);
+			assert(menus.at(-1).includes("Management next / enter key: ctrl+shift+down (active down; /reload to apply)"));
+			keys.setUserBindings({ "tui.altScreen.nextPrompt": ["ctrl+down"], "tui.altScreen.previousPrompt": ["ctrl+up"] });
+			await sessionStart();
+		}
+		await commands.get("omps-settings").handler("", ctx);
+		if (scenario === "navigation-conflict") {
+			assert(menus.at(-1).includes("Management next / enter key: ctrl+shift+down (active off; /reload to apply)"));
+			assert(menus.at(-1).includes("Management previous key: ctrl+shift+up (active off; /reload to apply)"));
+			assert(
+				notifications.some(({ message }) =>
+					/tui\.altScreen\.nextPrompt.*keybindings\.json.*\/hotkeys.*\/reload/.test(message),
+				),
+			);
+		} else {
+			assert(menus.at(-1).includes("Management next / enter key: ctrl+shift+down"));
+			assert(menus.at(-1).includes("Management previous key: ctrl+shift+up"));
+		}
+	} else if (scenario === "defaults" || scenario === "tab" || scenario === "off") {
 		// Shipped defaults bind no key; a tab-misconfigured registry falls back to them without binding Tab.
 		assert.equal(shortcuts.size, 0, "defaults and off must register no shortcut");
 		assert.equal(shortcuts.size, 0, "off must register no shortcut");

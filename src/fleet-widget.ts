@@ -123,7 +123,6 @@ export class FleetWidget {
 	/** Render the navigation list within the given width. */
 	listLines(owner: string, width: number, theme: TreeTheme = PLAIN_THEME): string[] {
 		const roots = this.roots(owner);
-		if (!roots.length) return [];
 		return this.deps.strip.render(
 			{ roots, visibleAgents: this.deps.visibleAgents(), now: this.deps.now() },
 			width,
@@ -133,8 +132,11 @@ export class FleetWidget {
 
 	/** Run ids in list order, exactly as the list shows them; empty while the list is hidden. */
 	listedRunIds(owner: string): string[] {
-		if (this.deps.strip.isHidden || !this.deps.strip.isExpanded) return [];
-		return listedRoots(this.roots(owner), this.deps.now()).map((root) => root.runId);
+		const ids = this.deps.strip.isListVisible
+			? listedRoots(this.roots(owner), this.deps.now()).map((root) => root.runId)
+			: [];
+		if (!ids.length) this.deps.strip.endSelection();
+		return ids;
 	}
 
 	/** Toggle this session's view between expanded and the collapsed tree heading. */

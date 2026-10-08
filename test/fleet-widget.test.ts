@@ -44,7 +44,15 @@ const tree = (nodes: ObservedNode[]): ObservedTree => ({
 	reasons: [],
 });
 
-function setup(options: { mode?: "tui" | "rpc"; trees?: ObservedTree[]; view?: FleetView; uses?: number } = {}) {
+function setup(
+	options: {
+		mode?: "tui" | "rpc";
+		trees?: ObservedTree[];
+		view?: FleetView;
+		uses?: number;
+		showManagementList?: boolean;
+	} = {},
+) {
 	const runs: RunView[] = [];
 	const trees = options.trees ?? [];
 	const setWidget = vi.fn();
@@ -52,7 +60,10 @@ function setup(options: { mode?: "tui" | "rpc"; trees?: ObservedTree[]; view?: F
 		owner === "session" ? { send: vi.fn(), setStatus: vi.fn(), setWidget } : undefined,
 	);
 	const requestRender = vi.fn();
-	const strip = new FleetStrip(() => options.view ?? "expanded");
+	const strip = new FleetStrip(
+		() => options.view ?? "expanded",
+		() => options.showManagementList ?? true,
+	);
 	const widget = new FleetWidget({
 		messenger: messengerFor,
 		runs: (owner) => runs.filter((entry) => entry.owner === owner),
@@ -125,6 +136,19 @@ describe("fleet widgets", () => {
 		const lines = h.lines(TREE_KEY);
 		expect(lines[2]).toContain("⎿  Drafting the plan");
 		expect(lines[4]).toContain("⎿  thinking…");
+	});
+
+	it("keeps the expanded tree when management rows and navigation are hidden", () => {
+		const h = setup({ showManagementList: false });
+		h.update(run("a", "running"));
+		h.widget.attach("session");
+		expect(h.lines(TREE_KEY)).toHaveLength(3);
+		expect(h.lines(LIST_KEY)).toEqual([]);
+		expect(h.widget.listedRunIds("session")).toEqual([]);
+		h.strip.toggle();
+		h.strip.toggle();
+		expect(h.lines(TREE_KEY)).toHaveLength(3);
+		expect(h.lines(LIST_KEY)).toEqual([]);
 	});
 
 	it("collapses to the tree heading with a running count and no list", () => {

@@ -260,23 +260,66 @@ Put blocking issues first. Keep the whole answer under 400 words.
 | `version` | yes      | The number `1`. The text `'1'` and other numbers are rejected.            |
 | `agents`  | yes      | A mapping of agent names to settings. Use `agents: {}` for none.          |
 | `limits`  | no       | `maxConcurrentRuns` and `maxDepth`. Omitted fields default to one.        |
-| `ui`      | no       | `maxVisibleAgents`, `fleetView`, `toggleKey` and `inspectKey`. See below. |
+| `ui`      | no       | Visible rows, fleet view, management-list visibility and keys. See below. |
 
 Only `version`, `agents`, `limits` and `ui` are allowed at the top level.
 `maxConcurrentRuns` accepts safe integers of at least one; `maxDepth` accepts safe integers of at least zero.
 See [configured limits and nesting](USAGE.md#configured-limits-and-nesting) for the table, depth examples and branch ceilings.
 
 `ui.maxVisibleAgents` accepts safe integers from one to 256 and defaults to five.
-`ui.fleetView` sets how the fleet first appears: `expanded` (default) shows the `● Agents` tree above the editor and the list below it,
-`collapsed` shows only the tree heading and `off` hides both. `/omps fleet` and a bound toggle key change the view for the current session only.
+`ui.fleetView` sets how the fleet first appears: `expanded` (default) shows the `● Agents` tree above the editor,
+`collapsed` shows only the tree heading and `off` hides both widgets.
+`ui.showManagementList` accepts a boolean and defaults to `true`. Expanded view shows the list only when this field is true.
+Choose **Management list: Show/Hide** in `/omps-settings`. Confirmed changes repaint immediately and Hide ends list selection.
+`/omps fleet` and a bound **Fleet view shortcut** change the view for the session while preserving the list preference.
 `ui.toggleKey` and `ui.inspectKey` accept lowercase Pi key specifications, such as `alt+o`
 or `ctrl+alt+p`, or `off` to disable the shortcut. Both default to `off`. Empty-prompt arrows, `/omps fleet` and
 `/omps inspect` give full access without a shortcut.
-The two keys must differ. Tab and Ctrl+I are refused because legacy terminals send one byte
+All enabled OMPS keys must differ after modifier normalisation. Tab and Ctrl+I are refused because legacy terminals send one byte
 for both. A key bound to an effective built-in action is refused with guidance when the
 session starts. The check ignores modifier order, so `ctrl+shift+o` is refused because Pi 1.0 binds
 `shift+ctrl+o` to the session-tree filter. Edit these fields with `/omps-settings`, or by hand; see
 [operator settings](USAGE.md#operator-settings).
+
+#### Management navigation keys
+
+`ui.navigationDownKey` and `ui.navigationUpKey` accept lowercase Pi key specifications or `off`.
+Omitted values remain `down` and `up`. Settings labels are **Management next / enter key** and **Management previous key**.
+Navigation requires visible management rows and an empty editor whose focus OMPS can verify.
+Pi settings, selectors and other dialogs keep their keys. Unsupported editor focus passes input through.
+With the Down action off or inactive, no key enters management selection. `/omps inspect` remains available.
+
+This example keeps the expanded tree and hides the list:
+
+```yaml
+ui:
+  fleetView: expanded
+  showManagementList: false
+  navigationDownKey: ctrl+shift+down
+  navigationUpKey: ctrl+shift+up
+```
+
+Custom keys occupied by effective Pi actions stay inactive. OMPS names the conflict and never falls back to plain arrows.
+Pi 1.0.4 binds Ctrl+Shift+Up/Down to `tui.altScreen.previousPrompt` and `tui.altScreen.nextPrompt`.
+OMPS never rewrites Pi keybindings. To free those keys manually:
+
+1. Open your existing Pi `keybindings.json`.
+2. Merge these entries, keeping your other bindings:
+
+```json
+{
+	"tui.altScreen.previousPrompt": ["ctrl+up"],
+	"tui.altScreen.nextPrompt": ["ctrl+down"]
+}
+```
+
+3. Check the effective actions with `/hotkeys`.
+4. Run `/reload` to activate the saved OMPS keys.
+5. Show the management list when you want to use its navigation keys.
+
+The menu displays active keys separately from saved values until reload. Hints use active keys.
+Some terminals consume modified arrows or report them differently. Test the pair in your terminal; choose another pair if needed.
+Legacy modified-arrow and Kitty press/release input are supported when the terminal sends them.
 
 #### Restore the Alt keys
 
@@ -525,7 +568,8 @@ OMPS reports the first problem it finds. Fix it, then run `/omps list` again.
 | `version: unsupported ...; expected 1`                                   | `version` is not the number 1                                    | Write `version: 1` without quotes.                                                                                 |
 | `agents: required mapping (use {} for no agents)`                        | `agents` is missing or is not a mapping                          | Add `agents:` with agents under it, or `agents: {}`.                                                               |
 | `<key>: unknown field`                                                   | A top-level key other than `version`, `agents`, `limits` or `ui` | Remove the key or correct its spelling.                                                                            |
-| `ui.<field>: unknown field`                                              | A key under `ui` other than the four supported fields            | Use `maxVisibleAgents`, `fleetView`, `toggleKey` or `inspectKey`.                                                  |
+| `ui.<field>: unknown field`                                              | An unsupported UI field                                          | Use the UI fields described above.                                                                                 |
+| `ui.showManagementList: must be a boolean`                               | A string, number or collection                                   | Write `true` or `false` without quotes.                                                                            |
 | `ui.maxVisibleAgents: must be a safe integer from 1 to 256`              | The value is zero, too large, fractional or not a number         | Write a whole number from 1 to 256.                                                                                |
 | `ui.toggleKey: must be a ... Pi key specification ... or "off"`          | A misspelt or uppercase key, for example `Alt+O`                 | Write the key in lowercase, such as `alt+o`, or `off`.                                                             |
 | `ui.fleetView: must be "expanded", "collapsed" or "off"`                 | Another word, or a capital letter                                | Write `expanded`, `collapsed` or `off`.                                                                            |

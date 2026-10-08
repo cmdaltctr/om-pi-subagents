@@ -25,7 +25,15 @@ async function write(relativePath: string, text: string): Promise<void> {
 const registry = () => join(dir, "omps/config.yaml");
 const legacy = () => join(dir, "pi-subagents", "config.json");
 
-const defaults = { maxVisibleAgents: 5, fleetView: "expanded", toggleKey: "off", inspectKey: "off" };
+const defaults = {
+	maxVisibleAgents: 5,
+	fleetView: "expanded",
+	toggleKey: "off",
+	inspectKey: "off",
+	showManagementList: true,
+	navigationDownKey: "down",
+	navigationUpKey: "up",
+};
 
 const emptyRegistry = "version: 1\nagents: {}\n";
 
@@ -66,7 +74,7 @@ describe("yaml ui declarations", () => {
 		await write("omps/config.yaml", "version: 1\nui:\n  maxVisibleAgents: 9\nagents: {}\n");
 		const cache = createUiSettings(registry(), legacy());
 		const state = await cache.ensureLoaded();
-		expect(state.value).toEqual({ maxVisibleAgents: 9, fleetView: "expanded", toggleKey: "off", inspectKey: "off" });
+		expect(state.value).toEqual({ ...defaults, maxVisibleAgents: 9 });
 		expect(state.maxVisibleAgentsSource).toBe("yaml");
 	});
 
@@ -74,7 +82,7 @@ describe("yaml ui declarations", () => {
 		await write("pi-subagents/config.json", '{"maxVisibleAgents": 7}\n');
 		await write("omps/config.yaml", 'version: 1\nui:\n  inspectKey: "alt+i"\nagents: {}\n');
 		const state = await createUiSettings(registry(), legacy()).ensureLoaded();
-		expect(state.value).toEqual({ maxVisibleAgents: 7, fleetView: "expanded", toggleKey: "off", inspectKey: "alt+i" });
+		expect(state.value).toEqual({ ...defaults, maxVisibleAgents: 7, inspectKey: "alt+i" });
 		expect(state.maxVisibleAgentsSource).toBe("legacy");
 	});
 });
@@ -142,7 +150,7 @@ describe("registry failures", () => {
 		expect(state.diagnostics.length).toBe(1);
 		expect(state.diagnostics[0]).toMatch(/ui\.maxVisibleAgents/);
 		// The retained cache still serves the last good presentation values.
-		expect(cache.value).toEqual({ maxVisibleAgents: 6, fleetView: "expanded", toggleKey: "off", inspectKey: "off" });
+		expect(cache.value).toEqual({ ...defaults, maxVisibleAgents: 6 });
 	});
 
 	it("recovers on the next refresh once the registry is valid again", async () => {

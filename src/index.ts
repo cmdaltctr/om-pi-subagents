@@ -417,7 +417,11 @@ export function registerRuntime(pi: ExtensionAPI, branch?: ChildLineage): () => 
 		ensureLoaded: () => getUi().ensureLoaded(),
 	};
 	// The saved view comes from the cached registry; session toggles and selection never touch a file.
-	const strip = new FleetStrip(() => getUi().value.fleetView);
+	const strip = new FleetStrip(
+		() => getUi().value.fleetView,
+		() => getUi().value.showManagementList,
+		() => activeKeys ?? { navigationDownKey: "off", navigationUpKey: "off" },
+	);
 	registerOmps(
 		pi,
 		() => (runtime ??= createRuntime(pi, binding, visibleAgents, strip, branch)).service,
@@ -432,8 +436,11 @@ export function registerRuntime(pi: ExtensionAPI, branch?: ChildLineage): () => 
 		// A saved view replaces any session toggle, so the operator sees the new setting at once.
 		onFleetViewSaved: () => strip.resetView(),
 		onDisplayChanged: (ctx) => {
+			if (!strip.isListVisible) strip.endSelection();
 			runtime?.viewer.activate(ctx);
 			runtime?.viewer.redraw();
+			const owner = binding.owner;
+			if (owner) runtime?.fleet.repaint(owner);
 		},
 	}));
 

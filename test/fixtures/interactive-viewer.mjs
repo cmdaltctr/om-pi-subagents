@@ -3,10 +3,12 @@ import { mkdir, writeFile, readFile, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
+import { stripVTControlCharacters } from "node:util";
 import { registerOmps } from "../../src/index.ts";
 import { ObservationStore } from "../../src/observation.ts";
 import { RunViewer, TREE_ENTRY } from "../../src/viewer.ts";
 import { createSnapshotCapture } from "./capture-snapshot.mjs";
+import { captureInspectorVisual } from "./inspector-visual.mjs";
 
 const [modules, mode, theme = "dark"] = process.argv.slice(2);
 const load = (name, file) => import(pathToFileURL(join(resolve(modules), name, file)).href);
@@ -29,10 +31,11 @@ const { CustomEntryComponent } = await load(
 	"dist/modes/interactive/components/custom-entry.js",
 );
 const { KeybindingsManager } = await load("@earendil-works/pi-coding-agent", "dist/core/keybindings.js");
-const { initTheme, getEditorTheme } = await load(
-	"@earendil-works/pi-coding-agent",
-	"dist/modes/interactive/theme/theme.js",
-);
+const {
+	initTheme,
+	getEditorTheme,
+	theme: activeTheme,
+} = await load("@earendil-works/pi-coding-agent", "dist/modes/interactive/theme/theme.js");
 initTheme(theme, false);
 class MemoryTerminal {
 	columns = 100;
@@ -60,6 +63,12 @@ class MemoryTerminal {
 const directory = await mkdtemp(join(tmpdir(), "omps-native-viewer-"));
 const terminal = new MemoryTerminal();
 const ui = createInteractiveTui({ terminal, tuiMode: mode, logDirectory: directory });
+let overlayHandle;
+const showOverlay = ui.showOverlay.bind(ui);
+ui.showOverlay = (...args) => {
+	overlayHandle = showOverlay(...args);
+	return overlayHandle;
+};
 const keys = new KeybindingsManager();
 tui.setKeybindings(keys);
 const editor = new CustomEditor(ui, getEditorTheme(), keys);
@@ -84,7 +93,7 @@ const root = {
 	owner: "session",
 	agent: "worker",
 	state: "running",
-	startedAt: 1,
+	startedAt: Date.now() - 508000,
 	cwd: directory,
 	nesting: { registryPath: "/registry", rootSessionId: "session", depth: 1, maxDepth: 3 },
 };
@@ -103,9 +112,18 @@ for (let index = 1; index < 20; index++)
 				depth: index === 2 ? 3 : 2,
 				agent: "reader",
 				state: "running",
-				startedAt: 1,
+				startedAt: root.startedAt,
 				revision: 1,
-				activeTools: [],
+				activeTools:
+					index === 19
+						? [
+								{ id: "synthetic-read-1", name: "read" },
+								{ id: "synthetic-read-2", name: "read" },
+								{ id: "synthetic-grep", name: "grep" },
+							]
+						: [],
+				taskSummary: `Synthetic task for child-${index}`,
+				assistantPreview: "Synthetic live preview words ".repeat(100),
 			},
 		),
 		"accepted",
@@ -121,7 +139,7 @@ assert.equal(
 			depth: 3,
 			agent: "grandchild-reader",
 			state: "running",
-			startedAt: 1,
+			startedAt: root.startedAt,
 			revision: 1,
 			activeTools: [],
 		},
@@ -147,7 +165,10 @@ for (const node of observations.tree("session", "root").nodes) {
 			nesting: { rootSessionId: node.rootSessionId, parentRunId: node.parentRunId, depth: node.depth },
 		}),
 	);
-	await writeFile(join(saved, "output.md"), `Selected output ${node.runId}`);
+	await writeFile(
+		join(saved, "output.md"),
+		`# Selected output ${node.runId}\n\n${Array.from({ length: 100 }, (_, index) => `Paragraph ${index} for ${node.runId}. This synthetic answer tests scrolling.\n\n- Synthetic item ${index}\n\n\`\`\`ts\nconst example = ${index};\n\`\`\``).join("\n\n")}\n\nFINAL-SYNTHETIC-LINE ${node.runId}`,
+	);
 }
 const ctx = {
 	mode: "tui",
@@ -211,14 +232,28 @@ ui.addChild(host.chatContainer);
 ui.addChild(host.editorContainer);
 ui.setFocus(editor);
 ui.start();
-const capture = createSnapshotCapture({
+const version = JSON.parse(
+	await readFile(join(modules, "@earendil-works/pi-coding-agent/package.json"), "utf8"),
+).version;
+const capturePlain = createSnapshotCapture({
 	ui,
 	terminal,
 	directory,
-	version: JSON.parse(await readFile(join(modules, "@earendil-works/pi-coding-agent/package.json"), "utf8")).version,
+	version,
 	mode,
 	theme,
 });
+const capture = async (stage, suppliedLines) => {
+	await capturePlain(stage, suppliedLines);
+	await captureInspectorVisual({
+		version,
+		mode,
+		theme,
+		stage,
+		width: terminal.columns,
+		lines: suppliedLines ?? ui.getFocusedComponent().render(terminal.columns),
+	});
+};
 const flush = async () => {
 	await new Promise((done) => setTimeout(done, 20));
 	ui.renderNow();
@@ -228,13 +263,19 @@ const waitForDetails = async () => {
 	await flush();
 	const component = ui.getFocusedComponent();
 	assert.notEqual(component, editor);
+	component.render(100);
+	component.handleInput("\x1b[F");
 	let text = component.render(100).join("\n");
-	// Real saved-file reads can outlast a render flush under full-suite load.
+	// The loading label belongs to the same scrollable body as the provisional answer.
 	while (text.includes("Reading selected saved files...")) {
 		assert(Date.now() < deadline, `Selected saved-file read did not finish:\n${text}`);
 		await flush();
+		component.handleInput("\x1b[F");
 		text = component.render(100).join("\n");
 	}
+	assert(text.includes("FINAL-SYNTHETIC-LINE"), "The selected saved answer must finish loading");
+	component.handleInput("\x1b[H");
+	await flush();
 	return component;
 };
 try {
@@ -280,19 +321,73 @@ try {
 	terminal.input("\x1b[C");
 	await flush();
 	assert(ui.getFocusedComponent().render(100).join("\n").includes("grandchild-reader"));
+	if (mode === "fullscreen") {
+		const bounds = overlayHandle.getBounds();
+		assert(bounds);
+		const row = ui
+			.getFocusedComponent()
+			.render(bounds.width)
+			.findIndex((line) => line.includes("grandchild-reader"));
+		assert(row > 0);
+		terminal.input(`\x1b[<0;${bounds.col + 4};${bounds.row + row + 1}M`);
+		terminal.input(`\x1b[<0;${bounds.col + 4};${bounds.row + row + 1}m`);
+		const grandchild = await waitForDetails();
+		assert(grandchild.render(100).join("\n").includes("Selected task grandchild"));
+		assert(grandchild.render(100).join("\n").includes("reader (child-1) > grandchild-reader"));
+		await capture("grandchild-detail");
+		terminal.input("\x1b");
+		await flush();
+	}
 	// Scroll by run identity: extra roots must not change which descendant is inspected.
 	for (let index = 0; index < 30; index++) {
-		if (/>\s+reader running \(child-19\)/.test(ui.getFocusedComponent().render(100).join("\n"))) break;
+		if (
+			/>\s+reader running · [^\n]+ \(child-19\)/.test(
+				stripVTControlCharacters(ui.getFocusedComponent().render(100).join("\n")),
+			)
+		)
+			break;
 		terminal.input("\x1b[B");
 	}
-	assert(/>\s+reader running \(child-19\)/.test(ui.getFocusedComponent().render(100).join("\n")));
+	assert(
+		/>\s+reader running · [^\n]+ \(child-19\)/.test(
+			stripVTControlCharacters(ui.getFocusedComponent().render(100).join("\n")),
+		),
+	);
 	terminal.input("\r");
+	const pending = ui.getFocusedComponent();
+	const provisionalTop = pending.render(100).join("\n");
+	terminal.input("\x1b[6~");
+	assert.notEqual(pending.render(100).join("\n"), provisionalTop, "Paging works before real file reads finish");
 	const overlay = await waitForDetails();
 	assert(
 		overlay.render(100).join("\n").includes("Selected task child-19"),
 		"hidden retained agent must remain keyboard-accessible",
 	);
 	await capture("detail");
+	const strip = (lines) => lines.map(stripVTControlCharacters).join("\n");
+	const start = strip(overlay.render(100));
+	terminal.input("\x1b[B");
+	await flush();
+	assert.notEqual(strip(overlay.render(100)), start, "Down scrolls details without switching agents");
+	terminal.input("\x1b[6~");
+	await flush();
+	assert(!strip(overlay.render(100)).includes("Run: child-19"), "PageDown reaches answer content");
+	terminal.input("\x1b[F");
+	await flush();
+	assert(strip(overlay.render(100)).includes("FINAL-SYNTHETIC-LINE child-19"));
+	await capture("answer-bottom", overlay.render(100));
+	terminal.input("\x1b[H");
+	await flush();
+	if (mode === "fullscreen") {
+		const position = overlayHandle.getBounds();
+		assert(position);
+		const beforeWheel = strip(overlay.render(100));
+		terminal.input(`\x1b[<65;${position.col + 4};${position.row + 5}M`);
+		await flush();
+		assert.notEqual(strip(overlay.render(100)), beforeWheel, "Fullscreen wheel scrolls and redraws");
+		terminal.input("\x1b[H");
+		await flush();
+	}
 	assert.equal(
 		observations.updateRoot(
 			{ ...root, state: "running" },
@@ -305,23 +400,61 @@ try {
 		!card.render(100).some((line) => line.includes("live_read")),
 		"acknowledgements never repaint into live activity; that belongs to the fleet and modal",
 	);
+	const themedName = activeTheme.fg("accent", "reader");
+	assert(overlay.render(100).join("\n").includes(themedName));
+	initTheme(theme === "light" ? "dark" : "light", false);
+	overlay.invalidate();
+	await flush();
+	const changedTheme = overlay.render(100).join("\n");
+	assert(changedTheme.includes(activeTheme.fg("accent", "reader")), "Invalidation uses the current host theme");
+	assert(!changedTheme.includes(themedName), "The previous theme does not remain cached");
+	initTheme(theme, false);
+	overlay.invalidate();
+	await flush();
 	terminal.columns = 45;
 	terminal.resize();
 	ui.renderNow();
 	await capture("narrow");
 	assert.equal(ui.getFocusedComponent(), overlay);
-	terminal.input("\r");
-	await waitForDetails();
+	terminal.input("\x1b[H");
+	await flush();
 	await capture("narrow-detail");
-	terminal.input("\x1b"); // Return to the narrow tree before closing.
+	terminal.input("\x1b[F");
+	await flush();
+	assert(strip(overlay.render(45)).includes("FINAL-SYNTHETIC-LINE child-19"));
+	await capture("narrow-answer-bottom", overlay.render(45));
+	terminal.input("\x1b"); // Return to the picker with the same selected identity and folds.
 	await flush();
 	assert.equal(ui.getFocusedComponent(), overlay);
+	if (mode === "fullscreen") {
+		const bounds = overlayHandle.getBounds();
+		assert(bounds);
+		const row = overlay.render(bounds.width).findIndex((line) => line.includes("Synthetic task for child-17"));
+		assert(row > 0, "Windowed second-line row must remain visible");
+		terminal.input(`\x1b[<0;${bounds.col + 4};${bounds.row + row + 1}M`);
+		terminal.input(`\x1b[<0;${bounds.col + 4};${bounds.row + row + 1}m`);
+		const clicked = await waitForDetails();
+		assert(
+			clicked.render(100).join("\n").includes("Selected task child-17"),
+			"Windowed second-line click uses displayed identity",
+		);
+		await capture("windowed-click-detail");
+		terminal.input("\x1b");
+		await flush();
+	}
 	terminal.input("\x1b");
 	await inspecting;
 	assert.equal(ui.getFocusedComponent(), editor);
 	assert.equal(editor.getText(), "preserved prompt");
 	assert.equal(cancelled, 0);
 	assert.equal(observations.node("session", "root", "root").state, "running");
+	const direct = commands.get("omps").handler("inspect child-17", ctx);
+	const directOverlay = await waitForDetails();
+	assert(directOverlay.render(100).join("\n").includes("Selected task child-17"));
+	terminal.input("\x1b");
+	await direct;
+	assert.equal(ui.getFocusedComponent(), editor, "A direct run-id opens details and closes with one Escape");
+	assert.equal(editor.getText(), "preserved prompt");
 	viewer.dispose();
 	const afterDispose = card.render(100).join("\n");
 	assert(

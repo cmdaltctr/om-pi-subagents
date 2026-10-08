@@ -138,8 +138,11 @@ describe("settings commands", () => {
 				"Parallel direct children per parent: 4",
 				"Visible agents: 5 (default)",
 				"Fleet view: expanded",
-				"Fleet list shortcut: off",
+				"Fleet view shortcut: off",
 				"Inspection shortcut: off",
+				"Management list: Show",
+				"Management next / enter key: down",
+				"Management previous key: up",
 				"Agent capabilities",
 				"Done",
 			]);
@@ -359,7 +362,7 @@ describe("visible agents in YAML", () => {
 describe("view shortcuts", () => {
 	it("saves a confirmed fleet shortcut and requests a reload", async () => {
 		const ctx = context();
-		pick(ctx, "Fleet list shortcut", "alt+p");
+		pick(ctx, "Fleet view shortcut", "alt+p");
 		await run(ctx);
 		expect((await loadRegistry(registry)).ui.toggleKey).toBe("alt+p");
 		expect(ctx.ui.confirm.mock.calls[0][1]).toContain(registry);
@@ -368,12 +371,15 @@ describe("view shortcuts", () => {
 
 	it("saves off and a valid inspection shortcut", async () => {
 		const ctx = context();
-		pick(ctx, "Fleet list shortcut", "off");
+		pick(ctx, "Fleet view shortcut", "off");
 		pick(ctx, "Inspection shortcut", "ctrl+alt+i");
 		await run(ctx);
 		expect((await loadRegistry(registry)).ui).toEqual({
 			maxVisibleAgents: 5,
 			fleetView: "expanded",
+			showManagementList: true,
+			navigationDownKey: "down",
+			navigationUpKey: "up",
 			toggleKey: "off",
 			inspectKey: "ctrl+alt+i",
 		});
@@ -384,7 +390,7 @@ describe("view shortcuts", () => {
 		async (key) => {
 			await fs.writeFile(registry, "version: 1\nui: { inspectKey: alt+p }\nagents: {}\n");
 			const ctx = context();
-			pick(ctx, "Fleet list shortcut", key);
+			pick(ctx, "Fleet view shortcut", key);
 			await run(ctx);
 			expect(ctx.ui.notify).toHaveBeenCalledWith(
 				expect.stringMatching(/ui\.toggleKey|choose distinct keys|choose another key/i),
@@ -398,7 +404,7 @@ describe("view shortcuts", () => {
 	it("refuses a duplicate written in another modifier order before confirmation", async () => {
 		await fs.writeFile(registry, "version: 1\nui: { inspectKey: ctrl+alt+p }\nagents: {}\n");
 		const ctx = context();
-		pick(ctx, "Fleet list shortcut", "alt+ctrl+p");
+		pick(ctx, "Fleet view shortcut", "alt+ctrl+p");
 		await run(ctx);
 		expect(ctx.ui.notify).toHaveBeenCalledWith(expect.stringMatching(/duplicate/i), "error");
 		expect(ctx.ui.confirm).not.toHaveBeenCalled();
@@ -411,7 +417,7 @@ describe("view shortcuts", () => {
 		await run(ctx);
 		expect((await loadRegistry(registry)).ui.inspectKey).toBe("alt+q");
 		const items = ctx.ui.select.mock.calls.flatMap(([_title, options]) => options);
-		expect(items.some((item) => item.includes("Fleet list shortcut: alt+p"))).toBe(true);
+		expect(items.some((item) => item.includes("Fleet view shortcut: alt+p"))).toBe(true);
 	});
 });
 

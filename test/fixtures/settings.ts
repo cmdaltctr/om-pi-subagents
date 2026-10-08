@@ -3,7 +3,7 @@ import type { PiFixture, PiRecord } from "./pi-rpc.ts";
 /** Drive Pi's native RPC settings dialogs with explicit operator responses. */
 export async function editRpcSettings(
 	fixture: PiFixture,
-	field: 0 | 1 | 2 | 3 | 4,
+	field: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8,
 	value: string,
 	confirmed = true,
 	command = "/omps-settings",
@@ -23,7 +23,7 @@ export async function editRpcSettings(
 	};
 	const menu = await dialog("select");
 	reply(menu, { value: menu.options[field] });
-	reply(await dialog("input"), { value });
+	reply(await dialog(field === 3 || field === 6 ? "select" : "input"), { value });
 	reply(await dialog("confirm"), { confirmed });
 	const done = await dialog("select");
 	reply(done, { value: "Done" });

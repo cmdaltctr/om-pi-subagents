@@ -71,6 +71,37 @@ describe("disposable snapshot capture", () => {
 		expect(text).toContain("Escape back");
 	});
 
+	it.each([
+		[45, "wide-detail"],
+		[120, "wide-detail"],
+		[45, "narrow-answer-bottom"],
+		[120, "answer-bottom"],
+	] as const)(
+		"keeps single-column footer controls after a wrapped path at %i columns in %s",
+		async (columns, stage) => {
+			const destination = await mkdtemp(join(tmpdir(), "omps-capture-check-"));
+			created.push(destination);
+			vi.stubEnv("OMPS_CAPTURE_DIR", destination);
+			const footer = "↑↓ scroll · PgUp/PgDn page · ←→ agent · Esc back · Lines 1–16/48";
+			const capture = createSnapshotCapture({
+				ui: { renderNow: () => undefined, getFocusedComponent: () => null },
+				terminal: { columns, rows: 20 },
+				directory: "/private/var/folders/synthetic-run",
+				version: "fixture",
+				mode: "fullscreen",
+				theme: "dark",
+			});
+			await capture(stage, [
+				"Saved output: /private/var/folders/synthetic-run",
+				"wrapped-private-fragment/output.md",
+				footer,
+			]);
+			const text = await readFile(join(destination, `fixture-fullscreen-dark-${stage}.txt`), "utf8");
+			expect(text).toContain(footer);
+			expect(text).not.toContain("wrapped-private-fragment");
+		},
+	);
+
 	it("redacts disposable paths and accepts fleet lines without opening a terminal", async () => {
 		const destination = await mkdtemp(join(tmpdir(), "omps-capture-check-"));
 		created.push(destination);

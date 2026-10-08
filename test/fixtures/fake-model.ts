@@ -16,7 +16,7 @@ export interface FakeModel {
 	/** Every embeddings request body received, for fake embedding providers. */
 	readonly embeddings: unknown[];
 	/** Answers by request order (the last turn repeats), or chosen per request from its body and index. */
-	script: Turn[] | ((body: any, index: number) => Turn);
+	script: Turn[] | ((body: any, index: number) => Turn | Promise<Turn>);
 	close(): Promise<void>;
 }
 
@@ -74,7 +74,7 @@ export async function startFakeModel(): Promise<FakeModel> {
 			const body = requests[requests.length - 1];
 			const turn =
 				typeof model.script === "function"
-					? model.script(body, requests.length - 1)
+					? await model.script(body, requests.length - 1)
 					: model.script[Math.min(requests.length, model.script.length) - 1];
 			if ("status" in turn) {
 				response.writeHead(turn.status, { "content-type": "application/json" });

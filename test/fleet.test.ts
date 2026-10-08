@@ -145,6 +145,46 @@ describe("view state", () => {
 		expect(strip.render(input, 80)).toEqual([]);
 	});
 
+	it("hides only management rows, ends selection and keeps the saved preference across toggles", () => {
+		let shown = true;
+		const strip = new FleetStrip(
+			() => "expanded",
+			() => shown,
+		);
+		strip.startSelection("a");
+		shown = false;
+		expect(strip.render(input, 80)).toEqual([]);
+		expect(strip.isSelecting).toBe(false);
+		expect(strip.isExpanded).toBe(true);
+		expect(strip.isHidden).toBe(false);
+		strip.toggle();
+		strip.toggle();
+		expect(strip.render(input, 80)).toEqual([]);
+		expect(shown).toBe(false);
+		shown = true;
+		expect(strip.render(input, 80)).toHaveLength(3);
+		expect(strip.isSelecting).toBe(false);
+	});
+
+	it("shows effective hints and omits inactive navigation actions", () => {
+		let keys = { navigationDownKey: "ctrl+shift+down", navigationUpKey: "ctrl+shift+up" };
+		const strip = new FleetStrip(
+			() => "expanded",
+			() => true,
+			() => keys,
+		);
+		expect(strip.render(input, 100)[0]).toContain("ctrl+shift+down to manage");
+		strip.startSelection("a");
+		expect(strip.render(input, 120)[0]).toContain("ctrl+shift+up/ctrl+shift+down select");
+		keys = { navigationDownKey: "ctrl+shift+down", navigationUpKey: "off" };
+		expect(strip.render(input, 100)[0]).toContain("ctrl+shift+down select");
+		expect(strip.render(input, 100)[0]).not.toContain("off");
+		strip.endSelection();
+		keys = { navigationDownKey: "off", navigationUpKey: "up" };
+		expect(strip.render(input, 100).join("\n")).not.toMatch(/to manage|select|off/);
+		expect(strip.render(input, 100).filter((line) => line.includes("○"))).toHaveLength(2);
+	});
+
 	it("ends selection when collapsed", () => {
 		const strip = new FleetStrip();
 		strip.startSelection("a");

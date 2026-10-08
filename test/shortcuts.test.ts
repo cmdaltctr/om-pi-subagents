@@ -7,7 +7,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { occupiedByBuiltin, registerViewShortcuts } from "../src/shortcuts.ts";
 import { loadRegistry, normaliseKey, type UiSettings } from "../src/config.ts";
 
-const defaults: UiSettings = { maxVisibleAgents: 5, fleetView: "expanded", toggleKey: "alt+o", inspectKey: "alt+i" };
+const defaults: UiSettings = {
+	maxVisibleAgents: 5,
+	fleetView: "expanded",
+	showManagementList: true,
+	toggleKey: "alt+o",
+	inspectKey: "alt+i",
+	navigationDownKey: "down",
+	navigationUpKey: "up",
+};
 
 function harness(resolved: Record<string, unknown> = {}) {
 	const registrations = new Map<string, { description?: string; handler: (ctx: ExtensionContext) => void }>();
@@ -71,6 +79,65 @@ describe("registerViewShortcuts", () => {
 		expect(occupiedByBuiltin("up", { "tui.editor.cursorUp": ["up", "ctrl+p"] })).toBe(true);
 		expect(occupiedByBuiltin("ctrl+p", { "tui.editor.cursorUp": ["up", "ctrl+p"] })).toBe(true);
 		expect(occupiedByBuiltin("alt+o", { "tui.editor.cursorUp": ["up", "ctrl+p"] })).toBe(false);
+	});
+});
+
+describe("navigation conflicts", () => {
+	const resolveKeys = (keys: Partial<UiSettings>, resolved: Record<string, unknown>) => {
+		const h = harness();
+		return registerViewShortcuts(h.pi, { ...defaults, ...keys }, h.actions, resolved);
+	};
+	it("retains only matching default movement, history and picker overlaps", () => {
+		const registration = resolveKeys(
+			{},
+			{
+				"tui.editor.cursorDown": "down",
+				"tui.editor.historyNext": "down",
+				"tui.select.down": "down",
+				"tui.editor.cursorUp": "up",
+				"tui.editor.historyPrevious": "up",
+				"tui.select.up": "up",
+			},
+		);
+		expect(registration.keys.navigationDownKey).toBe("down");
+		expect(registration.keys.navigationUpKey).toBe("up");
+		expect(registration.diagnostics).toEqual([]);
+	});
+	it.each(["app.interrupt", "tui.altScreen.lineDown", "tui.select.up"])(
+		"refuses an additional owner of default Down: %s",
+		(action) => {
+			const registration = resolveKeys({}, { "tui.editor.cursorDown": "down", [action]: "down" });
+			expect(registration.keys.navigationDownKey).toBe("off");
+			expect(registration.diagnostics.join(" ")).toContain(action);
+		},
+	);
+	it("names every effective modified-arrow conflict and gives manual recovery without fallback", () => {
+		const requested = { navigationDownKey: "ctrl+shift+down", navigationUpKey: "ctrl+shift+up" };
+		const registration = resolveKeys(requested, {
+			"tui.altScreen.nextPrompt": ["shift+ctrl+down", "ctrl+down"],
+			"tui.altScreen.previousPrompt": "ctrl+shift+up",
+		});
+		expect(registration.keys.navigationDownKey).toBe("off");
+		expect(registration.keys.navigationUpKey).toBe("off");
+		expect(registration.diagnostics.join(" ")).toMatch(
+			/tui\.altScreen\.nextPrompt.*keybindings\.json.*\/hotkeys.*\/reload/,
+		);
+		expect(registration.diagnostics.join(" ")).toContain("tui.altScreen.previousPrompt");
+		const released = resolveKeys(requested, {
+			"tui.altScreen.nextPrompt": "ctrl+down",
+			"tui.altScreen.previousPrompt": "ctrl+up",
+		});
+		expect(released.keys).toMatchObject(requested);
+		expect(released.diagnostics).toEqual([]);
+	});
+	it("refuses even editor overlaps for custom navigation and preserves explicit off", () => {
+		const result = resolveKeys(
+			{ navigationDownKey: "alt+p", navigationUpKey: "off" },
+			{ "tui.editor.historyNext": "alt+p" },
+		);
+		expect(result.keys.navigationDownKey).toBe("off");
+		expect(result.keys.navigationUpKey).toBe("off");
+		expect(result.diagnostics).toHaveLength(1);
 	});
 });
 

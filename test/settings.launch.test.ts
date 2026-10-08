@@ -59,60 +59,97 @@ async function rootFixture() {
 }
 
 describe.skipIf(!PI_AVAILABLE)("saved limits through fresh real launches", () => {
-	it("lower capacity preserves admitted work, completed output and one result per child", async () => {
-		const fixture = await rootFixture();
-		try {
-			fixture.model.script = (body) =>
-				JSON.stringify(body.messages).includes("SAVED-LIMIT-WORKER")
-					? { text: "Admitted worker completed", delayMs: 5_000 }
-					: { text: "Parent received results" };
-			const ids = [await launch(fixture, "first task"), await launch(fixture, "second task")];
-			await waitFor(
-				async () => (await saved(fixture, "status.json")).filter(({ data }) => data.state === "running").length === 2,
-			);
-			const admitted = await saved(fixture, "status.json");
-			await editRpcSettings(fixture, 1, "1");
-			expect((await saved(fixture, "status.json")).every(({ data }) => data.state === "running")).toBe(true);
-			const start = fixture.records.length;
-			await fixture.send({ type: "prompt", message: "/omps run worker rejected task" });
-			expect(
-				fixture.records
-					.slice(start)
-					.some((record) => record.notifyType === "error" && /maxConcurrentRuns: 1/.test(record.message)),
-			).toBe(true);
-			expect(await saved(fixture, "config.json")).toHaveLength(2);
-			await waitFor(async () => (await saved(fixture, "status.json")).every(({ data }) => data.state === "completed"));
-			await Promise.all(
-				ids.map((id) =>
-					fixture.waitFor(
-						(record) =>
-							record.type === "message_end" &&
-							record.message?.customType === "omps-result" &&
-							record.message.details?.runId === id,
-					),
-				),
-			);
-			for (const id of ids) {
+	it.each([0, 6000])(
+		"lower capacity preserves admitted work, completed output and one result per child (second launch delayed %i ms)",
+		async (secondLaunchDelay) => {
+			const fixture = await rootFixture();
+			let releaseWorkers!: () => void;
+			const workersHeld = new Promise<void>((resolve) => {
+				releaseWorkers = resolve;
+			});
+			try {
+				// Fixed reply delays can expire before a slower second child reaches readiness.
+				fixture.model.script = async (body) => {
+					if (JSON.stringify(body.messages).includes("SAVED-LIMIT-WORKER")) {
+						await workersHeld;
+						return { text: "Admitted worker completed" };
+					}
+					return { text: "Parent received results" };
+				};
+				const first = await launch(fixture, "first task");
+				await waitFor(async () =>
+					fixture.model.requests.some((body) => JSON.stringify(body).includes("SAVED-LIMIT-WORKER")),
+				);
+				if (secondLaunchDelay) await new Promise((done) => setTimeout(done, secondLaunchDelay));
+				const ids = [first, await launch(fixture, "second task")];
+				try {
+					await waitFor(
+						async () =>
+							(await saved(fixture, "status.json")).filter(({ data }) => data.state === "running").length === 2,
+					);
+				} catch (error) {
+					const states = (await saved(fixture, "status.json")).map(({ data }) => ({
+						id: data.id,
+						state: data.state,
+						error: data.error,
+					}));
+					throw new Error(`${(error as Error).message}; synthetic child states: ${JSON.stringify(states)}`, {
+						cause: error,
+					});
+				}
+				const admitted = await saved(fixture, "status.json");
+				await editRpcSettings(fixture, 1, "1");
+				expect((await saved(fixture, "status.json")).every(({ data }) => data.state === "running")).toBe(true);
+				const start = fixture.records.length;
+				await fixture.send({ type: "prompt", message: "/omps run worker rejected task" });
 				expect(
-					fixture.records.filter(
-						(record) =>
-							record.type === "message_end" &&
-							record.message?.customType === "omps-result" &&
-							record.message.details?.runId === id,
+					fixture.records
+						.slice(start)
+						.some((record) => record.notifyType === "error" && /maxConcurrentRuns: 1/.test(record.message)),
+				).toBe(true);
+				expect(await saved(fixture, "config.json")).toHaveLength(2);
+				releaseWorkers();
+				await waitFor(async () =>
+					(await saved(fixture, "status.json")).every(({ data }) => data.state === "completed"),
+				);
+				await Promise.all(
+					ids.map((id) =>
+						fixture.waitFor(
+							(record) =>
+								record.type === "message_end" &&
+								record.message?.customType === "omps-result" &&
+								record.message.details?.runId === id,
+						),
 					),
-				).toHaveLength(1);
-				const configuration = (await saved(fixture, "config.json")).find(({ data }) => data.runId === id);
-				expect(configuration).toBeDefined();
-				const output = join(fixture.agentDir, "omps", "runs", configuration!.path.replace("config.json", "output.md"));
-				expect(await readFile(output, "utf8")).toContain("Admitted worker completed");
+				);
+				for (const id of ids) {
+					expect(
+						fixture.records.filter(
+							(record) =>
+								record.type === "message_end" &&
+								record.message?.customType === "omps-result" &&
+								record.message.details?.runId === id,
+						),
+					).toHaveLength(1);
+					const configuration = (await saved(fixture, "config.json")).find(({ data }) => data.runId === id);
+					expect(configuration).toBeDefined();
+					const output = join(
+						fixture.agentDir,
+						"omps",
+						"runs",
+						configuration!.path.replace("config.json", "output.md"),
+					);
+					expect(await readFile(output, "utf8")).toContain("Admitted worker completed");
+				}
+				expect(admitted.some(({ data }) => alive(data.pid))).toBe(false);
+				expect(await fixture.exit()).toBe(0);
+			} finally {
+				releaseWorkers();
+				if (fixture.child.exitCode === null) await fixture.exit();
+				await fixture.dispose();
 			}
-			expect(admitted.some(({ data }) => alive(data.pid))).toBe(false);
-			expect(await fixture.exit()).toBe(0);
-		} finally {
-			if (fixture.child.exitCode === null) await fixture.exit();
-			await fixture.dispose();
-		}
-	});
+		},
+	);
 
 	it("depth zero blocks new launches without cancelling an admitted child", async () => {
 		const fixture = await rootFixture();
