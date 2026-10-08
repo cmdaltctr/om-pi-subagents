@@ -88,8 +88,9 @@ describe("result shortcut settings", () => {
 			const h = harness();
 			h.edit(key);
 			await h.run();
+			// Settings input converts "Ctrl+E" to ctrl+e, which Pi already binds, so the conflict check rejects it.
 			expect(h.ui.notify).toHaveBeenCalledWith(
-				expect.stringMatching(/ui\.resultKey.*(?:unsafe|specification|duplicate)/),
+				expect.stringMatching(/ui\.resultKey.*(?:unsafe|specification|duplicate)|bound to a built-in action/),
 				"error",
 			);
 			expect(h.ui.confirm).not.toHaveBeenCalled();

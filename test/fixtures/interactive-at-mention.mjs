@@ -15,8 +15,10 @@ Object.assign(process.env, workspace.isolationEnv, {
 	OMPS_PI_BIN: PI_BIN,
 	OMPS_REGISTRY: fixtureRegistryPath(workspace.agentDir),
 });
+// The result key is off so its startup terminal warning cannot add a notification that these
+// scenarios count or deliberately make fail.
 const registry = (extras = "", name = "reader") =>
-	`version: 1\n${extras}agents:\n  ${name}:\n    persona: ./personas/reader.md\n    tools: [read]\n    thinking: off\n`;
+	`version: 1\nui: { resultKey: "off" }\n${extras}agents:\n  ${name}:\n    persona: ./personas/reader.md\n    tools: [read]\n    thinking: off\n`;
 const waitFor = async (condition, message) => {
 	for (let attempts = 0; !condition(); attempts++) {
 		assert(attempts < 1200, message);

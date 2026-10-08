@@ -37,6 +37,7 @@ it("registers at-mention hooks without reading files, resolving paths or startin
 		registerTool() {},
 		registerCommand() {},
 		registerEntryRenderer() {},
+		registerMessageRenderer() {},
 	} as unknown as ExtensionAPI;
 	const runtime = registerRuntime(pi);
 	expect(runtime()).toBeUndefined();
@@ -63,6 +64,7 @@ it("never creates a runtime or child when shutdown ends a held first names refre
 		registerTool() {},
 		registerCommand() {},
 		registerEntryRenderer() {},
+		registerMessageRenderer() {},
 	} as unknown as ExtensionAPI;
 	const ctx = {
 		mode: "tui",
