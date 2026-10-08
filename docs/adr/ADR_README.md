@@ -21,6 +21,7 @@ This directory records significant architectural decisions made during developme
 | [014](./014-detect-capability-packages-from-the-pi-package-list.md)             | Detect capability packages from the Pi package list             | 2026-10-08 | Accepted                            |
 | [015](./015-convert-typed-shortcuts-only-in-settings.md)                        | Convert typed shortcuts only in settings                        | 2026-10-08 | Accepted                            |
 | [016](./016-fold-result-messages-and-bind-ctrl-shift-e.md)                      | Fold result messages and bind Ctrl+Shift+E                      | 2026-10-08 | Accepted                            |
+| [017](./017-launch-agents-directly-from-an-at-mention.md)                       | Launch agents directly from an at-mention                       | 2026-10-08 | Accepted                            |
 
 ## Convention
 

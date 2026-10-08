@@ -91,6 +91,7 @@ const uiContext = {
 	confirm: async () => false,
 	input: async () => undefined,
 	onTerminalInput: () => () => undefined,
+	addAutocompleteProvider() {},
 };
 
 const shortcuts = new Map();

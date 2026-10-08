@@ -1,3 +1,4 @@
+import { SettingsManager } from "@earendil-works/pi-coding-agent";
 import { writeFixturePersona } from "./registry.ts";
 import { stripVTControlCharacters } from "node:util";
 import assert from "node:assert/strict";
@@ -82,6 +83,22 @@ const messageRenderers = new Map();
 const shortcuts = new Map();
 const hooks = [];
 const messages = [];
+Object.assign(host, {
+	runtimeHost: {
+		session: {
+			sessionManager,
+			settingsManager: SettingsManager.inMemory({ enableSkillCommands: false }),
+			promptTemplates: [],
+			extensionRunner: {
+				getRegisteredCommands: () =>
+					[...commands].map(([name, command]) => ({ ...command, name, invocationName: name })),
+			},
+		},
+	},
+	autocompleteProviderWrappers: [],
+	skillCommands: new Map(),
+});
+host.setupAutocompleteProvider();
 const forbidden = () => {
 	throw Error("Viewer/settings must not change model, permissions or request a turn");
 };

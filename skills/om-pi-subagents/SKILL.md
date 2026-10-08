@@ -1,6 +1,6 @@
 ---
 name: om-pi-subagents
-description: Configure and operate OMPS mapped Pi subagents. Use for compact fleet navigation, descendant inspection, /omps-settings, per-agent Memory and Todo controls, YAML limits, parallel or nested delegation, result handoff, subtree cancellation, cleanup failures, and parent/child ownership.
+description: Configure and operate OMPS mapped Pi subagents. Use for interactive at-mention launches, compact fleet navigation, descendant inspection, /omps-settings, per-agent Memory and Todo controls, YAML limits, parallel or nested delegation, result handoff, subtree cancellation, cleanup failures, and parent/child ownership.
 license: MIT
 compatibility: Pi with om-pi-subagents installed and operator-managed mappings.
 ---
@@ -41,6 +41,37 @@ This skill grants no tools and cannot bypass the child guard.
 The task must contain text and cannot start with a slash.
 Use the operator's selected model or the immediate parent's inherited model.
 Never invent a persona, assume a model or grant additional resources to make a task fit.
+
+## Operator at-mention launch
+
+Use `@<agent> <task>` in Pi's interactive terminal interface.
+See the [usage guide](../../docs/USAGE.md#at-mention-launch).
+
+1. Type `@` at the very start of the first editor line.
+2. Choose a mapped agent, or type its name.
+3. Add the task after the space.
+4. Submit the line.
+
+For a mapped `reader`, use `@reader Summarise the README`.
+Completion labels contain names only. Pi's file items keep their order.
+Selecting an agent leaves one space and the cursor ready for the task.
+Completion requires the cursor to remain in the first word on editor line zero.
+Pi trims submitted text, so leading spaces still allow launch.
+
+The shortcut shares `/omps run` validation, capacity and depth limits, acknowledgement and result delivery.
+It uses Pi's current working folder. No parent model request routes the launch;
+child model calls and later result-triggered parent turns keep their existing behaviour.
+Unknown bare names show mapped names. A mapped name without a task shows usage.
+Neither case launches or reaches the model.
+
+Unmapped names containing `/` or `.` keep file-reference behaviour, including `@README.md` and `@src/x.ts`.
+Use `@./docs` for a directory; unknown bare `@docs` shows guidance.
+A mapped bare name takes the agent route. Ordinary text and mid-sentence mentions pass through.
+An initial-`@` registry failure shows an error and sends nothing to the model; fix the reported field before retrying.
+
+Only interactive input in terminal mode (`tui`) launches. RPC and extension-origin input pass through.
+An agent must call the approved `omps` tool to delegate; sending `@agent` text from an extension does not launch it.
+This shortcut changes no YAML field or tool approval.
 
 ## Respect configured limits
 

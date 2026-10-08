@@ -119,8 +119,13 @@ describe("registration", () => {
 		for (const [name, spy] of Object.entries(processSpies)) expect(spy, name).not.toHaveBeenCalled();
 	});
 
-	it("listens for the session start, parent turns and shutdown", () => {
-		expect([...loadExtension().handlers.keys()].sort()).toEqual(["session_shutdown", "session_start", "turn_start"]);
+	it("listens for interactive input, session start, parent turns and shutdown", () => {
+		expect([...loadExtension().handlers.keys()].sort()).toEqual([
+			"input",
+			"session_shutdown",
+			"session_start",
+			"turn_start",
+		]);
 	});
 
 	it("registers nothing when OMPS_CHILD=1, so a child never exposes another launcher", () => {

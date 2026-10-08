@@ -44,6 +44,11 @@ the agents, so the task names and answers are synthetic. `scripts/readme-demo.ta
   capabilities of each agent.
 - **Short agent list.** `/omps list` shows one line per agent, such as `reader: 4 tools (read-only)`.
   The model still receives every tool name.
+- **At-mention launch.** In Pi's interactive terminal interface, type `@` at the start of the
+  first editor line. Completion labels show mapped agent names without descriptions, above Pi's file items.
+  Submit `@reader Summarise the README` to use the `/omps run` launch path without a parent model
+  request for routing. Child model calls and later result delivery stay unchanged.
+  See [at-mention launch](docs/USAGE.md#at-mention-launch).
 
 ![Selecting an agent in the list below the editor with the arrow keys](docs/assets/omps-agent-list.png)
 
@@ -155,7 +160,10 @@ Then run `/omps list`. The list now shows `reader`. No reload is needed.
 For every field, persona tips and common errors, see [Set up agents](docs/SETUP.md).
 
 Start a run with `/omps run reader Summarise the README`, or ask the parent
-model to call the `omps` tool.
+model to call the `omps` tool. In the interactive terminal interface, use
+[`@reader Summarise the README`](docs/USAGE.md#at-mention-launch).
+Pi trims submitted text, so leading spaces still allow launch. Unmapped file-like names such as
+`@README.md` and `@src/x.ts` retain Pi's file-reference behaviour; unknown bare names show guidance.
 
 ### Parallel and nested runs
 

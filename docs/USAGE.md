@@ -6,7 +6,8 @@ OMPS lets Pi hand a task to a specialist agent that you defined. The agent runs 
 
 - [Before you start](#before-you-start)
 - [Quick start](#quick-start)
-- [Two ways to start a run](#two-ways-to-start-a-run)
+- [Start a run](#start-a-run)
+- [At-mention launch](#at-mention-launch)
 - [While a run works](#while-a-run-works)
 - [Agent trees and inspection](#agent-trees-and-inspection)
 - [Getting the result](#getting-the-result)
@@ -54,9 +55,60 @@ The examples below use an agent called `reader` that may only read files.
 
 Pi shows full paths in its output. This guide writes `~` for your home folder.
 
-## Two ways to start a run
+## Start a run
 
-You can type a slash command. You can also ask Pi in plain words, for example "Ask the reader agent to summarise the README". Pi's model then calls the `omps` tool for you. Both ways do the same work and give the same messages.
+Use `/omps run`, or ask Pi's model to call the `omps` tool.
+Use `@<agent> <task>` as a shortcut in Pi's interactive terminal interface.
+All use the same launch rules and result messages.
+
+### At-mention launch
+
+1. Open Pi's interactive terminal interface.
+2. Type `@` at the very start of the first editor line.
+3. Select a mapped agent, or type its name.
+4. Add a task after the space.
+5. Submit the line.
+
+For the mapped `reader` agent:
+
+```text
+@reader Summarise the README
+```
+
+Completion labels contain agent names only, without descriptions. Matching agent items appear above Pi's file items
+when both use the same text to replace. Pi's file items keep their order.
+Selecting an agent leaves exactly one space after its name, with the cursor ready for the task.
+OMPS offers no agents after other text, after leading spaces, or on later editor lines.
+
+Pi trims submissions before OMPS receives them. Submitting ` @reader Summarise the README`
+therefore launches `reader`, even though the leading space prevented agent completion while typing.
+
+OMPS launches through the same path as `/omps run`, in Pi's current working folder.
+It sends no parent model request to route the launch. The child still calls its model;
+the later result message can start a parent model turn as described in [Getting the result](#getting-the-result).
+Capacity or depth refusal shows the command's error. An admitted run that fails readiness keeps its acknowledgement
+and later failed result.
+
+| Submitted input                            | Outcome                                                            |
+| ------------------------------------------ | ------------------------------------------------------------------ |
+| `@reader Summarise the README`             | Launches mapped `reader`.                                          |
+| `@reader` or a whitespace-only task        | Shows usage; starts nothing and sends nothing to the model.        |
+| `@nobody do it`, when `nobody` is unmapped | Shows mapped names; starts nothing and sends nothing to the model. |
+| `@README.md summarise this`, when unmapped | Continues to Pi as a file reference.                               |
+| `@src/x.ts explain this`, when unmapped    | Continues to Pi as a file reference.                               |
+| `Please ask @reader to read this`          | Continues as ordinary text.                                        |
+| Bare `@`                                   | Continues to Pi.                                                   |
+
+An unmapped name containing `/` or `.` stays a file reference. For a bare directory name, use a path:
+`@./docs summarise these files`. An unknown bare `@docs` shows agent guidance, and a mapped `docs` takes the agent route.
+Pass-through text stays unchanged as OMPS receives it, after Pi's submission trimming.
+
+Each completion request and submission reads fresh mappings. A failed completion read keeps Pi's items and adds no agents.
+If the registry cannot be read on submission of an initial `@`, OMPS shows the error and sends nothing to the model.
+Fix the reported registry field, then retry.
+
+At-mention launch requires interactive input in terminal mode (`tui`). Input through RPC, another extension,
+or a non-terminal mode passes through without launching. Use `/omps run` or the `omps` tool for those clients.
 
 ### Slash commands
 
@@ -118,7 +170,7 @@ Cancel one run:
 { "action": "cancel", "runId": "3f2c9b1e-8a4d-4c7e-9b2a-1d5e6f7a8b9c" }
 ```
 
-Only the tool can set a different working folder. The slash command always uses Pi's current folder.
+Only the tool can set a different working folder. The slash command and at-mention launch use Pi's current folder.
 
 The `run` action returns at once. It does not wait for the agent to answer.
 
@@ -652,7 +704,7 @@ To recover:
 
 ### Working folder
 
-- The slash command uses Pi's current working folder.
+- The slash command and at-mention launch use Pi's current working folder.
 - The tool's `cwd` must be an absolute path to a folder that exists.
 
 ### Tools
