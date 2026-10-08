@@ -456,7 +456,7 @@ There is no machine-wide budget. Concurrent writers need separate safe working d
 
 1. Run `/omps-settings` with no arguments. `/subagents-settings` is an alias of the same menu.
 2. Select a setting from the menu.
-3. Enter a whole number for limits and visible rows, or a key specification for a shortcut.
+3. Enter a whole number for limits and visible rows, or type shortcut text such as `ctrl+1`.
 4. Read the value, destination and any load warning.
 5. Confirm the save, or decline it.
 6. Select Done to close the menu.
@@ -486,11 +486,30 @@ OMPS does not write todo preferences or Pi's `settings.json`.
 A saved fleet view applies at once and replaces any session toggle. Management-list visibility also repaints immediately.
 Navigation-key and view-shortcut edits need `/reload`.
 
-Shortcut keys are lowercase Pi key specifications, such as `alt+o`. Tab and Ctrl+I are refused,
-and so is a key already bound to an effective built-in action, with guidance to choose another.
+Type the shortcut as text, for example `ctrl+1`. Spell out the modifier instead of holding Ctrl while entering the key.
+Common modifiers are `ctrl`, `shift` and `alt`; `super` is also a valid modifier name.
+Separate a modifier and key with `+`. Type `off` to disable a key.
+Settings accepts any letter case and spaces around `+`. It converts these modifier spellings:
+
+| Typed modifier                   | Saved modifier |
+| -------------------------------- | -------------- |
+| `ctrl`, `ctr`, `ctl`, `control`  | `ctrl`         |
+| `shift`                          | `shift`        |
+| `alt`, `opt`, `option`           | `alt`          |
+| `super`, `cmd`, `command`, `win` | `super`        |
+
+For `Control + 1`, the confirmation shows both your text and `ctrl+1`. YAML stores `ctrl+1` after confirmation.
+Unknown modifiers, including `meta`, are rejected. Manual YAML edits must use strict Pi modifier names.
+
+Shortcut keys are lowercase Pi key specifications, such as `alt+o`. Tab and Ctrl+I are refused.
+Settings checks effective Pi bindings before confirmation and saving, using the same policy as shortcut registration.
+A conflict names the owning actions and points to `keybindings.json`, `/hotkeys` and `/reload`.
 All enabled OMPS keys must differ after modifier normalisation. Each key can be `off`.
 Default Down/Up retain their scoped editor/list use; custom navigation keys must be free of effective Pi actions.
-Shortcuts default to `off`. To restore the old `alt+o` and `alt+i` keys, and for the macOS Option setting they need, see [Restore the Alt keys](SETUP.md#restore-the-alt-keys).
+Shortcuts default to `off`. On macOS, Option+O can type `ø` unless the terminal sends Option as Alt.
+Set the terminal's Option behaviour before using an Alt shortcut, or choose another key.
+See [Restore the Alt keys](SETUP.md#restore-the-alt-keys) for terminal settings and the old `alt+o` and `alt+i` bindings.
+[TDR-007](https://github.com/cmdaltctr/om-pi-subagents/blob/main/docs/tdr/007-macos-option-key-and-pi-modifier-order.md) records the existing platform finding.
 
 Shortcuts bind when an interactive session starts. A saved shortcut needs `/reload` before it
 becomes active; the menu shows the saved and the active binding until then. A visible-agent

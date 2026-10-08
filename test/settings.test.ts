@@ -7,6 +7,13 @@ import omps from "../src/index.ts";
 import { loadRegistry } from "../src/config.ts";
 import { registerOmpsSettings } from "../src/settings.ts";
 import { createUiSettings } from "../src/ui-settings.ts";
+import { registerViewShortcuts } from "../src/shortcuts.ts";
+
+const bindings = vi.hoisted(() => ({ resolved: {} as Record<string, unknown> }));
+vi.mock("@earendil-works/pi-tui", async (importOriginal) => ({
+	...(await importOriginal<typeof import("@earendil-works/pi-tui")>()),
+	getKeybindings: () => ({ getResolvedBindings: () => bindings.resolved }),
+}));
 
 const processes = vi.hoisted(() => ({ spawn: vi.fn(), spawnSync: vi.fn(), execFile: vi.fn(), exec: vi.fn() }));
 vi.mock("node:child_process", () => processes);
@@ -35,6 +42,7 @@ beforeEach(async () => {
 	vi.stubEnv("PI_CODING_AGENT_DIR", join(root, "agent"));
 	vi.stubEnv("XDG_CONFIG_HOME", join(root, "config"));
 	vi.clearAllMocks();
+	bindings.resolved = {};
 });
 afterEach(async () => {
 	vi.unstubAllEnvs();
@@ -385,21 +393,25 @@ describe("view shortcuts", () => {
 		});
 	});
 
-	it.each(["ctrl+i", "tab", "Alt+O", "control+o", "disabled", "alt+p"])(
-		"rejects unsafe or malformed key %j without writing",
-		async (key) => {
-			await fs.writeFile(registry, "version: 1\nui: { inspectKey: alt+p }\nagents: {}\n");
-			const ctx = context();
-			pick(ctx, "Fleet view shortcut", key);
-			await run(ctx);
-			expect(ctx.ui.notify).toHaveBeenCalledWith(
-				expect.stringMatching(/ui\.toggleKey|choose distinct keys|choose another key/i),
-				"error",
-			);
-			expect(ctx.ui.confirm).not.toHaveBeenCalled();
-			expect(await fs.readFile(registry, "utf8")).toBe("version: 1\nui: { inspectKey: alt+p }\nagents: {}\n");
-		},
-	);
+	it.each([
+		["Control + I", /ctrl\+i is unsafe/],
+		["TAB", /tab is unsafe/],
+		["hyper+o", /lowercase Pi key specification/],
+		["meta+o", /lowercase Pi key specification/],
+		["Control+ctr+1", /lowercase Pi key specification/],
+		["disabled", /lowercase Pi key specification/],
+		["", /must be a Pi key specification/],
+		["Alt + P", /duplicate/],
+	] as const)("rejects unsafe or malformed key %j without writing", async (key, problem) => {
+		await fs.writeFile(registry, "version: 1\nui: { inspectKey: alt+p }\nagents: {}\n");
+		const ctx = context();
+		pick(ctx, "Fleet view shortcut", key);
+		await run(ctx);
+		expect(ctx.ui.notify).toHaveBeenCalledWith(expect.stringMatching(problem), "error");
+		expect(ctx.ui.confirm).not.toHaveBeenCalled();
+		expect(fs.rename).not.toHaveBeenCalled();
+		expect(await fs.readFile(registry, "utf8")).toBe("version: 1\nui: { inspectKey: alt+p }\nagents: {}\n");
+	});
 
 	it("refuses a duplicate written in another modifier order before confirmation", async () => {
 		await fs.writeFile(registry, "version: 1\nui: { inspectKey: ctrl+alt+p }\nagents: {}\n");
@@ -418,6 +430,176 @@ describe("view shortcuts", () => {
 		expect((await loadRegistry(registry)).ui.inspectKey).toBe("alt+q");
 		const items = ctx.ui.select.mock.calls.flatMap(([_title, options]) => options);
 		expect(items.some((item) => item.includes("Fleet view shortcut: alt+p"))).toBe(true);
+	});
+});
+
+describe("typed shortcut settings", () => {
+	it.each([
+		["pageUp", "pageUp"],
+		["pageDown", "pageDown"],
+		["ctrl+pageUp", "ctrl+pageUp"],
+		["ctrl+pageDown", "ctrl+pageDown"],
+		[" Control + PAGEUP ", "ctrl+pageUp"],
+		["Option + pageDOWN", "alt+pageDown"],
+	])("confirms and saves the canonical Page key for %j", async (answer, expected) => {
+		const ctx = context();
+		pick(ctx, "Inspection shortcut", answer);
+		await run(ctx);
+		expect(ctx.ui.confirm).toHaveBeenCalledOnce();
+		const confirmation = ctx.ui.confirm.mock.calls[0][1];
+		expect(confirmation).toContain(`→ ${expected}`);
+		if (answer === expected) expect(confirmation).not.toContain("Typed:");
+		else expect(confirmation).toContain(`Typed: ${answer}`);
+		expect((await loadRegistry(registry)).ui.inspectKey).toBe(expected);
+	});
+
+	it("explains typing, confirms both forms and saves the converted YAML value", async () => {
+		const ctx = context();
+		pick(ctx, "Fleet view shortcut", "Control + 1");
+		await run(ctx);
+		expect(ctx.ui.input).toHaveBeenCalledWith(
+			"Fleet view shortcut: off. Type the key, for example ctrl+1. Do not press the keys. Common modifiers: ctrl, shift, alt.",
+			"off",
+		);
+		expect(ctx.ui.confirm.mock.calls[0]?.[1]).toContain("Fleet view shortcut: off → ctrl+1");
+		expect(ctx.ui.confirm.mock.calls[0]?.[1]).toContain("Typed: Control + 1");
+		expect((await loadRegistry(registry)).ui.toggleKey).toBe("ctrl+1");
+		expect(await fs.readFile(registry, "utf8")).toMatch(/toggleKey: ctrl\+1/);
+	});
+
+	it("confirms canonical input without a conversion line", async () => {
+		const ctx = context();
+		pick(ctx, "Inspection shortcut", "ctrl+shift+i");
+		await run(ctx);
+		expect(ctx.ui.confirm.mock.calls[0][1]).toContain("→ ctrl+shift+i");
+		expect(ctx.ui.confirm.mock.calls[0][1]).not.toContain("Typed:");
+		expect((await loadRegistry(registry)).ui.inspectKey).toBe("ctrl+shift+i");
+	});
+
+	it.each([undefined, "decline"])("leaves YAML unchanged when an alias edit is cancelled: %s", async (choice) => {
+		const ctx = context();
+		pick(ctx, "Fleet view shortcut", choice === undefined ? undefined : "Control + 1", false);
+		await run(ctx);
+		if (choice === undefined) expect(ctx.ui.confirm).not.toHaveBeenCalled();
+		else expect(ctx.ui.confirm.mock.calls[0]?.[1]).toContain("→ ctrl+1");
+		expect(await fs.readFile(registry, "utf8")).toBe(yaml);
+		expect(fs.rename).not.toHaveBeenCalled();
+	});
+
+	it("accepts converted off even when Pi has an owner with that spelling", async () => {
+		bindings.resolved = { "app.test": "off" };
+		const ctx = context();
+		pick(ctx, "Fleet view shortcut", " OFF ");
+		await run(ctx);
+		expect(ctx.ui.confirm.mock.calls[0]?.[1]).toContain("→ off");
+		expect((await loadRegistry(registry)).ui.toggleKey).toBe("off");
+	});
+
+	it.each(["hyper+1", "Meta + 1"])("lists accepted modifiers for %s without saving", async (answer) => {
+		const ctx = context();
+		pick(ctx, "Fleet view shortcut", answer);
+		await run(ctx);
+		expect(ctx.ui.notify).toHaveBeenCalledWith(
+			expect.stringMatching(/lowercase Pi key specification.*Accepted modifiers: ctrl, shift, alt, super\./),
+			"error",
+		);
+		expect(ctx.ui.confirm).not.toHaveBeenCalled();
+		expect(await fs.readFile(registry, "utf8")).toBe(yaml);
+		expect(fs.rename).not.toHaveBeenCalled();
+	});
+
+	it("rejects a converted duplicate in a different modifier order", async () => {
+		const original = "version: 1\nui: { inspectKey: ctrl+alt+p }\nagents: {}\n";
+		await fs.writeFile(registry, original);
+		const ctx = context();
+		pick(ctx, "Fleet view shortcut", "Option + Control + P");
+		await run(ctx);
+		expect(ctx.ui.notify).toHaveBeenCalledWith(expect.stringContaining("duplicate of ui.toggleKey"), "error");
+		expect(ctx.ui.confirm).not.toHaveBeenCalled();
+		expect(await fs.readFile(registry, "utf8")).toBe(original);
+		expect(fs.rename).not.toHaveBeenCalled();
+	});
+
+	it.each([
+		["Fleet view shortcut", "toggleKey", "ctrl+o", "ctrl+o", "app.tools.expand", "ctrl+o"],
+		["Fleet view shortcut", "toggleKey", "Control + Shift + O", "ctrl+shift+o", "app.tools.expand", "shift+ctrl+o"],
+		["Management next / enter key", "navigationDownKey", "Down", "down", "app.interrupt", "down"],
+		["Management previous key", "navigationUpKey", "Up", "up", "tui.altScreen.lineUp", "up"],
+		["Management next / enter key", "navigationDownKey", "Down", "down", "tui.select.up", "down"],
+		["Management previous key", "navigationUpKey", "Up", "up", "tui.select.down", "up"],
+		["Management next / enter key", "navigationDownKey", "Option + P", "alt+p", "tui.editor.historyNext", "alt+p"],
+	] as const)(
+		"rejects %s (%s) with registration's exact owner guidance",
+		async (label, field, answer, key, owner, bound) => {
+			bindings.resolved = { [owner]: ["f1", bound] };
+			const ctx = context();
+			pick(ctx, label, answer);
+			await run(ctx);
+			const settings = (await loadRegistry(registry)).ui;
+			const registration = registerViewShortcuts(
+				{ registerShortcut: vi.fn() } as unknown as ExtensionAPI,
+				{ ...settings, [field]: key },
+				{ toggleFleet: vi.fn(), openInspection: vi.fn() },
+				bindings.resolved,
+			);
+			expect(registration.keys[field]).toBe("off");
+			expect(registration.diagnostics).toHaveLength(1);
+			const guidance = registration.diagnostics[0];
+			expect(guidance).toContain(owner);
+			expect(guidance).toMatch(/keybindings\.json.*\/hotkeys.*\/reload/);
+			expect(ctx.ui.notify).toHaveBeenCalledWith(guidance, "error");
+			expect(ctx.ui.confirm).not.toHaveBeenCalled();
+			expect(await fs.readFile(registry, "utf8")).toBe(yaml);
+			expect(fs.rename).not.toHaveBeenCalled();
+		},
+	);
+
+	it.each([
+		["Management next / enter key", "navigationDownKey", "Down", "down"],
+		["Management previous key", "navigationUpKey", "Up", "up"],
+	] as const)("preserves permitted default overlaps for %s", async (label, field, answer, key) => {
+		bindings.resolved = {
+			"tui.editor.cursorDown": "down",
+			"tui.editor.historyNext": "down",
+			"tui.select.down": "down",
+			"tui.editor.cursorUp": "up",
+			"tui.editor.historyPrevious": "up",
+			"tui.select.up": "up",
+		};
+		const ctx = context();
+		pick(ctx, label, answer);
+		await run(ctx);
+		expect(ctx.ui.confirm.mock.calls[0]?.[1]).toContain(`→ ${key}`);
+		const settings = (await loadRegistry(registry)).ui;
+		expect(settings[field]).toBe(key);
+		const registration = registerViewShortcuts(
+			{ registerShortcut: vi.fn() } as unknown as ExtensionAPI,
+			settings,
+			{ toggleFleet: vi.fn(), openInspection: vi.fn() },
+			bindings.resolved,
+		);
+		expect(registration.keys[field]).toBe(key);
+		expect(registration.diagnostics).toEqual([]);
+	});
+
+	it("saves a converted key freed by an effective Pi remapping", async () => {
+		bindings.resolved = { "app.tools.expand": "ctrl+y" };
+		const ctx = context();
+		pick(ctx, "Fleet view shortcut", "Control + O");
+		await run(ctx);
+		expect(ctx.ui.confirm.mock.calls[0]?.[1]).toContain("→ ctrl+o");
+		const settings = (await loadRegistry(registry)).ui;
+		expect(settings.toggleKey).toBe("ctrl+o");
+		const registerShortcut = vi.fn();
+		const registration = registerViewShortcuts(
+			{ registerShortcut } as unknown as ExtensionAPI,
+			settings,
+			{ toggleFleet: vi.fn(), openInspection: vi.fn() },
+			bindings.resolved,
+		);
+		expect(registration.keys.toggleKey).toBe("ctrl+o");
+		expect(registerShortcut).toHaveBeenCalledWith("ctrl+o", expect.anything());
+		expect(registration.diagnostics).toEqual([]);
 	});
 });
 

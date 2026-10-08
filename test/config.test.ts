@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { loadRegistry } from "../src/config.ts";
+import { checkUiKey, loadRegistry, typedKeyToSpec } from "../src/config.ts";
 
 let root: string;
 let dir: string;
@@ -114,6 +114,56 @@ describe("explicit thinking", () => {
 	);
 });
 
+describe("typed shortcut conversion", () => {
+	it.each([
+		["pageUp", "pageUp"],
+		["pageDown", "pageDown"],
+		["ctrl+pageUp", "ctrl+pageUp"],
+		["ctrl+pageDown", "ctrl+pageDown"],
+		["PAGEUP", "pageUp"],
+		["PAGEDOWN", "pageDown"],
+		[" Control + PAGEUP ", "ctrl+pageUp"],
+		["Option + pageDOWN", "alt+pageDown"],
+	])("preserves Pi Page key spelling for %j", (typed, expected) => {
+		const converted = typedKeyToSpec(typed);
+		expect(converted).toBe(expected);
+		expect(checkUiKey("toggleKey", converted)).toBe(expected);
+	});
+
+	it.each([
+		["ctrl", "ctrl"],
+		["ctr", "ctrl"],
+		["ctl", "ctrl"],
+		["control", "ctrl"],
+		["alt", "alt"],
+		["opt", "alt"],
+		["option", "alt"],
+		["shift", "shift"],
+		["super", "super"],
+		["cmd", "super"],
+		["command", "super"],
+		["win", "super"],
+	])("converts modifier %s to %s", (typed, expected) => {
+		expect(typedKeyToSpec(`${typed}+1`)).toBe(`${expected}+1`);
+	});
+
+	it.each([
+		["CONTROL+O", "ctrl+o"],
+		[" Control \t+ 1 ", "ctrl+1"],
+		["CTL + Shift + OPTION + CMD + O", "ctrl+shift+alt+super+o"],
+		["ctrl+shift+i", "ctrl+shift+i"],
+		["OFF", "off"],
+		[" off ", "off"],
+		["Hyper + 1", "hyper+1"],
+		["meta+1", "meta+1"],
+		["control", "control"],
+		["ctrl+command", "ctrl+command"],
+		["ctrl++", "ctrl++"],
+	])("converts %j to %j without interpreting the base key", (typed, expected) => {
+		expect(typedKeyToSpec(typed)).toBe(expected);
+	});
+});
+
 describe("ui settings", () => {
 	const uiYaml = (ui: string) => `version: 1
 ${ui}agents: {}
@@ -130,6 +180,14 @@ ${ui}agents: {}
 			inspectKey: "off",
 		});
 	});
+
+	it.each(["control", "ctr", "ctl", "opt", "option", "cmd", "command", "win", "meta"])(
+		"keeps YAML strict for modifier %s",
+		async (modifier) => {
+			await write("config.yaml", uiYaml(`ui:\n  toggleKey: ${modifier}+1\n`));
+			await expect(loadRegistry(yamlPath())).rejects.toThrow("ui.toggleKey: must be a lowercase Pi key specification");
+		},
+	);
 
 	it("accepts an empty ui mapping", async () => {
 		await write("config.yaml", uiYaml("ui: {}\n"));

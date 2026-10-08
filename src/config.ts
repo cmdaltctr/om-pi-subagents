@@ -221,6 +221,32 @@ function validateUi(value: unknown): { settings: UiSettings; declarations: UiDec
 }
 
 const MODIFIER_ORDER = ["ctrl", "shift", "alt", "super"];
+const TYPED_MODIFIERS = new Map([
+	["ctr", "ctrl"],
+	["ctl", "ctrl"],
+	["control", "ctrl"],
+	["opt", "alt"],
+	["option", "alt"],
+	["cmd", "super"],
+	["command", "super"],
+	["win", "super"],
+]);
+
+/** Convert typed settings input only; unknown modifiers remain for strict validation to reject. */
+export function typedKeyToSpec(text: string): string {
+	const parts = text
+		.trim()
+		.toLowerCase()
+		.replace(/\s*\+\s*/g, "+")
+		.split("+");
+	return parts
+		.map((part, index) => {
+			if (index !== parts.length - 1) return TYPED_MODIFIERS.get(part) ?? part;
+			// Pi's Page keys retain capitals; reuse the validator's canonical names.
+			return SPECIAL_KEYS.find((key) => key.toLowerCase() === part) ?? part;
+		})
+		.join("+");
+}
 
 /**
  * One spelling per key: Pi parses `shift+ctrl+o` and `ctrl+shift+o` as the same key, so conflict

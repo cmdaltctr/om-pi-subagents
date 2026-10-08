@@ -81,6 +81,19 @@ Shortcut and navigation-key changes require `/reload`. Settings distinguishes sa
 Visible-row and Management list changes repaint immediately. Hide ends selection without changing the tree.
 OMPS never writes sibling preferences or Pi's `settings.json`.
 
+Ask the operator to type shortcut text such as `ctrl+1` in the input dialog.
+Spell out the modifier instead of holding Ctrl while entering the key.
+Common modifiers are `ctrl`, `shift` and `alt`; `super` is also a valid modifier name.
+Settings accepts any letter case and spaces around `+`. It converts `ctr`, `ctl` and `control` to `ctrl`,
+`opt` and `option` to `alt`, and `cmd`, `command` and `win` to `super`.
+The confirmation shows the converted key and the typed text when they differ; YAML stores the converted key.
+Unknown modifiers, including `meta`, are rejected. Type `off` to disable a key. YAML uses strict Pi modifier names.
+Settings checks effective Pi conflicts before confirmation or saving and names the owning actions in its guidance.
+The same policy runs at registration, preserving the permitted direction-specific default Up/Down overlaps.
+On macOS, Option can produce a character instead of Alt input. Ask the operator to set Option to send Alt,
+or choose another key. See [terminal settings](../../docs/SETUP.md#restore-the-alt-keys) and
+[the existing TDR-007](https://github.com/cmdaltctr/om-pi-subagents/blob/main/docs/tdr/007-macos-option-key-and-pi-modifier-order.md).
+
 Each edit requires confirmation. A cancelled input or declined save leaves that setting unchanged;
 earlier confirmed saves remain in effect. A missing registry requires explicit creation confirmation and starts with `agents: {}`.
 Malformed files require correction. On a conflict, reopen settings before saving.

@@ -195,14 +195,26 @@ then confirm the shown value and save destination:
 
 `OMPS_REGISTRY` selects the registry when set. The menu shows its resolved path.
 Execution limits and UI settings stay in that one YAML file. OMPS leaves todo preferences
-and Pi's `settings.json` untouched. Shortcut values are lowercase Pi key specifications.
-Ctrl+I and Tab are refused because legacy terminals send one byte for both, and a key already
-bound to an effective built-in action is refused with guidance. All keys can be `off`. Enabled OMPS keys must differ after modifier normalisation.
+and Pi's `settings.json` untouched.
+Type shortcut text such as `ctrl+1`; spell out the modifier instead of holding Ctrl in the input dialog.
+Common modifiers are `ctrl`, `shift` and `alt`; `super` is also a valid modifier name.
+Settings accepts any letter case and spaces around `+`. It converts `ctr`, `ctl` and `control` to `ctrl`,
+`opt` and `option` to `alt`, and `cmd`, `command` and `win` to `super`.
+The confirmation shows the converted value and your original text when they differ. YAML stores the converted key.
+Manual YAML edits still require strict Pi modifier names; `meta` is rejected.
+Ctrl+I and Tab are refused because legacy terminals send one byte for both.
+Settings refuses effective Pi key conflicts before confirmation and saving, with owner-specific guidance.
+Registration checks conflicts again after `/reload`. All keys can be `off`.
+Enabled OMPS keys must differ after modifier normalisation.
 
 Management navigation defaults to Down/Up and requires an empty, focused editor and visible list.
 Custom navigation keys occupied by Pi stay inactive, with the owning action named. There is no fallback.
 See [modified-arrow setup](docs/SETUP.md#management-navigation-keys) for manual fullscreen-key remapping.
 OMPS never rewrites Pi keybindings.
+
+On macOS, Option+O can type `ø` unless the terminal sends Option as Alt.
+Set the terminal's Option behaviour or choose another key; see [the terminal settings](docs/SETUP.md#restore-the-alt-keys).
+[TDR-007](https://github.com/cmdaltctr/om-pi-subagents/blob/main/docs/tdr/007-macos-option-key-and-pi-modifier-order.md) records this existing caveat.
 
 Shortcuts bind when an interactive session starts. A saved shortcut needs `/reload` before it
 becomes active; the menu shows the saved and the active binding until then. Visible-agent and

@@ -4,6 +4,7 @@ import {
 	checkDistinctUiKeys,
 	FLEET_VIEWS,
 	UI_KEY_FIELDS,
+	typedKeyToSpec,
 	RegistryError,
 	type UiKeyField,
 	type UiSettings,
@@ -17,6 +18,7 @@ import {
 	type LimitSettings,
 } from "./settings-persistence.ts";
 import type { UiSettingsCache, UiSettingsState } from "./ui-settings.ts";
+import { shortcutConflict } from "./shortcuts.ts";
 
 export interface SettingsResources {
 	readonly registryPath: string;
@@ -27,6 +29,9 @@ export interface SettingsResources {
 	/** Drop the session fleet toggle after a saved `ui.fleetView` change. */
 	onFleetViewSaved?(): void;
 }
+
+const SHORTCUT_INPUT_NOTE =
+	"Type the key, for example ctrl+1. Do not press the keys. Common modifiers: ctrl, shift, alt.";
 
 const sourceLabel: Record<UiSettingsState["maxVisibleAgentsSource"], string> = {
 	yaml: "YAML",
@@ -261,21 +266,30 @@ async function editShortcut(
 	field: UiKeyField,
 	label: string,
 ): Promise<void> {
-	const answer = await ctx.ui.input(label.split(" (")[0], ui.value[field]);
+	const title = label.split(" (")[0];
+	const answer = await ctx.ui.input(`${title}. ${SHORTCUT_INPUT_NOTE}`, ui.value[field]);
 	if (answer === undefined) return;
-	const value = answer.trim();
+	const value = typedKeyToSpec(answer);
 	try {
 		checkUiKey(field, value);
 		checkDistinctUiKeys({ ...ui.value, [field]: value });
 	} catch (error) {
-		ctx.ui.notify((error as RegistryError).message, "error");
+		const message = (error as RegistryError).message;
+		const modifiers = message.includes("Pi key specification") ? " Accepted modifiers: ctrl, shift, alt, super." : "";
+		ctx.ui.notify(`${message}${modifiers}`, "error");
 		return;
 	}
+	const conflict = shortcutConflict(field, value);
+	if (conflict) {
+		ctx.ui.notify(conflict, "error");
+		return;
+	}
+	const typed = answer === value ? "" : `\nTyped: ${answer}`;
 	const creation = limits.missing ? "Create the missing version-one registry with no mapped agents.\n" : "";
 	if (
 		!(await ctx.ui.confirm(
 			"Save this subagent setting?",
-			`${creation}${label.split(" (")[0]} → ${value}\nSave to: ${limits.path}\nShortcut changes take effect after /reload.`,
+			`${creation}${title} → ${value}${typed}\nSave to: ${limits.path}\nShortcut changes take effect after /reload.`,
 		))
 	)
 		return;

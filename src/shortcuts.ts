@@ -1,6 +1,6 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { getKeybindings, type KeyId } from "@earendil-works/pi-tui";
-import { normaliseKey, type UiSettings } from "./config.ts";
+import { normaliseKey, type UiKeyField, type UiSettings } from "./config.ts";
 
 /** Actions the two view shortcuts perform. */
 export interface ViewShortcutActions {
@@ -45,6 +45,22 @@ const DEFAULT_OVERLAPS = {
 	navigationUpKey: new Set(["tui.editor.cursorUp", "tui.editor.historyPrevious", "tui.select.up"]),
 };
 
+/** Return owner-specific conflict guidance, preserving the scoped default navigation overlaps. */
+export function shortcutConflict(
+	field: UiKeyField,
+	key: string,
+	resolved: ResolvedBindings = builtinBindings(),
+): string | undefined {
+	if (key === "off") return undefined;
+	const scopedDefault =
+		(field === "navigationDownKey" && key === "down") || (field === "navigationUpKey" && key === "up");
+	const owners = builtinOwners(key, resolved).filter(
+		(action) => !scopedDefault || !DEFAULT_OVERLAPS[field as keyof typeof DEFAULT_OVERLAPS].has(action),
+	);
+	if (owners.length === 0) return undefined;
+	return `${key} is bound to a built-in action: ${owners.join(", ")}. Choose another key in /omps-settings or manually remap the named actions in keybindings.json; check /hotkeys, then /reload.`;
+}
+
 // Kitty terminals dispatch one tap as a press and a release, and repeats while held.
 // Identical actions inside this window run once; deliberate later presses still work.
 const DISPATCH_GUARD_MS = 100;
@@ -75,16 +91,11 @@ export function registerViewShortcuts(
 		last.set(name, now);
 		run(ctx);
 	};
-	const resolve = (field: "toggleKey" | "inspectKey" | "navigationDownKey" | "navigationUpKey"): boolean => {
+	const resolve = (field: UiKeyField): boolean => {
 		const key = settings[field];
 		if (key === "off") return false;
-		const scopedDefault =
-			(field === "navigationDownKey" && key === "down") || (field === "navigationUpKey" && key === "up");
-		const owners = builtinOwners(key, resolved).filter(
-			(action) => !scopedDefault || !DEFAULT_OVERLAPS[field as keyof typeof DEFAULT_OVERLAPS].has(action),
-		);
-		if (owners.length) {
-			const message = `${key} is bound to a built-in action: ${owners.join(", ")}. Choose another key in /omps-settings or manually remap the named actions in keybindings.json; check /hotkeys, then /reload.`;
+		const message = shortcutConflict(field, key, resolved);
+		if (message) {
 			diagnostics.push(message);
 			actions.onConflict?.(message);
 			return false;

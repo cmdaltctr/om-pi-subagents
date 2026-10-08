@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { occupiedByBuiltin, registerViewShortcuts } from "../src/shortcuts.ts";
+import { occupiedByBuiltin, registerViewShortcuts, shortcutConflict } from "../src/shortcuts.ts";
 import { loadRegistry, normaliseKey, type UiSettings } from "../src/config.ts";
 
 const defaults: UiSettings = {
@@ -138,6 +138,58 @@ describe("navigation conflicts", () => {
 		expect(result.keys.navigationDownKey).toBe("off");
 		expect(result.keys.navigationUpKey).toBe("off");
 		expect(result.diagnostics).toHaveLength(1);
+	});
+});
+
+describe("shared shortcut conflicts", () => {
+	it("returns registration's owner-specific guidance for equivalent array bindings", () => {
+		const resolved = {
+			"app.tools.expand": ["f1", "shift+ctrl+o"],
+			"app.test": "ctrl+shift+o",
+			"app.unrelated": 12,
+		};
+		const message = shortcutConflict("toggleKey", "ctrl+shift+o", resolved);
+		expect(message).toBe(
+			"ctrl+shift+o is bound to a built-in action: app.tools.expand, app.test. Choose another key in /omps-settings or manually remap the named actions in keybindings.json; check /hotkeys, then /reload.",
+		);
+		const h = harness();
+		const registration = registerViewShortcuts(h.pi, { ...defaults, toggleKey: "ctrl+shift+o" }, h.actions, resolved);
+		expect(registration.diagnostics).toEqual([message]);
+		expect(h.actions.onConflict).toHaveBeenCalledWith(message);
+	});
+
+	it.each(["toggleKey", "inspectKey", "navigationDownKey", "navigationUpKey"] as const)(
+		"treats off as unbound for %s",
+		(field) => expect(shortcutConflict(field, "off", { "app.test": "off" })).toBeUndefined(),
+	);
+
+	it("uses effective remaps instead of former default ownership", () => {
+		expect(shortcutConflict("toggleKey", "ctrl+o", { "app.tools.expand": "ctrl+y" })).toBeUndefined();
+		expect(shortcutConflict("toggleKey", "ctrl+y", { "app.tools.expand": "ctrl+y" })).toContain("app.tools.expand");
+	});
+
+	it.each([
+		["navigationDownKey", "down", ["tui.editor.cursorDown", "tui.editor.historyNext", "tui.select.down"]],
+		["navigationUpKey", "up", ["tui.editor.cursorUp", "tui.editor.historyPrevious", "tui.select.up"]],
+	] as const)("permits only matching default overlaps for %s", (field, key, owners) => {
+		const resolved = Object.fromEntries(owners.map((owner) => [owner, key]));
+		expect(shortcutConflict(field, key, resolved)).toBeUndefined();
+		const message = shortcutConflict(field, key, { ...resolved, "app.interrupt": key });
+		expect(message).toContain("app.interrupt");
+		for (const owner of owners) expect(message).not.toContain(owner);
+	});
+
+	it.each([
+		["toggleKey", "down", "tui.editor.cursorDown"],
+		["inspectKey", "up", "tui.editor.cursorUp"],
+		["navigationDownKey", "up", "tui.editor.cursorUp"],
+		["navigationUpKey", "down", "tui.editor.cursorDown"],
+		["navigationDownKey", "down", "tui.editor.cursorUp"],
+		["navigationUpKey", "up", "tui.editor.cursorDown"],
+		["navigationDownKey", "alt+p", "tui.editor.historyNext"],
+		["navigationUpKey", "ctrl+shift+up", "tui.editor.cursorUp"],
+	] as const)("blocks %s: %s owned by %s without a matching default exception", (field, key, owner) => {
+		expect(shortcutConflict(field, key, { [owner]: key })).toContain(owner);
 	});
 });
 
