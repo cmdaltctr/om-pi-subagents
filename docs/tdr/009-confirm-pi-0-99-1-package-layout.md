@@ -1,7 +1,7 @@
 # TDR-009: Confirm the Pi 0.99.1 package layout
 
 - **Date:** 2026-10-08
-- **Status:** Proposed
+- **Status:** Accepted
 - **Deciders:** Project maintainer
 - **Tags:** pi | packages | detection
 
@@ -53,7 +53,7 @@ This limited detection policy belongs to OMPS; Pi supports additional sources.
 
 ### Neutral
 
-- The findings describe Pi 0.99.1. Both records remain Proposed until the OMPS change passes verification.
+- The findings describe Pi 0.99.1. The OMPS change passed verification, so this record and ADR-014 are Accepted.
 
 ## Alternatives Considered
 
