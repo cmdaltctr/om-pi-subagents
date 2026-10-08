@@ -55,6 +55,21 @@ describe("terminal notification", () => {
 		expect(details).toMatchObject({ runId: "run-1", state: "completed", directory: "/files/run-1" });
 	});
 
+	it("preserves the complete model-facing message for long and failed results", async () => {
+		const output = Array.from({ length: 20 }, (_, index) => `answer ${index + 1}`).join("\n");
+		const completed = setup({ output });
+		await completed.notifier.onTerminal(view());
+		expect(completed.sent[0].message.content).toBe(
+			`OMPS run run-1 (reader) completed.\nFiles: /files/run-1\nResult:\n${output}`,
+		);
+		const partial = `> PARTIAL OUTPUT. The run failed.\n${output}`;
+		const failed = setup({ output: partial });
+		await failed.notifier.onTerminal(view({ state: "failed", error: "child exited" }));
+		expect(failed.sent[0].message.content).toBe(
+			`OMPS run run-1 (reader) failed.\nFiles: /files/run-1\nError: child exited\nResult:\n${partial}`,
+		);
+	});
+
 	it("carries the error and any partial output for a failed run", async () => {
 		const { notifier, sent } = setup({ output: "> PARTIAL OUTPUT. half" });
 		await notifier.onTerminal(view({ state: "failed", error: "permission violation: write is not approved" }));

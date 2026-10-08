@@ -15,6 +15,7 @@ const defaults: UiSettings = {
 	inspectKey: "alt+i",
 	navigationDownKey: "down",
 	navigationUpKey: "up",
+	resultKey: "ctrl+shift+e",
 };
 
 function harness(resolved: Record<string, unknown> = {}) {
@@ -38,6 +39,7 @@ describe("registerViewShortcuts", () => {
 		expect([...registrations.keys()]).toEqual(["alt+o", "alt+i"]);
 		expect(registration.keys.toggleKey).toBe("alt+o");
 		expect(registration.keys.inspectKey).toBe("alt+i");
+		expect(registration.keys.resultKey).toBe("off");
 		expect(registration.diagnostics).toEqual([]);
 		expect(actions.onConflict).not.toHaveBeenCalled();
 	});
@@ -216,7 +218,7 @@ describe("modifier order", () => {
 });
 
 describe("shipped defaults", () => {
-	it("registers no shortcut for YAML without ui", async () => {
+	it("registers no shortcut for YAML without ui when no result callback is supplied", async () => {
 		const dir = await mkdtemp(join(tmpdir(), "omps-shortcuts-"));
 		try {
 			const path = join(dir, "omps/config.yaml");

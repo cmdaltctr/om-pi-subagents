@@ -144,6 +144,7 @@ ${ui}agents:
 			showManagementList: true,
 			navigationDownKey: "down",
 			navigationUpKey: "up",
+			resultKey: "ctrl+shift+e",
 		});
 	});
 

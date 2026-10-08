@@ -1,11 +1,13 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { getKeybindings, type KeyId } from "@earendil-works/pi-tui";
+import { getKeybindings, isKittyProtocolActive, type KeyId } from "@earendil-works/pi-tui";
 import { normaliseKey, type UiKeyField, type UiSettings } from "./config.ts";
 
-/** Actions the two view shortcuts perform. */
+/** Actions the view shortcuts perform. */
 export interface ViewShortcutActions {
 	toggleFleet(ctx: ExtensionContext): void;
 	openInspection(ctx: ExtensionContext): void;
+	/** Omitted by callers without a result renderer. */
+	toggleResults?(ctx: ExtensionContext): void;
 	/** Surfaced when a configured key cannot bind in this session. */
 	onConflict?(message: string): void;
 }
@@ -65,6 +67,21 @@ export function shortcutConflict(
 // Identical actions inside this window run once; deliberate later presses still work.
 const DISPATCH_GUARD_MS = 100;
 
+function requiresExtendedReporting(key: string): boolean {
+	const match = /^((?:(?:ctrl|shift|alt|super)\+)*)(.+)$/.exec(normaliseKey(key));
+	if (!match) return false;
+	const [, modifiers, base] = match;
+	if (modifiers.includes("super+")) return true;
+	if (base.length === 1) {
+		if (modifiers.includes("shift+")) return modifiers !== "shift+" || !/^[a-z]$/.test(base);
+		// These Ctrl keys have legacy control bytes, including ESC-prefixed Alt variants.
+		return modifiers.includes("ctrl+") && !/^[a-z[\]\\_-]$/.test(base);
+	}
+	if (!modifiers || !["enter", "return", "space", "backspace"].includes(base)) return false;
+	if (modifiers === "alt+") return false;
+	return modifiers !== "ctrl+" || (base !== "space" && base !== "backspace");
+}
+
 /**
  * Register the configured view shortcuts. Called at interactive session start, before the
  * host snapshots editor bindings. Keys occupied by effective built-in actions are refused
@@ -75,6 +92,7 @@ export function registerViewShortcuts(
 	settings: UiSettings,
 	actions: ViewShortcutActions,
 	resolved: ResolvedBindings = builtinBindings(),
+	kittyActive: () => boolean = isKittyProtocolActive,
 ): ShortcutRegistration {
 	const diagnostics: string[] = [];
 	const bound = {
@@ -83,6 +101,7 @@ export function registerViewShortcuts(
 		inspectKey: "off",
 		navigationDownKey: "off",
 		navigationUpKey: "off",
+		resultKey: "off",
 	};
 	const last = new Map<string, number>();
 	const once = (name: string, run: (ctx: ExtensionContext) => void) => (ctx: ExtensionContext) => {
@@ -103,7 +122,11 @@ export function registerViewShortcuts(
 		bound[field] = key;
 		return true;
 	};
-	const bind = (field: "toggleKey" | "inspectKey", description: string, run: (ctx: ExtensionContext) => void) => {
+	const bind = (
+		field: "toggleKey" | "inspectKey" | "resultKey",
+		description: string,
+		run: (ctx: ExtensionContext) => void,
+	) => {
 		if (resolve(field)) pi.registerShortcut(settings[field] as KeyId, { description, handler: once(field, run) });
 	};
 	bind("toggleKey", "Toggle the OMPS agent fleet", actions.toggleFleet);
@@ -111,5 +134,13 @@ export function registerViewShortcuts(
 	// Navigation stays on the scoped terminal-input path, never a global shortcut.
 	resolve("navigationDownKey");
 	resolve("navigationUpKey");
+	if (actions.toggleResults) {
+		bind("resultKey", "Toggle OMPS result messages", actions.toggleResults);
+		if (bound.resultKey !== "off" && requiresExtendedReporting(bound.resultKey) && !kittyActive()) {
+			const message = `${bound.resultKey} requires extended-key reporting. Terminal support is unverified: kitty is unconfirmed; modifyOtherKeys may still work. The key stays active. Use the host tool-output expansion key as a fallback, or choose another key in /omps-settings.`;
+			diagnostics.push(message);
+			actions.onConflict?.(message);
+		}
+	}
 	return { keys: Object.freeze(bound), diagnostics: Object.freeze(diagnostics) };
 }

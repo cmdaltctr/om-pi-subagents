@@ -35,6 +35,7 @@ function setup(mode: "rpc" | "tui" = "rpc") {
 		registerTool: (tool: Parameters<ExtensionAPI["registerTool"]>[0]) => tools.push(tool),
 		on: vi.fn(),
 		registerEntryRenderer: vi.fn(),
+		registerMessageRenderer: vi.fn(),
 		appendEntry: vi.fn(),
 		sendMessage: vi.fn(),
 	};

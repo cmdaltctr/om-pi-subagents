@@ -19,6 +19,7 @@ TDRs record implementation-level findings: platform workarounds, debugging resul
 | [006](./006-use-underscore-mcp-tool-names-on-pi-1.md)                 | Use underscore MCP tool names on Pi 1.0               | 2026-10-07 | Accepted |
 | [007](./007-macos-option-key-and-pi-modifier-order.md)                | Handle the macOS Option key and Pi modifier order     | 2026-10-07 | Accepted |
 | [009](./009-confirm-pi-0-99-1-package-layout.md)                      | Confirm the Pi 0.99.1 package layout                  | 2026-10-08 | Proposed |
+| [011](./011-redraw-result-messages-and-preserve-legacy-ctrl-e.md)     | Redraw result messages and preserve legacy Ctrl+E     | 2026-10-08 | Accepted |
 
 ## Status values
 

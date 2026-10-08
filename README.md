@@ -10,7 +10,7 @@ one YAML file and plain Markdown files. OMPS ships no agents of its own.
 - Each run is one child Pi process in the background.
 - YAML limits set each parent's direct-child capacity and maximum nesting depth. Both default to one.
 - YAML `ui` settings set visible rows (default 5), the fleet view (default `expanded`), list visibility and navigation keys.
-- The result arrives as a follow-up message when the child finishes.
+- The result arrives as a follow-up message when the child finishes. Long results fold in interactive Pi.
 
 The `● Agents` tree and the navigation list are adapted from
 [tintinweb/pi-subagents](https://github.com/tintinweb/pi-subagents) under its MIT licence.
@@ -38,6 +38,8 @@ the agents, so the task names and answers are synthetic. `scripts/readme-demo.ta
 - **Limits.** YAML limits set how many direct children each parent may run at once and how deep agents
   may nest.
 - **Saved runs.** Each run keeps its task, events, output and status in a private run folder.
+- **Folded results.** Long result messages show eight answer lines, keeping errors and partial-output warnings visible.
+  Ctrl+Shift+E toggles all OMPS results. Pi's host expansion action also works, with Ctrl+O as its default.
 - **Settings.** `/omps-settings` edits the limits, the fleet view, the shortcuts and the optional
   capabilities of each agent.
 - **Short agent list.** `/omps list` shows one line per agent, such as `reader: 4 tools (read-only)`.
@@ -198,6 +200,7 @@ then confirm the shown value and save destination:
 | Management previous key             | Pi key specification or `off`; default `up`                     | `ui.navigationUpKey` in that YAML       |
 | Fleet view shortcut                 | A Pi key specification such as `alt+o`, or `off`; default `off` | `ui.toggleKey` in that YAML             |
 | Inspection shortcut                 | A Pi key specification such as `alt+i`, or `off`; default `off` | `ui.inspectKey` in that YAML            |
+| Result shortcut                     | Pi key specification or `off`; default `ctrl+shift+e`           | `ui.resultKey` in that YAML             |
 
 `OMPS_REGISTRY` selects the registry when set. The menu shows its resolved path.
 Execution limits and UI settings stay in that one YAML file. OMPS leaves todo preferences
@@ -316,6 +319,27 @@ Only an immediate parent can use status or cancellation for a descendant.
 
 Tasks and outputs can contain sensitive text. Reads are limited to 64 KiB per selected evidence file;
 truncated output shows its saved location. See [inspection](docs/USAGE.md#agent-trees-and-inspection).
+
+### Result messages
+
+Interactive Pi folds long results after eight answer lines. The heading, files line and `Result:` label remain visible.
+Errors and partial-output notes stay visible too. Short results have no fold hint.
+The hint shows the hidden-line count, the active Result shortcut and always the host expansion key as a fallback.
+
+`ui.resultKey` defaults to `ctrl+shift+e`; choose another free key or `off` in `/omps-settings`, then run `/reload`.
+Fleet and inspection shortcuts retain their `off` defaults.
+Ctrl+Shift+E toggles one session state for every OMPS result, leaving unrelated tool output unchanged.
+Pi's `app.tools.expand` action, Ctrl+O by default, toggles an independent host state and also affects tool output.
+Both states must be off to fold a result. Either enabled state also expands new results.
+
+The result key needs extended-key reporting through kitty CSI-u or xterm `modifyOtherKeys`.
+Without confirmed kitty support, OMPS warns that support is unverified and keeps a conflict-free binding active.
+Raw Ctrl+E keeps Pi's editor line-end action. Use the host key shown in the hint if your terminal drops Shift.
+A key occupied by an effective Pi action stays inactive; OMPS names the conflict and leaves Pi keybindings unchanged.
+
+Folding leaves model-facing text, the 4000-character answer limit, saved output and delivery records unchanged.
+JSON, print and RPC result content retains its behaviour.
+See [Getting the result](docs/USAGE.md#getting-the-result) for result timing and the complete expansion rules.
 
 ### YAML fields
 

@@ -80,6 +80,7 @@ function menuItems(limits: LimitSettings, ui: UiSettingsState, active: UiSetting
 		`Management list: ${ui.value.showManagementList ? "Show" : "Hide"}`,
 		shortcutItem("Management next / enter key", ui.value.navigationDownKey, active, "navigationDownKey"),
 		shortcutItem("Management previous key", ui.value.navigationUpKey, active, "navigationUpKey"),
+		shortcutItem("Result shortcut", ui.value.resultKey, active, "resultKey"),
 	];
 	if (ui.maxVisibleAgentsSource === "legacy")
 		items.push(`Import legacy visible agents (${ui.value.maxVisibleAgents}) into YAML`);
@@ -142,8 +143,8 @@ async function showSettings(ctx: ExtensionCommandContext, resources: SettingsRes
 			if (saved) await repaint(resources, ctx);
 			continue;
 		}
-		if ([4, 5, 7, 8].includes(index)) {
-			const field = UI_KEY_FIELDS[[4, 5, 7, 8].indexOf(index)];
+		if ([4, 5, 7, 8, 9].includes(index)) {
+			const field = UI_KEY_FIELDS[[4, 5, 7, 8, 9].indexOf(index)];
 			await editShortcut(ctx, resources, limits, ui, field, choice);
 			limits = await readLimitSettings(resources.registryPath);
 			ui = await resources.ui.refresh();

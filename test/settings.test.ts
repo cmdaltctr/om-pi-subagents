@@ -61,6 +61,7 @@ function load() {
 		registerTool: (tool: Parameters<ExtensionAPI["registerTool"]>[0]) => tools.push(tool),
 		on: vi.fn(),
 		registerEntryRenderer: vi.fn(),
+		registerMessageRenderer: vi.fn(),
 		appendEntry: vi.fn(),
 		sendMessage: vi.fn(),
 		sendUserMessage: vi.fn(),
@@ -154,6 +155,7 @@ describe("settings commands", () => {
 				"Management list: Show",
 				"Management next / enter key: down",
 				"Management previous key: up",
+				"Result shortcut: ctrl+shift+e",
 				"Agent capabilities",
 				"Done",
 			]);
@@ -391,6 +393,7 @@ describe("view shortcuts", () => {
 			showManagementList: true,
 			navigationDownKey: "down",
 			navigationUpKey: "up",
+			resultKey: "ctrl+shift+e",
 			toggleKey: "off",
 			inspectKey: "ctrl+alt+i",
 		});

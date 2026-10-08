@@ -26,7 +26,12 @@ async function write(relativePath: string, text: string): Promise<void> {
 	await writeFile(target, text);
 }
 
-const managementDefaults = { showManagementList: true, navigationDownKey: "down", navigationUpKey: "up" };
+const managementDefaults = {
+	showManagementList: true,
+	navigationDownKey: "down",
+	navigationUpKey: "up",
+	resultKey: "ctrl+shift+e",
+};
 
 const reader = `version: 1
 agents:
@@ -169,7 +174,7 @@ describe("ui settings", () => {
 ${ui}agents: {}
 `;
 
-	it("applies five visible agents, the expanded fleet and no shortcuts when ui is omitted", async () => {
+	it("applies five visible agents, the expanded fleet and the result shortcut when ui is omitted", async () => {
 		await write("config.yaml", uiYaml(""));
 		const registry = await loadRegistry(yamlPath());
 		expect(registry.ui).toEqual({

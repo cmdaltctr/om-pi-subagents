@@ -26,6 +26,7 @@ import { RunManager } from "./runs.ts";
 import { createService, type OmpsService, type RunContext } from "./service.ts";
 import { registerOmpsSettings } from "./settings.ts";
 import { registerViewShortcuts } from "./shortcuts.ts";
+import { ResultMessages } from "./result-message.ts";
 import { RunStore } from "./store.ts";
 import { createSupervisor } from "./supervisor.ts";
 import { observationId } from "./observation-validation.ts";
@@ -406,6 +407,7 @@ export function registerOmps(
 export function registerRuntime(pi: ExtensionAPI, branch?: ChildLineage): () => OmpsRuntime | undefined {
 	const binding = new SessionBinding();
 	let runtime: OmpsRuntime | undefined;
+	const results = new ResultMessages(pi, () => activeKeys?.resultKey);
 	const agentDir = () => resolveAgentDir();
 	let ui: UiSettingsCache | undefined;
 	// One cache per session: settings edits refresh the same values the fleet renders.
@@ -459,12 +461,14 @@ export function registerRuntime(pi: ExtensionAPI, branch?: ChildLineage): () => 
 				strip.toggle();
 				if (owner) runtime?.fleet.repaint(owner);
 			},
+			toggleResults: () => results.toggle(),
 			openInspection: (view) => {
 				// Inspection opens at the fleet's selected root, keeping one view controller.
 				void runtime?.viewer.inspect(strip.selection(), view).catch(() => undefined);
 			},
 		});
 		activeKeys = registration.keys;
+		results.attach(ctx);
 		for (const diagnostic of registration.diagnostics) ctx.ui.notify(`OMPS shortcuts: ${diagnostic}`, "warning");
 		// Down enters fleet selection only from an empty, focused editor while the expanded strip shows runs.
 		stopInput?.();
@@ -504,8 +508,9 @@ export function registerRuntime(pi: ExtensionAPI, branch?: ChildLineage): () => 
 	});
 	// Quit, reload and session replacement all end here: detach first so no message reaches a successor,
 	// then stop the children and wait until their cleanup is confirmed.
-	pi.on("session_shutdown", async () => {
+	pi.on("session_shutdown", async (_event, ctx) => {
 		const owner = binding.owner;
+		results.dispose(ctx);
 		stopInput?.();
 		stopInput = undefined;
 		runtime?.viewer.dispose();

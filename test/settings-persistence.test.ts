@@ -227,6 +227,7 @@ describe("ui settings persistence", () => {
 			showManagementList: true,
 			navigationDownKey: "down",
 			navigationUpKey: "up",
+			resultKey: "ctrl+shift+e",
 			toggleKey: "off",
 			inspectKey: "off",
 		});

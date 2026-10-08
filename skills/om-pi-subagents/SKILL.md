@@ -62,17 +62,18 @@ Ask the operator to run `/omps-settings` when a setting needs changing.
 `/subagents-settings` is an alias. Native dialogs work in interactive Pi and supported RPC clients.
 The command is outside the model-callable tool. It requires UI dialogs before reading files.
 
-| Setting                                   | Valid values                                  | Storage                             |
-| ----------------------------------------- | --------------------------------------------- | ----------------------------------- |
-| Maximum nesting depth                     | Safe integer of at least 0; root depth 0      | Registry `limits.maxDepth`          |
-| Parallel direct children per parent       | Safe integer of at least 1                    | Registry `limits.maxConcurrentRuns` |
-| Visible agents                            | Safe integer from 1 to 256; default 5         | Registry `ui.maxVisibleAgents`      |
-| Fleet view                                | `expanded`, `collapsed` or `off`              | Registry `ui.fleetView`             |
-| Management list                           | Show/Hide; default Show                       | Registry `ui.showManagementList`    |
-| Management next / enter key               | Pi key specification or `off`; default `down` | Registry `ui.navigationDownKey`     |
-| Management previous key                   | Pi key specification or `off`; default `up`   | Registry `ui.navigationUpKey`       |
-| Fleet view shortcut / inspection shortcut | Pi key specification or `off`; default `off`  | Registry `ui.toggleKey/inspectKey`  |
-| Agent capabilities                        | Select agent, then Memory or Todo             | That agent's existing YAML lists    |
+| Setting                                   | Valid values                                          | Storage                             |
+| ----------------------------------------- | ----------------------------------------------------- | ----------------------------------- |
+| Maximum nesting depth                     | Safe integer of at least 0; root depth 0              | Registry `limits.maxDepth`          |
+| Parallel direct children per parent       | Safe integer of at least 1                            | Registry `limits.maxConcurrentRuns` |
+| Visible agents                            | Safe integer from 1 to 256; default 5                 | Registry `ui.maxVisibleAgents`      |
+| Fleet view                                | `expanded`, `collapsed` or `off`                      | Registry `ui.fleetView`             |
+| Management list                           | Show/Hide; default Show                               | Registry `ui.showManagementList`    |
+| Management next / enter key               | Pi key specification or `off`; default `down`         | Registry `ui.navigationDownKey`     |
+| Management previous key                   | Pi key specification or `off`; default `up`           | Registry `ui.navigationUpKey`       |
+| Fleet view shortcut / inspection shortcut | Pi key specification or `off`; default `off`          | Registry `ui.toggleKey/inspectKey`  |
+| Result shortcut                           | Pi key specification or `off`; default `ctrl+shift+e` | Registry `ui.resultKey`             |
+| Agent capabilities                        | Select agent, then Memory or Todo                     | That agent's existing YAML lists    |
 
 The menu shows the resolved registry destination, including `OMPS_REGISTRY` overrides.
 YAML owns limits and UI fields. A valid legacy visible-row value remains read-only fallback
@@ -159,6 +160,27 @@ Inspection starts no process or model turn and leaves sibling widgets separate.
 
 A launch returns immediately. Wait for its separate result message rather than sending repeated prompts.
 Status is available through the existing run id. Commands see only the caller's direct owned runs.
+
+Interactive Pi folds long results after eight answer lines, counted before terminal wrapping.
+The heading, files line and `Result:` label stay visible. Errors and partial-output notes remain visible too.
+Short results show in full without a fold hint.
+The hint shows the hidden-line count, the active Result shortcut and always the host expansion key as a fallback.
+
+Ask the operator to press Ctrl+Shift+E to toggle every OMPS result in the session.
+`ui.resultKey` defaults to `ctrl+shift+e`; **Result shortcut** in `/omps-settings` accepts another free key or `off`.
+Saved key edits need `/reload`. Fleet and inspection shortcuts remain `off` by default.
+Pi's host `app.tools.expand` action, Ctrl+O by default, also expands results and retains its tool-output behaviour.
+Each action toggles its own state. Both must be off to fold results; either enabled state also expands later results.
+The result shortcut leaves unrelated tool output unchanged, and its state resets at session end or reload.
+
+Ctrl+Shift+E needs extended-key reporting through kitty CSI-u or xterm `modifyOtherKeys`.
+Without confirmed kitty support, OMPS warns that support is unverified and keeps a conflict-free result binding active.
+Raw Ctrl+E retains Pi's editor line-end action. Use the host key in the hint if the terminal drops Shift.
+An effective Pi conflict leaves the result key inactive with guidance. Never edit live host keybindings automatically.
+
+Folding changes only the terminal display. Read the same delivered content or saved `output.md` when assessing a result.
+The model-facing text, 4000-character answer limit and delivery record stay unchanged.
+JSON, print and RPC result content retains its existing behaviour.
 
 Each result reaches its immediate parent. A delegating child waits for owned runs and delivery attempts
 before its final answer can settle. Completed output requires a saved answer, clean exit and confirmed cleanup.

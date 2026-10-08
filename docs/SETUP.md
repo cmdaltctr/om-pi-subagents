@@ -255,12 +255,12 @@ Put blocking issues first. Keep the whole answer under 400 words.
 
 ### Top-level keys
 
-| Key       | Required | Value                                                                     |
-| --------- | -------- | ------------------------------------------------------------------------- |
-| `version` | yes      | The number `1`. The text `'1'` and other numbers are rejected.            |
-| `agents`  | yes      | A mapping of agent names to settings. Use `agents: {}` for none.          |
-| `limits`  | no       | `maxConcurrentRuns` and `maxDepth`. Omitted fields default to one.        |
-| `ui`      | no       | Visible rows, fleet view, management-list visibility and keys. See below. |
+| Key       | Required | Value                                                                                        |
+| --------- | -------- | -------------------------------------------------------------------------------------------- |
+| `version` | yes      | The number `1`. The text `'1'` and other numbers are rejected.                               |
+| `agents`  | yes      | A mapping of agent names to settings. Use `agents: {}` for none.                             |
+| `limits`  | no       | `maxConcurrentRuns` and `maxDepth`. Omitted fields default to one.                           |
+| `ui`      | no       | Visible rows, fleet view, management-list visibility, navigation and result keys. See below. |
 
 Only `version`, `agents`, `limits` and `ui` are allowed at the top level.
 `maxConcurrentRuns` accepts safe integers of at least one; `maxDepth` accepts safe integers of at least zero.
@@ -280,6 +280,35 @@ for both. A key bound to an effective built-in action is refused with guidance w
 session starts. The check ignores modifier order, so `ctrl+shift+o` is refused because Pi 1.0 binds
 `shift+ctrl+o` to the session-tree filter. Edit these fields with `/omps-settings`, or by hand; see
 [operator settings](USAGE.md#operator-settings).
+
+#### Result shortcut
+
+`ui.resultKey` accepts a lowercase Pi key specification or `off`. It defaults to `ctrl+shift+e`.
+Fleet and inspection shortcuts still default to `off`.
+Edit **Result shortcut** in `/omps-settings`, then run `/reload`.
+The menu shows saved and active keys separately until reload.
+All enabled OMPS keys must differ, including an omitted result key's default.
+Tab and Ctrl+I remain unsafe. An effective Pi action keeps its key and leaves the OMPS shortcut inactive.
+
+Merge this field into your existing `ui` mapping to disable the OMPS result shortcut:
+
+```yaml
+ui:
+  resultKey: off
+```
+
+Pi's host expansion action, `app.tools.expand`, remains available; its default is Ctrl+O.
+The fold hint always names the host key and also names the active result key.
+Each action toggles an independent expansion state. Both states must be off before a result folds.
+The OMPS state affects every result in the session and leaves unrelated tool output unchanged.
+See [folded results](USAGE.md#folded-results-and-expansion-keys) for the eight-line view and retained failure warnings.
+
+Ctrl+Shift+E needs extended-key reporting through kitty CSI-u or xterm `modifyOtherKeys`.
+Without confirmed kitty support, OMPS warns that support is unverified and keeps a conflict-free binding active.
+The terminal's response to `modifyOtherKeys` cannot be reliably confirmed.
+Raw Ctrl+E retains Pi's editor line-end action.
+If your terminal drops Shift, use the host key in the hint or choose another free Result shortcut.
+OMPS leaves Pi keybindings and terminal settings unchanged.
 
 #### Management navigation keys
 
@@ -553,6 +582,7 @@ The `omps` tool's `list` and `run` actions do the same.
 - If the file is invalid, `list` and `run` show the error. No run starts until you fix the file. OMPS never falls back to older settings.
 
 Run `/reload` after you install, update or remove the package. Changes to the agent files do not need it.
+Saved navigation and shortcut changes, including `ui.resultKey`, need `/reload` to become active.
 
 ## Common errors and fixes
 

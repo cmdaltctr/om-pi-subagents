@@ -193,7 +193,7 @@ Custom bindings that Pi owns remain inactive, with the owning action named and n
 In Pi 1.0.4, Ctrl+Shift+Up/Down belong to `tui.altScreen.previousPrompt` and `tui.altScreen.nextPrompt`.
 OMPS never rewrites Pi keybindings. Follow the [manual remapping example](SETUP.md#management-navigation-keys),
 keep other entries, check `/hotkeys`, then run `/reload`. Some terminals consume modified arrows;
-test your pair locally or choose other keys. View shortcuts default to `off`; see [operator settings](#operator-settings).
+test your pair locally or choose other keys. Fleet and inspection shortcuts default to `off`; see [operator settings](#operator-settings).
 
 The widgets never show tool arguments, tool results, the agent's thinking or error logs. OMPS removes terminal control characters from the text. Saved answers appear in inspection and in the result message.
 
@@ -326,6 +326,35 @@ The README explains how to install OMPS and map agents...
 - The message holds at most 4000 characters of the result. A longer result ends with `[truncated; full text in .../output.md]`. Open `output.md` in the run folder for the full text.
 - A cancelled run sends no message.
 - If the session ended before the message was sent, nothing is sent. `notification.json` in the run folder records the failure.
+
+### Folded results and expansion keys
+
+Interactive Pi folds long result messages by default. The heading, files line and `Result:` label stay visible.
+Any `Error:` line and `PARTIAL OUTPUT` note remain visible too. The fold shows the first eight other result lines.
+Lines are counted before wrapping, so a long line can occupy several screen rows.
+A short result shows in full without a hint.
+
+When lines are hidden, the hint shows their count, the active result shortcut and the host expansion key.
+Pi's host action is `app.tools.expand`, Ctrl+O by default. The hint follows its current binding.
+If Pi cannot supply the key name, the hint says `expand with the host expansion key`.
+
+- Press Ctrl+Shift+E to toggle expansion for every OMPS result in the session, including later results.
+- Use the host expansion key to toggle Pi's expansion state, which also affects tool output and later results.
+- Each key toggles its own state. A result folds only when both expansion states are off.
+
+The result shortcut leaves unrelated tool output unchanged. Its session state resets when the session ends or Pi reloads.
+Choose **Result shortcut** in `/omps-settings` to change `ui.resultKey` or set it to `off`.
+Run `/reload` after saving. With the result key off or inactive, the host expansion action remains available.
+
+Ctrl+Shift+E needs extended-key reporting, which preserves modifiers in terminal input.
+Pi accepts kitty CSI-u and xterm `modifyOtherKeys` sequences.
+Without confirmed kitty support, OMPS warns that terminal support is unverified and keeps a conflict-free binding active.
+OMPS cannot reliably confirm `modifyOtherKeys` support. Raw Ctrl+E keeps Pi's move-to-line-end action.
+If Ctrl+Shift+E does nothing or moves the cursor, use the host key in the hint or choose another free result key.
+An effective Pi key conflict leaves the OMPS binding inactive and names the owning action; check `/hotkeys`.
+
+Folding changes only the terminal display. The model receives the same message text, including the existing 4000-character answer limit.
+`output.md` and `notification.json` stay unchanged. JSON, print and RPC result content keeps its existing behaviour.
 
 ### Nested results and local todos
 
@@ -521,19 +550,20 @@ There is no machine-wide budget. Concurrent writers need separate safe working d
 Native selection, input and confirmation dialogs work in interactive Pi and supported RPC clients.
 The command starts no agent or model request. Clients without dialogs receive an error before any settings file access.
 
-| Menu item                           | Validation                                           | Save destination                        |
-| ----------------------------------- | ---------------------------------------------------- | --------------------------------------- |
-| Maximum nesting depth               | Safe integer of at least 0; root depth is 0          | `limits.maxDepth` in registry YAML      |
-| Parallel direct children per parent | Safe integer of at least 1                           | `limits.maxConcurrentRuns` in that YAML |
-| Visible agents                      | Safe integer from 1 to 256; default 5                | `ui.maxVisibleAgents` in that YAML      |
-| Fleet view                          | `expanded`, `collapsed` or `off`; default `expanded` | `ui.fleetView` in that YAML             |
-| Management list                     | Show/Hide; default Show                              | `ui.showManagementList` in that YAML    |
-| Management next / enter key         | Pi key specification or `off`; default `down`        | `ui.navigationDownKey` in that YAML     |
-| Management previous key             | Pi key specification or `off`; default `up`          | `ui.navigationUpKey` in that YAML       |
-| Fleet view shortcut                 | Pi key specification or `off`; default `off`         | `ui.toggleKey` in that YAML             |
-| Inspection shortcut                 | Pi key specification or `off`; default `off`         | `ui.inspectKey` in that YAML            |
-| Agent capabilities                  | Select an agent, then Memory or Todo                 | That agent's existing YAML lists        |
-| Import legacy visible agents        | Offered while a valid legacy value applies           | `ui.maxVisibleAgents` in that YAML      |
+| Menu item                           | Validation                                            | Save destination                        |
+| ----------------------------------- | ----------------------------------------------------- | --------------------------------------- |
+| Maximum nesting depth               | Safe integer of at least 0; root depth is 0           | `limits.maxDepth` in registry YAML      |
+| Parallel direct children per parent | Safe integer of at least 1                            | `limits.maxConcurrentRuns` in that YAML |
+| Visible agents                      | Safe integer from 1 to 256; default 5                 | `ui.maxVisibleAgents` in that YAML      |
+| Fleet view                          | `expanded`, `collapsed` or `off`; default `expanded`  | `ui.fleetView` in that YAML             |
+| Management list                     | Show/Hide; default Show                               | `ui.showManagementList` in that YAML    |
+| Management next / enter key         | Pi key specification or `off`; default `down`         | `ui.navigationDownKey` in that YAML     |
+| Management previous key             | Pi key specification or `off`; default `up`           | `ui.navigationUpKey` in that YAML       |
+| Fleet view shortcut                 | Pi key specification or `off`; default `off`          | `ui.toggleKey` in that YAML             |
+| Inspection shortcut                 | Pi key specification or `off`; default `off`          | `ui.inspectKey` in that YAML            |
+| Result shortcut                     | Pi key specification or `off`; default `ctrl+shift+e` | `ui.resultKey` in that YAML             |
+| Agent capabilities                  | Select an agent, then Memory or Todo                  | That agent's existing YAML lists        |
+| Import legacy visible agents        | Offered while a valid legacy value applies            | `ui.maxVisibleAgents` in that YAML      |
 
 Parallel agents and direct children share the same per-parent limit.
 The menu shows the selected registry path, including any `OMPS_REGISTRY` override, and labels
@@ -541,7 +571,7 @@ the source of the effective visible-agent value: YAML, the legacy display file o
 OMPS does not write todo preferences or Pi's `settings.json`.
 
 A saved fleet view applies at once and replaces any session toggle. Management-list visibility also repaints immediately.
-Navigation-key and view-shortcut edits need `/reload`.
+Navigation-key and shortcut edits, including Result shortcut, need `/reload`.
 
 Type the shortcut as text, for example `ctrl+1`. Spell out the modifier instead of holding Ctrl while entering the key.
 Common modifiers are `ctrl`, `shift` and `alt`; `super` is also a valid modifier name.
@@ -563,7 +593,8 @@ Settings checks effective Pi bindings before confirmation and saving, using the 
 A conflict names the owning actions and points to `keybindings.json`, `/hotkeys` and `/reload`.
 All enabled OMPS keys must differ after modifier normalisation. Each key can be `off`.
 Default Down/Up retain their scoped editor/list use; custom navigation keys must be free of effective Pi actions.
-Shortcuts default to `off`. On macOS, Option+O can type `ø` unless the terminal sends Option as Alt.
+Fleet and inspection shortcuts default to `off`. The result shortcut defaults to `ctrl+shift+e`.
+On macOS, Option+O can type `ø` unless the terminal sends Option as Alt.
 Set the terminal's Option behaviour before using an Alt shortcut, or choose another key.
 See [Restore the Alt keys](SETUP.md#restore-the-alt-keys) for terminal settings and the old `alt+o` and `alt+i` bindings.
 [TDR-007](https://github.com/cmdaltctr/om-pi-subagents/blob/main/docs/tdr/007-macos-option-key-and-pi-modifier-order.md) records the existing platform finding.

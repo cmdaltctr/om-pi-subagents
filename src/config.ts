@@ -36,6 +36,7 @@ export interface UiSettings {
 	readonly inspectKey: string;
 	readonly navigationDownKey: string;
 	readonly navigationUpKey: string;
+	readonly resultKey: string;
 }
 
 /** Which `ui` fields this YAML declares. Undeclared fields use defaults; only visible rows have a legacy fallback. */
@@ -65,13 +66,14 @@ export class RegistryError extends Error {
 const SUPPORTED_VERSION = 1;
 export const DEFAULT_MAX_VISIBLE_AGENTS = 5;
 export const DEFAULT_FLEET_VIEW: FleetView = "expanded";
-// macOS terminals type "ø" for Option+O unless Option sends Alt, so no modifier key ships enabled.
+// macOS terminals type "ø" for Option+O unless Option sends Alt, so fleet and inspection keys start off.
 export const DEFAULT_TOGGLE_KEY = "off";
 export const DEFAULT_INSPECT_KEY = "off";
 export const DEFAULT_SHOW_MANAGEMENT_LIST = true;
 export const DEFAULT_NAVIGATION_DOWN_KEY = "down";
 export const DEFAULT_NAVIGATION_UP_KEY = "up";
-export const UI_KEY_FIELDS = ["toggleKey", "inspectKey", "navigationDownKey", "navigationUpKey"] as const;
+export const DEFAULT_RESULT_KEY = "ctrl+shift+e";
+export const UI_KEY_FIELDS = ["toggleKey", "inspectKey", "navigationDownKey", "navigationUpKey", "resultKey"] as const;
 export type UiKeyField = (typeof UI_KEY_FIELDS)[number];
 export type NavigationKeys = Pick<UiSettings, "navigationDownKey" | "navigationUpKey">;
 export const FLEET_VIEWS: readonly FleetView[] = ["expanded", "collapsed", "off"];
@@ -196,6 +198,7 @@ function validateUi(value: unknown): { settings: UiSettings; declarations: UiDec
 			: checkUiKey("navigationDownKey", raw.navigationDownKey);
 	const up =
 		raw.navigationUpKey === undefined ? DEFAULT_NAVIGATION_UP_KEY : checkUiKey("navigationUpKey", raw.navigationUpKey);
+	const result = raw.resultKey === undefined ? DEFAULT_RESULT_KEY : checkUiKey("resultKey", raw.resultKey);
 	const settings: UiSettings = Object.freeze({
 		maxVisibleAgents: visible ?? DEFAULT_MAX_VISIBLE_AGENTS,
 		fleetView: view ?? DEFAULT_FLEET_VIEW,
@@ -204,6 +207,7 @@ function validateUi(value: unknown): { settings: UiSettings; declarations: UiDec
 		showManagementList: show,
 		navigationDownKey: down,
 		navigationUpKey: up,
+		resultKey: result,
 	});
 	checkDistinctUiKeys(settings);
 	return {
@@ -216,6 +220,7 @@ function validateUi(value: unknown): { settings: UiSettings; declarations: UiDec
 			showManagementList: raw.showManagementList !== undefined,
 			navigationDownKey: raw.navigationDownKey !== undefined,
 			navigationUpKey: raw.navigationUpKey !== undefined,
+			resultKey: raw.resultKey !== undefined,
 		}),
 	};
 }
