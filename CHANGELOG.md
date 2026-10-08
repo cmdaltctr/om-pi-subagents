@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.0](https://github.com/cmdaltctr/om-pi-subagents/compare/v0.6.0...v0.7.0) (2026-10-08)
+
+
+### Features
+
+* refine fleet navigation and inspector ([#18](https://github.com/cmdaltctr/om-pi-subagents/issues/18)) ([045cb6f](https://github.com/cmdaltctr/om-pi-subagents/commit/045cb6f2be2027d3bbf5b7dad3e5626472d2c211))
+
 ## [0.6.0](https://github.com/cmdaltctr/om-pi-subagents/compare/v0.5.0...v0.6.0) (2026-10-07)
 
 
