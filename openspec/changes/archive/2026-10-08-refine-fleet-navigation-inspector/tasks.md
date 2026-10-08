@@ -38,5 +38,10 @@
 - [x] 5.1 Run the targeted configuration/settings, fleet/shortcut, inspector/command, interactive Pi and documentation/packaging suites together; record exact commands/results and keep independent tests enabled if a CLI suite is unavailable.
 - [x] 5.2 Ask permission for `bun run ci`, then run it from the verified feature worktree; resolve all findings and report any macOS/Linux or real-terminal coverage that remains unrun.
 - [x] 5.3 Scan changed first-party code with Aikido when available and run `openspec validate refine-fleet-navigation-inspector --strict`; resolve findings and keep security/visual evidence in ignored local reports.
-- [x] 5.4 Run the OpenSpec verification workflow against the deltas and design; check all acceptance scenarios, retain honest unavailable-check labels and accept ADR-011 only after findings are resolved.
-- [ ] 5.5 After an authorised commit, run `bun run ci:clean`; archive the verified change with its spec deltas before creating a pull request, and request permission before any push.
+- [x] 5.4 Run the OpenSpec verification workflow against the deltas and design; check all acceptance scenarios, retain honest unavailable-check labels and accept ADR-012 only after findings are resolved.
+- [x] 5.5 After an authorised commit, run `bun run ci:clean` and record the result; request permission before any push.
+
+## After implementation
+
+Archive the verified change with its spec deltas after every task is complete and before creating a pull request.
+Preserve local evidence before removing temporary worktrees.

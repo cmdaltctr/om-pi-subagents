@@ -160,7 +160,7 @@ Keep selection, read cancellation and lifecycle in `src/inspector.ts`. Extract p
 
 Reuse the existing observation and detail reader. Preserve lineage validation, content bounds, terminal-control sanitisation, partial-result labels, incomplete-evidence warnings and non-interactive fallbacks. Keep pending reads generation-checked. A display failure releases modal subscriptions, timers and reads without changing work or results.
 
-Record the change in Proposed ADR-011. Accepted ADRs stay immutable except permitted supersession metadata after verification.
+Record the change in Proposed ADR-012. (Renumbered from 011 after the guarded-merge ADR took that number on main.) Accepted ADRs stay immutable except permitted supersession metadata after verification.
 
 ## Risks / Trade-offs
 
@@ -180,7 +180,7 @@ Record the change in Proposed ADR-011. Accepted ADRs stay immutable except permi
 3. Keep existing YAML and defaults valid without modifying operator files.
 4. Document the optional tree-only and modified-arrow configuration.
 5. Ask permission before full CI and any live configuration edit.
-6. Verify the change and resolve findings before accepting ADR-011 or archiving.
+6. Verify the change and resolve findings before accepting ADR-012 or archiving.
 
 Rollback uses the previous package and removes only the new optional UI fields from an operator-approved configuration copy. Older packages reject unknown UI fields. Any manual Pi keybinding changes remain operator-owned and must be restored separately if desired.
 

@@ -74,9 +74,9 @@ Optional OMMS compatibility cases require the fixture's unavailable 4.8.0 entry.
 
 ## References
 
-- [Proposal](../../openspec/changes/refine-fleet-navigation-inspector/proposal.md)
-- [Design](../../openspec/changes/refine-fleet-navigation-inspector/design.md)
-- [Tasks](../../openspec/changes/refine-fleet-navigation-inspector/tasks.md)
+- [Proposal](../../openspec/changes/archive/2026-10-08-refine-fleet-navigation-inspector/proposal.md)
+- [Design](../../openspec/changes/archive/2026-10-08-refine-fleet-navigation-inspector/design.md)
+- [Tasks](../../openspec/changes/archive/2026-10-08-refine-fleet-navigation-inspector/tasks.md)
 - [Compact fleet and sibling boundaries](007-use-a-compact-fleet-with-independent-sibling-capabilities.md)
 - [Tintin-style default tree](009-port-the-tintin-agent-tree-and-show-it-by-default.md)
 - [Fleet input](../../src/fleet-view.ts)
