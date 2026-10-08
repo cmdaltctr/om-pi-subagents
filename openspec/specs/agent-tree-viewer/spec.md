@@ -62,12 +62,12 @@ OMPS SHALL preserve the host's tool-output expansion action, including Ctrl+O an
 
 ### Requirement: Inspect agents without leaving the main session
 
-One read-only modal SHALL inspect owned roots and validated observed descendants. It SHALL use one column at every width: an agent picker, then a full-width selected detail screen. Keyboard navigation SHALL work in fullscreen and regular modes; fullscreen row clicks SHALL open the clicked node's details. Picker branches SHALL fold/unfold without discarding retained nodes. Enter SHALL open details; Escape SHALL return to the picker or close it. Details opened by run id SHALL close directly on Escape. Opening, navigating, resizing or closing MUST NOT pause, cancel or restart runs. The editor draft and prior fleet view state SHALL survive closure.
+One read-only modal SHALL inspect owned roots and validated observed descendants. It SHALL use one column at every width: an agent picker, then a single-column selected detail screen. Keyboard navigation SHALL work in fullscreen and regular modes; fullscreen row clicks SHALL open the clicked node's details. Picker branches SHALL fold/unfold without discarding retained nodes. Enter SHALL open details; Escape SHALL return to the picker or close it. Details opened by run id SHALL close directly on Escape. Opening, navigating, resizing or closing MUST NOT pause, cancel or restart runs. The editor draft and prior fleet view state SHALL survive closure.
 
 #### Scenario: A fullscreen row is clicked
 
 - **WHEN** the operator clicks an observed grandchild in the picker
-- **THEN** its full-width details appear with the correct lineage
+- **THEN** its single-column details appear with the correct lineage
 - **AND** its parent and siblings continue running
 
 #### Scenario: Keyboard navigation is used
@@ -512,13 +512,51 @@ The detail screen SHALL provide Up/Down line scrolling, PageUp/PageDown paging a
 
 ### Requirement: Present a themed readable inspector
 
-The inspector SHALL use Pi's current theme, clear section headings and full-width content. Details SHALL distinguish task, current activity, provisional answer and saved output. Live-preview and saved-answer text SHALL retain readable Markdown structure. Preview sanitisation SHALL preserve line breaks and indentation within the existing 4 KiB UTF-8 bound while removing terminal controls and direction overrides. The picker SHALL identify the selected agent visibly. Long identifiers SHALL yield space to names and content. Missing or incomplete observations MUST remain labelled.
+The inspector SHALL use Pi's current theme, clear section headings and content inside a small margin on the left, right, top and bottom of both the picker and the details screen. Each margin SHALL shrink to zero when the terminal is too narrow or too short to spare it, and the margin rows MUST NOT hide the footer hint. Section headings SHALL have a blank line before and after them. Details SHALL distinguish task, current activity, provisional answer and saved output. Live-preview and saved-answer text SHALL retain readable Markdown structure. Preview sanitisation SHALL preserve line breaks and indentation within the existing 4 KiB UTF-8 bound while removing terminal controls and direction overrides. The picker SHALL identify the selected agent visibly. Long task summaries SHALL wrap within the available width, limited to three lines per summary, and a shortened summary SHALL end with an ellipsis. Picker warnings SHALL wrap fully without a separate line cap or ellipsis, within the available picker body. Long identifiers SHALL yield space to names and content. Missing or incomplete observations MUST remain labelled.
 
 #### Scenario: A running agent is opened
 
 - **WHEN** an operator opens a running agent
 - **THEN** its name, state, elapsed time, known model, lineage and current observed tools are readable
 - **AND** its visible answer appears under a provisional label without a second column
+
+#### Scenario: Content keeps a margin
+
+- **WHEN** the inspector renders at a normal terminal size
+- **THEN** no content line starts at the first column or reaches the last column
+- **AND** the first and last rows of the inspector are blank margin rows
+
+#### Scenario: The terminal is very small
+
+- **WHEN** the terminal is too narrow or too short to spare a margin
+- **THEN** that margin is zero
+- **AND** content still fits the width and height without overflow
+- **AND** the footer hint stays visible at heights of at least two rows
+- **AND** at height one the selected agent stays visible while the footer is omitted
+
+#### Scenario: Section headings are spaced
+
+- **WHEN** the details screen shows several sections
+- **THEN** each heading has a blank line before it and a blank line after it
+- **AND** the first heading has no blank line above it when it starts the body
+
+#### Scenario: A long task summary appears in the picker
+
+- **WHEN** an agent's task summary is longer than one line
+- **THEN** it wraps onto continuation lines below the agent line
+- **AND** it stops at the line cap and ends with an ellipsis when it is still longer
+
+#### Scenario: A wrapped row is selected by mouse
+
+- **WHEN** the operator clicks any wrapped line of an agent row
+- **THEN** that agent is selected
+- **AND** the row mapping stays aligned with the rendered lines
+
+#### Scenario: The picker warning is long
+
+- **WHEN** the tree observation warning is longer than the available width
+- **THEN** it wraps instead of being cut off
+- **AND** its warning colour and wording stay unchanged
 
 #### Scenario: A saved answer contains Markdown
 

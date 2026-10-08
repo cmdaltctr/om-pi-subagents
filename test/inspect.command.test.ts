@@ -128,7 +128,8 @@ describe("operator inspect command", () => {
 		});
 		await fixture.run("inspect owned");
 		// Command errors become notifications; keep render assertions outside that error boundary.
-		expect(shown.split("\n").find((line) => line.includes("Run: owned"))).toBe("Run: owned");
+		// Wide screens reserve two columns before the detail content.
+		expect(shown.split("\n").find((line) => line.includes("Run: owned"))).toBe(`${width >= 40 ? "  " : ""}Run: owned`);
 		expect(shown).toContain("Saved output");
 		expect(done).toHaveBeenCalledOnce();
 		expect(fixture.ui.custom).toHaveBeenCalledOnce();

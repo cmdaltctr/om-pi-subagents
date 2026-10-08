@@ -242,14 +242,28 @@ Status counts still include all active direct children.
 1. Run `/omps inspect` to open the picker of retained nodes.
 2. Move with Up/Down. Rows sit beneath their immediate parent, indented by depth.
 3. Fold with Left or unfold with Right. Folded rows stay retained.
-4. Press Enter to open full-width details.
+4. Press Enter to open details.
 5. Scroll with Up/Down, PageUp/PageDown or Home/End.
 6. Switch agents with Left/Right while details are open.
 7. Press Escape to return to the picker with its selection and folds intact.
 8. Press Escape again to return to Pi's editor.
 
-Every width uses one column. A header identifies the selected agent, state and elapsed time.
+Every width uses one column. Both the picker and details keep a margin on all four sides when space permits:
+
+- At widths of at least 40 columns, each side margin is 2 columns. Below 40 columns, side margins are zero.
+- At heights of at least 10 rows, the top and bottom margins are 1 blank row each. Below 10 rows, these margins are zero.
+
+The header, body and footer sit inside the margins. The footer hint keeps its row at heights of at least 2 rows.
+At height one, the picker shows the selected agent row and omits the footer.
+
+Long task summaries wrap below their agent row, with matching indentation. Each summary uses at most 3 lines.
+A summary shortened by that cap ends with an ellipsis. Open details to read the full retained task.
+Summaries stay hidden when the available content width is below 30 columns.
+Picker observation warnings wrap fully without a separate line cap or ellipsis; the available body still limits visible lines.
+
+A header identifies the selected agent, state and elapsed time.
 The scrollable body separates task, current activity, **Live answer · provisional** and **Saved output**.
+Each section heading has a blank line before and after it. A heading at the start of the body has no leading blank line.
 Answers use Pi's themed Markdown. The footer shows controls and the visible line range when content exceeds the viewport.
 Scrolling works while saved reads load or fail, including provisional-only answers.
 New content preserves your reading position. Reaching the bottom follows updates until you scroll upwards.
@@ -257,7 +271,7 @@ Terminal duration freezes at the retained end time. With no observed tool, detai
 Tool names and concurrent counts describe current activity; they provide no complete tool history.
 
 `/omps inspect <run-id>` and Enter on a management row open details directly; Escape closes without a picker step.
-Fullscreen mode supports picker-row clicks and mouse-wheel scrolling over the detail body.
+Fullscreen mode supports picker-row clicks, including wrapped continuation lines, and mouse-wheel scrolling over the detail body.
 Regular mode uses keyboard input because the terminal owns mouse scrollback.
 The modal includes retained hidden descendants and completed short runs, and it updates while agents run.
 Resizing keeps the selected run. Closing the modal restores your editor draft and releases its pending reads; the run continues.

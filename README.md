@@ -30,7 +30,7 @@ the agents, so the task names and answers are synthetic. `scripts/readme-demo.ta
   under its MIT licence.
 - **Management list.** From an empty focused prompt, press Down to select an agent below the editor.
   Its navigation keys can be remapped or disabled. Hide the list while keeping the expanded tree.
-- **Inspector.** `/omps inspect` opens an agent picker, including nested agents. Enter opens full-width
+- **Inspector.** `/omps inspect` opens an agent picker, including nested agents. Enter opens single-column
   details with themed answers, current activity and saved output.
 - **Isolated children.** Each agent runs as its own Pi process. Before the task is sent, OMPS checks that
   the child loaded its tool guard, its tools, its model and its working directory. The guard refuses
@@ -285,7 +285,7 @@ Each launch leaves one compact acknowledgement row in the transcript. Pi's nativ
 second live tree. The complete retained hierarchy lives in the inspection modal:
 
 1. Run `/omps inspect` to open the picker of retained nodes.
-2. Use Up/Down to select; Left/Right fold branches. Enter opens full-width details.
+2. Use Up/Down to select; Left/Right fold branches. Enter opens single-column details.
 3. Scroll details with Up/Down, PageUp/PageDown or Home/End. Left/Right switches agents.
 4. Press Escape to return to the picker, then Escape again to close.
 

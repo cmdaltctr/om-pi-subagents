@@ -16,7 +16,8 @@ This directory records significant architectural decisions made during developme
 | [009](./009-port-the-tintin-agent-tree-and-show-it-by-default.md)               | Port the tintin agent tree and show it by default               | 2026-10-07 | Accepted                            |
 | [010](./010-keep-operator-files-in-the-omps-folder.md)                          | Keep operator files in the OMPS folder                          | 2026-10-07 | Accepted                            |
 | [011](./011-adopt-guarded-app-merges-for-release-pull-requests.md)              | Adopt guarded App merges for release pull requests              | 2026-10-07 | Accepted                            |
-| [012](./012-separate-management-navigation-and-use-single-column-inspection.md) | Separate management navigation and use single-column inspection | 2026-10-07 | Accepted                            |
+| [012](./012-separate-management-navigation-and-use-single-column-inspection.md) | Separate management navigation and use single-column inspection | 2026-10-07 | Accepted (partly superseded by 013) |
+| [013](./013-keep-a-margin-and-wrap-text-in-the-inspector.md)                    | Keep a margin and wrap text in the inspector                    | 2026-10-08 | Accepted                            |
 | [015](./015-convert-typed-shortcuts-only-in-settings.md)                        | Convert typed shortcuts only in settings                        | 2026-10-08 | Accepted                            |
 
 ## Convention

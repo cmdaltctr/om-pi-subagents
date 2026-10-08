@@ -103,6 +103,7 @@ export class InspectorPresentation {
 		const heading = (label: string) => {
 			if (lines.length) lines.push("");
 			prose(label, "accent");
+			lines.push("");
 		};
 		if (tree.incomplete)
 			prose(`Tree observation incomplete: ${tree.reasons.join(", ") || "missing evidence"}`, "warning");

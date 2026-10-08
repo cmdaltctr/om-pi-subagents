@@ -130,7 +130,7 @@ Pi's native `app.tools.expand` action (Ctrl+O by default) expands transcript out
 Launch acknowledgements stay compact; native expansion never creates another live tree.
 
 1. Run `/omps inspect` to open the retained-node picker.
-2. Use Up/Down to choose; Left/Right folds branches. Enter opens full-width details.
+2. Use Up/Down to choose; Left/Right folds branches. Enter opens single-column details.
 3. Scroll details with Up/Down, PageUp/PageDown or Home/End, including while saved reads load or fail.
 4. Use Left/Right in details to switch visible picker nodes.
 5. Press Escape to return to the picker, then Escape again to close.

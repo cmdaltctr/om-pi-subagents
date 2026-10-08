@@ -2,6 +2,7 @@ import {
 	ScrollView,
 	matchesKey,
 	truncateToWidth,
+	wrapTextWithAnsi,
 	type MarkdownTheme,
 	type Component,
 	type TuiMouseEvent,
@@ -13,6 +14,12 @@ import { plain } from "./plain.ts";
 import { isTerminal } from "./runs.ts";
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { InspectorPresentation, inspectorElapsed } from "./inspector-presentation.ts";
+
+const HORIZONTAL_MARGIN = 2;
+const HORIZONTAL_MARGIN_MIN_WIDTH = 40;
+const VERTICAL_MARGIN = 1;
+const VERTICAL_MARGIN_MIN_HEIGHT = 10;
+const SUMMARY_LINE_CAP = 3;
 
 /** One visible tree row: a retained node plus its fold state. */
 interface ModalRow {
@@ -231,29 +238,30 @@ export class Inspector implements Component {
 		this.renderedPickerKeys = [];
 		const rendered = this.visible.map((row) => {
 			const marker = row.key === this.key ? "> " : "  ";
-			const indent = "  ".repeat(row.indent);
+			// Reserve readable name space and room for wide summary characters at every displayed depth.
+			const indent = "  ".repeat(Math.min(row.indent, Math.max(0, Math.floor((width - marker.length - 12) / 2))));
 			const label = `${plain(row.node.agent, 64)} ${row.node.state} · ${inspectorElapsed(row.node)} (${row.node.runId.slice(0, 12)})${row.node.incomplete || row.tree.incomplete ? " [observation incomplete]" : ""}${row.folded ? ` [+${row.hidden} folded]` : ""}`;
 			const first = truncateToWidth(`${marker}${indent}${label}`, width, "");
 			const lines = [
 				row.key === this.key ? this.presentation.colour("accent", first) : this.presentation.colour("text", first),
 			];
-			if (width >= 30 && budget > 1 && row.node.taskSummary)
+			if (width >= 30 && budget > 1 && row.node.taskSummary) {
+				const prefix = `  ${indent}`;
+				const summaryWidth = Math.max(1, width - prefix.length);
+				const wrapped = wrapTextWithAnsi(plain(row.node.taskSummary, 512), summaryWidth);
+				const summary = wrapped.slice(0, SUMMARY_LINE_CAP);
+				if (wrapped.length > SUMMARY_LINE_CAP)
+					summary[SUMMARY_LINE_CAP - 1] = `${truncateToWidth(summary[SUMMARY_LINE_CAP - 1], summaryWidth - 1, "")}…`;
 				lines.push(
-					this.presentation.colour(
-						"muted",
-						truncateToWidth(`  ${indent}${plain(row.node.taskSummary, 512)}`, width, ""),
-					),
+					...summary.map((line) => this.presentation.colour("muted", truncateToWidth(`${prefix}${line}`, width, ""))),
 				);
+			}
 			if (row.node.runId === row.root && row.tree.incomplete)
 				lines.push(
-					this.presentation.colour(
-						"warning",
-						truncateToWidth(
-							`Tree observation incomplete: ${row.tree.reasons.join(", ") || "missing evidence"}`,
-							width,
-							"",
-						),
-					),
+					...wrapTextWithAnsi(
+						`Tree observation incomplete: ${row.tree.reasons.join(", ") || "missing evidence"}`,
+						width,
+					).map((line) => this.presentation.colour("warning", truncateToWidth(line, width, ""))),
 				);
 			return { row, lines };
 		});
@@ -305,44 +313,56 @@ export class Inspector implements Component {
 
 	private renderView(width: number): string[] {
 		this.lastHeight = Math.max(1, this.options.height());
+		const x = width >= HORIZONTAL_MARGIN_MIN_WIDTH ? HORIZONTAL_MARGIN : 0;
+		const y = this.lastHeight >= VERTICAL_MARGIN_MIN_HEIGHT ? VERTICAL_MARGIN : 0;
+		const contentWidth = width - 2 * x;
 		const headerRows = this.lastHeight > 2 ? (this.detailScreen && width < 80 && this.lastHeight > 4 ? 2 : 1) : 0;
 		const footerRows = this.lastHeight > 1 ? 1 : 0;
-		const bodyBudget = this.lastHeight - headerRows - footerRows;
-		this.bodyStart = headerRows;
+		const bodyBudget = this.lastHeight - headerRows - footerRows - 2 * y;
+		this.bodyStart = y + headerRows;
 		const selected = this.key ? this.rows.get(this.key)?.node : undefined;
 		const title = truncateToWidth(
 			this.presentation.header(headerRows === 2 ? undefined : this.detailScreen ? selected : undefined),
-			width,
+			contentWidth,
 			"",
 		);
 		const identity = selected
 			? truncateToWidth(
 					`${this.presentation.colour("accent", plain(selected.agent, 256))} · ${this.presentation.status(selected)} · ${inspectorElapsed(selected)}`,
-					width,
+					contentWidth,
 					"",
 				)
 			: "";
 		let body: string[];
 		let hint: string;
 		if (!this.detailScreen) {
-			body = this.treeLines(width, bodyBudget);
+			body = this.treeLines(contentWidth, bodyBudget);
 			hint = "↑↓ select · ←→ fold · Enter details · Esc close";
 		} else {
 			this.renderedPickerKeys = [];
-			const content = this.scroll.render(width);
+			const content = this.scroll.render(contentWidth);
 			this.scroll.updateLayout(content.length, bodyBudget, () => this.redraw());
-			body = content.slice(this.scroll.scrollTop, this.scroll.scrollTop + bodyBudget);
+			// At height one, lineage can wrap the selected agent off the only visible row.
+			body =
+				this.lastHeight === 1 && selected
+					? [identity]
+					: content.slice(this.scroll.scrollTop, this.scroll.scrollTop + bodyBudget);
 			const range = `Lines ${Math.min(content.length, this.scroll.scrollTop + 1)}–${Math.min(content.length, this.scroll.scrollTop + bodyBudget)}/${content.length}`;
-			const controls = width >= 90 ? "↑↓ scroll · PgUp/PgDn page · Home/End · ←→ agent" : "↑↓ PgUp/PgDn ←→";
+			const controls = contentWidth >= 90 ? "↑↓ scroll · PgUp/PgDn page · Home/End · ←→ agent" : "↑↓ PgUp/PgDn ←→";
 			const back = this.direct ? "Esc close" : "Esc back";
-			const prefix = truncateToWidth(`${controls} · ${back} · `, Math.max(0, width - range.length), "");
+			const prefix = truncateToWidth(`${controls} · ${back} · `, Math.max(0, contentWidth - range.length), "");
 			hint = `${prefix}${range}`;
 		}
 		while (body.length < bodyBudget) body.push("");
-		return [
+		const content = [
 			...(headerRows ? [title, ...(headerRows === 2 ? [identity] : [])] : []),
 			...body,
-			...(footerRows ? [this.presentation.colour("muted", truncateToWidth(hint, width, ""))] : []),
+			...(footerRows ? [this.presentation.colour("muted", truncateToWidth(hint, contentWidth, ""))] : []),
+		];
+		return [
+			...Array<string>(y).fill(""),
+			...content.map((line) => `${" ".repeat(x)}${line}`),
+			...Array<string>(y).fill(""),
 		];
 	}
 
