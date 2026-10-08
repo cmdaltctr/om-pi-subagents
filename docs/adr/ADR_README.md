@@ -18,6 +18,7 @@ This directory records significant architectural decisions made during developme
 | [011](./011-adopt-guarded-app-merges-for-release-pull-requests.md)              | Adopt guarded App merges for release pull requests              | 2026-10-07 | Accepted                            |
 | [012](./012-separate-management-navigation-and-use-single-column-inspection.md) | Separate management navigation and use single-column inspection | 2026-10-07 | Accepted (partly superseded by 013) |
 | [013](./013-keep-a-margin-and-wrap-text-in-the-inspector.md)                    | Keep a margin and wrap text in the inspector                    | 2026-10-08 | Accepted                            |
+| [014](./014-detect-capability-packages-from-the-pi-package-list.md)             | Detect capability packages from the Pi package list             | 2026-10-08 | Accepted                            |
 | [015](./015-convert-typed-shortcuts-only-in-settings.md)                        | Convert typed shortcuts only in settings                        | 2026-10-08 | Accepted                            |
 
 ## Convention

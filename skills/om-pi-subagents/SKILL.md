@@ -185,9 +185,29 @@ The parent owns its memory decisions and normal tasks or linked OpenSpec checkli
 A child loads real OMMS or `om-pi-todo` only through its own mapped extension and exact `memory` or `todo` tool.
 The todo list starts empty in normal mode. Siblings and grandchildren have separate local task ids.
 
-To enable either later, ask the operator to select **Agent capabilities** in `/omps-settings`.
-Choose one mapped agent, then Memory or Todo, and provide an installed package folder or published Pi entry.
-Confirm the exact `tools`, `extensions` and optional `skills` changes for that agent.
+To enable either later:
+
+1. Ask the operator to select **Agent capabilities** in `/omps-settings`.
+2. Choose one mapped agent, then Memory or Todo.
+3. Select **Enable**, or **Enable with shipped skill** for Memory when `omms-memory` is needed.
+4. Choose an installation if detection finds several valid package folders.
+5. Supply an absolute installed package folder or published Pi extension entry if the fallback prompt appears.
+6. Confirm the exact resources and YAML destination for that agent.
+
+OMPS first checks `packages` in `<agent-dir>/settings.json`.
+`PI_CODING_AGENT_DIR` selects the agent directory; its default is `~/.pi/agent`.
+String entries and objects with a string `source` are accepted.
+Matching npm sources resolve under `<agent-dir>/npm/node_modules/`; version, range and tag suffixes use the installed folder.
+Relative local paths resolve against the agent directory. Absolute local paths are checked directly.
+One valid package skips the path prompt; several distinct roots require the operator's choice.
+Parent `autoload` and resource filters do not restrict this separately confirmed child mapping.
+
+With no usable match, OMPS shows installation guidance and offers manual entry.
+Unlisted checkouts, project-only packages and legacy global npm installs need that fallback.
+Detection skips `~`, `file://`, git and URL sources; supply their absolute installed filesystem paths.
+Missing, unreadable or invalid settings also use the fallback. Cancelling leaves YAML unchanged.
+Detection reads metadata without importing, executing or loading either sibling extension.
+Never execute an extension for discovery or install a package on the operator's behalf.
 Memory can include its shipped `omms-memory` skill. Whole-tool `memory` approval includes write and portability modes.
 **On (configured)** reports the mapping, not backend health. **Partial** needs correction of missing or ambiguous resources.
 The helper never installs packages or changes OMMS stores, todo preferences or parent Pi settings.

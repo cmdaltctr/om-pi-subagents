@@ -59,8 +59,14 @@ They are off for every new agent. To turn one on for an agent:
 
 1. Run `/omps-settings`.
 2. Choose **Agent capabilities**, then the agent, then **Todo** or **Memory**.
-3. Select **Enable** and confirm the exact changes to that agent's tools and extensions.
+3. Select **Enable**.
+4. Choose an installation if OMPS finds several valid packages.
+5. Enter an installed path if OMPS offers the fallback prompt.
+6. Confirm the exact resources and YAML destination.
 
+OMPS checks Pi's personal package list first. One valid installation skips the path prompt.
+With no usable match, it shows installation guidance and asks for a package folder or published extension entry.
+Cancelling leaves YAML unchanged. Detection reads metadata without loading the sibling extension.
 The change applies to the next launch. OMPS installs no package.
 
 **Todo.** Each child starts with its own empty task list in normal mode. It never sees or changes the
@@ -238,9 +244,21 @@ See [operator settings](docs/USAGE.md#operator-settings) for the procedure and w
 
 Memory and Todo are off for new agent mappings. Existing explicit mappings stay in effect.
 In `/omps-settings`, choose **Agent capabilities**, then an agent and Memory or Todo.
-Select **Enable**, enter the installed package folder or its published Pi extension entry,
-and confirm the exact `tools` and `extensions` changes. Memory can also map its shipped
-skill. Approval for `memory` covers its whole tool, including write and portability modes.
+Select **Enable**. OMPS reads `packages` in `<agent-dir>/settings.json`, using the Pi agent directory
+selected by `PI_CODING_AGENT_DIR` or the default `~/.pi/agent`.
+It accepts string sources and objects with a string `source`. Matching npm sources use
+`<agent-dir>/npm/node_modules/<name>`; relative local paths resolve against the agent directory.
+Detection offers valid packages even when parent `autoload` or resource filters disable their resources.
+The child's confirmed mapping has its own approvals; parent settings stay unchanged.
+
+One valid package skips the path prompt. Several distinct folders require your choice.
+With no usable match, installation guidance precedes the manual path prompt.
+Use an absolute installed package folder or published Pi extension entry for unlisted checkouts,
+project-only packages and legacy global npm installs. Detection skips `~`, `file://`, git and URL sources;
+use their installed filesystem paths in the fallback. Missing or invalid Pi settings also use that prompt.
+Review the exact `tools`, `extensions` and optional `skills` changes and destination before confirming.
+Detection never imports, executes or loads the sibling extension, and cancellation leaves YAML unchanged.
+Memory can also map its shipped skill. Approval for `memory` covers its whole tool, including write and portability modes.
 **On (configured)** reports mapped resources, not backend health. **Partial** needs an
 explicit correction; inspect the agent's lists before disabling an unrecognised wrapper.
 **Disable** removes the recognised extension, mapped skill and tool for future launches.

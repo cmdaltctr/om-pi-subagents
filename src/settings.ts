@@ -9,7 +9,14 @@ import {
 	type UiKeyField,
 	type UiSettings,
 } from "./config.ts";
-import { capabilityEdit, inspectCapability, selectPublishedPackage, type Capability } from "./capabilities.ts";
+import {
+	capabilityEdit,
+	detectPublishedPackages,
+	inspectCapability,
+	selectPublishedPackage,
+	type Capability,
+} from "./capabilities.ts";
+import { resolveAgentDir } from "./registry-path.ts";
 import {
 	readLimitSettings,
 	saveCapabilityMapping,
@@ -317,6 +324,26 @@ async function importLegacy(
 	ctx.ui.notify(`Legacy visible agents saved to ${limits.path}.`, "info");
 }
 
+async function selectCapabilityPackage(ctx: ExtensionCommandContext, capability: Capability) {
+	const candidates = await detectPublishedPackages(resolveAgentDir(), capability);
+	if (candidates.length === 1) return candidates[0];
+	if (candidates.length > 1) {
+		const root = await ctx.ui.select(
+			`Select an installed ${capability} package for this child capability`,
+			candidates.map((candidate) => candidate.root),
+		);
+		return candidates.find((candidate) => candidate.root === root);
+	}
+	const name = capability === "Memory" ? "om-memory-system" : "om-pi-todo";
+	ctx.ui.notify(
+		`No usable ${name} package found in Pi settings. Install with pi install npm:${name}, or enter an installed package path.`,
+		"info",
+	);
+	const path = await ctx.ui.input(`Installed ${capability} package folder or published Pi extension entry path`, "");
+	if (!path?.trim()) return undefined;
+	return selectPublishedPackage(path, capability);
+}
+
 async function showCapabilities(ctx: ExtensionCommandContext, limits: LimitSettings): Promise<void> {
 	const names = [...limits.agents.keys()];
 	if (names.length === 0) {
@@ -343,11 +370,8 @@ async function showCapabilities(ctx: ExtensionCommandContext, limits: LimitSetti
 	try {
 		const enabled = action.startsWith("Enable");
 		const includeSkill = action === "Enable with shipped skill";
-		const path = enabled
-			? await ctx.ui.input(`Installed ${capability} package folder or published Pi extension entry path`, "")
-			: undefined;
-		if (enabled && !path?.trim()) return;
-		const resource = enabled ? await selectPublishedPackage(path!, capability) : undefined;
+		const resource = enabled ? await selectCapabilityPackage(ctx, capability) : undefined;
+		if (enabled && !resource) return;
 		if (includeSkill && !resource?.skill)
 			throw new Error(`Installed ${capability} package has no shipped skill. Select another package.`);
 		const mapping = await capabilityEdit(agent, capability, enabled, resource, includeSkill);

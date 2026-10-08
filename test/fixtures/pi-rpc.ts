@@ -159,7 +159,14 @@ export async function startPi(options: FixtureOptions = {}): Promise<PiFixture> 
 					cwd,
 					shell: false,
 					stdio: ["pipe", "pipe", "pipe"],
-					env: { ...process.env, ...isolationEnv, ...options.env },
+					env: {
+						...process.env,
+						...isolationEnv,
+						// A test root must not inherit its caller's child guard or personal registry.
+						OMPS_CHILD: "",
+						OMPS_REGISTRY: join(agentDir, "omps", "config.yaml"),
+						...options.env,
+					},
 				},
 			);
 

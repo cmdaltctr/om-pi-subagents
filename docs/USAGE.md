@@ -367,12 +367,55 @@ own mapping, even when its immediate parent has either capability enabled.
 1. Install `om-memory-system` or `om-pi-todo` separately if needed.
 2. Run `/omps-settings` and choose **Agent capabilities**.
 3. Choose an existing agent, then **Memory** or **Todo**.
-4. Choose **Enable** and enter the installed package folder or its published Pi extension entry.
-5. Confirm the exact changes to that agent's lists and the YAML destination.
+4. Choose **Enable**, or **Enable with shipped skill** for Memory when you also need `omms-memory`.
+5. Choose a package folder if OMPS finds several valid installations.
+6. Enter an installed package folder or published extension entry if detection offers the fallback prompt.
+7. Review the exact list changes and YAML destination before confirming.
 
-The helper reads the package's published `pi.extensions` metadata. Memory also offers
-**Enable with shipped skill** when `omms-memory` is present in its published skills.
-It adds `memory` or `todo` to `tools`, and the selected entry to `extensions`.
+OMPS first reads `packages` in `<agent-dir>/settings.json`.
+The agent directory defaults to `~/.pi/agent`; `PI_CODING_AGENT_DIR` selects another directory.
+One valid package skips the path prompt. Several distinct package folders require your choice.
+With no usable match, OMPS shows installation guidance and offers manual entry.
+Cancelling a package choice or the fallback prompt leaves YAML unchanged.
+
+Detection accepts string sources and objects with a string `source`.
+Matching `npm:om-memory-system` and `npm:om-pi-todo` entries resolve under `<agent-dir>/npm/node_modules/`.
+A version, range or tag suffix selects the same installed package folder.
+Absolute local paths are checked directly; relative paths resolve from the agent directory.
+Repeated sources and symbolic links to the same package folder count as one installation.
+
+Parent `autoload: false` and resource filters, such as `extensions: []`, do not hide valid candidates.
+Your confirmation approves the child's resources separately. Parent settings stay unchanged.
+Detection reads metadata and checks filesystem paths without importing, executing or loading either extension.
+
+**Manual path fallback**
+
+Detection skips sources beginning with `~`, `file://`, git sources and URLs.
+An unlisted checkout, project-only package or legacy global npm install also needs manual entry.
+Missing, unreadable or invalid Pi settings use this fallback. Unusable package entries are skipped.
+
+1. Use `pi list` to locate the installed package.
+2. Enter its absolute package folder or published Pi extension entry path in the prompt.
+3. Review the exact resources and YAML destination.
+4. Confirm the save, or cancel to leave YAML unchanged.
+
+For a skipped source, supply its installed filesystem path in place of the source string.
+If the package is absent, install the required sibling separately, then reopen `/omps-settings`:
+
+```sh
+pi install npm:om-memory-system
+```
+
+For Todo:
+
+```sh
+pi install npm:om-pi-todo
+```
+
+OMPS runs neither command and writes nothing to Pi's settings.
+Both detection and manual entry validate the package name and its published `pi.extensions` metadata.
+**Enable with shipped skill** also requires the published `omms-memory` skill; select another package if it is missing.
+The confirmed edit adds `memory` or `todo` to `tools`, and the selected entry to `extensions`.
 No separate permission flag or sibling configuration block is needed:
 
 ```yaml
