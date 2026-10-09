@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.1](https://github.com/cmdaltctr/om-pi-subagents/compare/v0.8.0...v0.8.1) (2026-10-09)
+
+
+### Bug Fixes
+
+* restore themed result panels and fold hint colours ([574c154](https://github.com/cmdaltctr/om-pi-subagents/commit/574c1547592faaf7f69fee82ee0af8a8ac6c432f))
+
 ## [0.8.0](https://github.com/cmdaltctr/om-pi-subagents/compare/v0.7.0...v0.8.0) (2026-10-08)
 
 
