@@ -6,6 +6,7 @@ OMPS lets Pi hand a task to a specialist agent that you defined. The agent runs 
 
 - [Before you start](#before-you-start)
 - [Quick start](#quick-start)
+- [Proactive delegation](#proactive-delegation)
 - [Start a run](#start-a-run)
 - [At-mention launch](#at-mention-launch)
 - [While a run works](#while-a-run-works)
@@ -54,6 +55,62 @@ The examples below use an agent called `reader` that may only read files.
 5. Read the result message when it arrives in the conversation.
 
 Pi shows full paths in its output. This guide writes `~` for your home folder.
+
+## Proactive delegation
+
+OMPS supplies short delegation rules through the `omps` tool's prompt metadata.
+When that tool is active and the host includes its guidance in Pi's default system prompt,
+the rules reach the model on its first request and remain available on later requests.
+You can submit an ordinary task without mentioning subagents or loading a skill.
+
+For substantial tasks with separable work, the rules direct the model to:
+
+1. Call `omps list` to read fresh mappings.
+2. Select an agent with approved tools for a bounded investigation or review.
+3. Check current-session runs with `omps status` before adding work.
+4. Verify a safe working folder and avoid shared-file conflicts between parallel writers.
+5. Launch with a clear task and expected result.
+6. Wait for the separate result before relying on findings, then assess its evidence and status.
+
+The parent can continue independent work while waiting. It keeps responsibility for the final answer
+and its own task updates. Failed or partial results keep their labels.
+Use the run id from the launch acknowledgement to check progress.
+
+If mappings are missing, invalid or unsuitable, the rules direct the model to report the constraint
+and continue permitted local work where possible. They grant no permission to invent agents,
+expand tool approvals or edit operator settings. Concurrency limits, inherited depth ceilings and
+cleanup blocks still apply. A refused launch requires waiting or the documented recovery procedure;
+the rules authorise no repeated launch attempts or unauthorised limit increases.
+
+### Your control and simple tasks
+
+For simple requests with no useful separable work, the rules direct local work without requiring discovery or a launch.
+Tell the model `Work locally; do not use subagents` to request local work only.
+The rules direct the model to honour that restriction.
+Explicit `/omps run` and [at-mention launches](#at-mention-launch) keep their existing behaviour.
+
+The rules guide model choices. They do not guarantee compliance or require a fixed number of agents.
+Supplying guidance starts no child, scheduler or additional model request at session startup.
+Child models still come from their mappings or the immediate parent's model; guidance changes no model setting
+and adds no provider fallback.
+
+Run `/skill:om-pi-subagents` when you want detailed operational instructions.
+Loading that skill is optional for the short built-in rules and grants no tools.
+A child needs exact `omps` approval to delegate.
+
+### Prompt scope and host versions
+
+Pi controls which tool instructions reach the model. An inactive `omps` tool supplies no built-in guidance.
+A replacement system prompt or another extension can omit the rules; OMPS does not force them back in.
+
+A host-hidden declaration differs from an inactive tool: another tool can hide the declaration while leaving `omps` active.
+Pi 0.99.1, the pinned development host, retains the active tool's guidelines when its declaration is hidden.
+Pi 1.1.0 omits hidden tools from its default prompt's tool list and rules, so hiding `omps` can omit this guidance.
+Use the scope that applies to your installed host version.
+
+After updating OMPS, run `/reload` or start a new session to load the changed tool metadata.
+Let active runs finish first if you need their results: [reloading cancels active runs](#cancelling-quitting-and-reloading).
+Operator YAML and persona files stay unchanged.
 
 ## Start a run
 

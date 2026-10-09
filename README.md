@@ -165,6 +165,28 @@ model to call the `omps` tool. In the interactive terminal interface, use
 Pi trims submitted text, so leading spaces still allow launch. Unmapped file-like names such as
 `@README.md` and `@src/x.ts` retain Pi's file-reference behaviour; unknown bare names show guidance.
 
+### Proactive delegation
+
+When `omps` is active and the host includes its guidance, Pi's default system prompt supplies
+short delegation rules from the first model request. They remain available on later requests.
+Loading `/skill:om-pi-subagents` is optional for these rules and grants no tools.
+
+The rules tell the model to call `omps list` before substantial tasks with separable work,
+then delegate a suitable bounded investigation or review to a freshly listed agent with approved tools.
+They direct the model to keep simple requests local and honour explicit restrictions on delegation.
+Tell the model `Work locally; do not use subagents` when you want local work only.
+The rules also require current-session status and a safe working folder before adding runs,
+respect for configured limits and cleanup refusals, and assessment of the separately delivered result.
+
+Guidance does not guarantee model compliance. The model decides whether to launch; there is no
+required agent count. Session startup launches no child and sends no additional model request.
+Replacement prompts or inactive tools can omit the rules. Host-hidden declarations depend on the
+Pi version; see [prompt scope and host versions](docs/USAGE.md#prompt-scope-and-host-versions).
+Guidance leaves mapped models and tool permissions unchanged.
+
+After updating OMPS, run `/reload` or start a new session to load changed tool guidance.
+Reload stops active runs.
+
 ### Parallel and nested runs
 
 Add `limits` beside your existing `agents` mapping. Preserve the agents you already defined.
