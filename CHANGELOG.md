@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.10.0](https://github.com/cmdaltctr/om-pi-subagents/compare/v0.9.0...v0.10.0) (2026-10-09)
+
+
+### ⚠ BREAKING CHANGES
+
+* a mapping that approves omps without a delegates list now fails validation. Add delegates: [...] to each such mapping, or remove omps.
+
+### Features
+
+* require delegation target lists ([#26](https://github.com/cmdaltctr/om-pi-subagents/issues/26)) ([3635570](https://github.com/cmdaltctr/om-pi-subagents/commit/363557066c2d2b29dc2c7068e753f4de105fdd17))
+
 ## [0.9.0](https://github.com/cmdaltctr/om-pi-subagents/compare/v0.8.1...v0.9.0) (2026-10-09)
 
 
