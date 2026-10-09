@@ -1,221 +1,62 @@
-# How to install
+# Install
 
-This guide installs OMPS into Pi. After installation, [set up agents](SETUP.md), then see [usage](USAGE.md).
+You need Pi and Bun. After installing, [set up agents](SETUP.md), then [run them](USAGE.md).
 
-## Before you start
-
-You need Pi and Bun. Native viewer tests cover Pi 0.99.1 and 1.0.4 in regular and fullscreen modes.
-Development checks use Bun 1.4.2 and Node.js 22.12 or newer.
-
-Pi supplies its host packages, including `@earendil-works/pi-tui`. OMPS installs `yaml` as its runtime dependency.
-Keep `bunfig.toml` beside `package.json` so Bun leaves host peers out of `node_modules`.
-
-## Install from npm
+## From npm
 
 1. Run `pi install npm:om-pi-subagents`.
-2. Start Pi, or run `/reload` in your existing session.
-3. Run `/omps list`.
-
-Pi records the package in the `packages` list of `~/.pi/agent/settings.json`.
-To install for one project only, add `-l` (`--local`). Pi then writes `.pi/settings.json` in that project.
-Pi loads a project install only after you trust the project.
-
-**`npm warn install-scripts` lines are harmless.** npm 11.5 and newer skip dependency install
-scripts until you approve them, and repeat the reminder on every install or update.
-Any packages npm lists come from your other Pi packages, not from OMPS.
-OMPS has one runtime dependency, `yaml`, which has no install script.
-OMPS works with those scripts skipped. To stop the reminder, deny the listed packages
-in Pi's shared package folder, normally `~/.pi/agent/npm/`:
-
-```sh
-cd ~/.pi/agent/npm && npm install-scripts deny <package-name>
-```
-
-The denial covers that folder only. It changes no other project.
-
-## Install a local copy
-
-Use this for development only.
-
-1. Copy the project into `~/.pi/agent/extensions/omps/`.
-2. Open a terminal in that directory.
-3. Install its runtime dependency:
-
-   ```sh
-   bun install --production
-   ```
-
-4. Start Pi, or run `/reload` in your existing session.
-5. Run `/omps list`.
-
-OMPS ships no agents. A new installation answers `No personas mapped.`
-Your mapping lives in `~/.pi/agent/omps/config.yaml`, outside the package.
-Set `OMPS_REGISTRY` to use another file.
-
-You do not need `.pi-host/` to use the extension. Pi supplies those packages at runtime.
-Keep the package's source modules together when copying it; the viewer and settings modules are required imports.
-After loading, use `/omps inspect` for retained runs and `/omps-settings` for operator preferences.
-
-## Packaged skill and optional todo
-
-A package install exposes `/skill:om-pi-subagents` when Pi skill commands are enabled.
-For a local checkout, load it as a package with `pi install ./path/to/checkout` to discover the skill.
-Copying only `src/index.ts` as an extension does not register package skills.
-Use the installed package's skill path for explicit child loading. See [usage](USAGE.md#nested-results-and-local-todos).
-
-`om-pi-todo` stays optional. Install it separately if needed, then explicitly map its extension and approve `todo`.
-The child uses a local normal-mode list; parent tasks and global preferences remain unchanged.
-Existing YAML with omitted `limits` keeps one direct child and maximum depth one.
-
-## Next step: add an agent
-
-1. Follow [Set up agents](SETUP.md) to create the mapping file and a persona.
-2. Run `/reload`.
-3. Run `/omps list` to check the agent name and allowed tools.
-4. Run `/omps` to see current-session status.
-
-Each agent must declare a supported `thinking` value. Add it to older mappings before launching.
-The `model` field stays optional. The `● Agents` tree above the editor shows each running agent; press Down in an empty prompt to select an agent. Inspection shows live tools and saved results.
-To run an agent, see [usage](USAGE.md).
-
-## Update, pin or choose a version
-
-These commands change the Pi package list. After each change, start Pi or run `/reload` in an open session.
-
-### Check the installed version
-
-1. Run `pi list`.
-2. Find `npm:om-pi-subagents`. The line below it shows the install folder.
-3. Read the `version` field in `package.json` inside that folder.
-
-For a personal install, the folder is normally `~/.pi/agent/npm/node_modules/om-pi-subagents/`:
-
-```sh
-grep '"version"' ~/.pi/agent/npm/node_modules/om-pi-subagents/package.json
-```
-
-To see the newest published version, run `npm view om-pi-subagents version`.
-
-### Update to the newest version
-
-1. Run `pi update npm:om-pi-subagents`.
 2. Start Pi, or run `/reload`.
+3. Run `/omps list`. A new install answers `No personas mapped.`
 
-`pi update --extensions` updates all your Pi packages. `pi update` with no target updates Pi itself, and no packages.
+Add `-l` to install for one project only. Pi loads a project install after you trust the project.
+Lines such as `npm warn install-scripts` come from your other Pi packages. OMPS has one runtime dependency, `yaml`, and it has no install script.
 
-### Pin a version
+## From a local copy (development)
 
-A pinned install stays on one exact version.
-
-1. Run `pi install npm:om-pi-subagents@0.2.0`.
-2. Start Pi, or run `/reload`.
-
-Pi saves `npm:om-pi-subagents@0.2.0` in your settings. `pi update` skips a pinned package and does not report an update for it.
-To move a pinned install, run `pi install` again with the new version.
-
-### Use a dist-tag
-
-A dist-tag is a name on npm that points at one version, for example `latest`.
-OMPS has only the `latest` tag. It points at the newest stable release.
-Run `npm view om-pi-subagents dist-tags` to see the current tags.
-
-A plain `pi install npm:om-pi-subagents` already uses `latest`.
-To return a pinned install to the newest version:
-
-1. Run `pi install npm:om-pi-subagents@latest`.
-2. Start Pi, or run `/reload`.
-
-A tag is not pinned. `pi update npm:om-pi-subagents` follows the tag to each new release.
-
-### Roll back to an older version
-
-Stop every active subtree before rollback. Older parsers reject `limits`, so remove that section from their mapping.
-Keep your saved run files; older versions cannot resume nested runs.
-
-1. Run `npm view om-pi-subagents versions` to list published versions.
-2. Run `pi install npm:om-pi-subagents@0.1.0`, using the version you want.
+1. Copy the project to `~/.pi/agent/extensions/omps/`.
+2. Run `bun install --production` in that folder.
 3. Start Pi, or run `/reload`.
 4. Run `/omps list`.
 
-Pi replaces the old settings entry, so the rolled-back version stays pinned.
-Version 0.1.0 accepts the `thinking` field, so a 0.2.0 mapping still loads.
-Use `npm:om-pi-subagents@latest` to leave the rollback.
+Keep `bunfig.toml` beside `package.json`, and keep all source modules together. To get `/skill:om-pi-subagents` from a checkout, run `pi install ./path/to/checkout`. Copying `src/index.ts` alone loads no skill.
 
-### Upgrade notes
+Your mapping lives in `~/.pi/agent/omps/config.yaml`, outside the package. Set `OMPS_REGISTRY` to use another file.
+
+## Update, pin or roll back
+
+Start Pi or run `/reload` after each change.
+
+| You want to             | Run                                                  |
+| ----------------------- | ---------------------------------------------------- |
+| Find the install folder | `pi list`, then read `version` in its `package.json` |
+| See the newest version  | `npm view om-pi-subagents version`                   |
+| Update                  | `pi update npm:om-pi-subagents`                      |
+| Pin a version           | `pi install npm:om-pi-subagents@<version>`           |
+| Follow `latest` again   | `pi install npm:om-pi-subagents@latest`              |
+| See dist-tags           | `npm view om-pi-subagents dist-tags`                 |
+| List all versions       | `npm view om-pi-subagents versions`                  |
+
+`pi update` skips a pinned package. `pi update --extensions` updates all Pi packages. `pi update` with no target updates Pi only.
+
+To roll back, run the pin command with the older version. Pi then keeps that version pinned. Before you do:
+
+1. Stop every active subtree.
+2. Remove `limits` from your mapping. Older versions reject it.
+3. Keep your saved run files. Older versions cannot resume nested runs.
 
 Read [CHANGELOG.md](../CHANGELOG.md) before each upgrade.
 
-**Moving settings into `omps/` is a breaking change.** The default is now
-`<agent-dir>/omps/config.yaml`, with personas conventionally in `omps/personas/`.
-When only the old default file exists, OMPS blocks listing, launches and settings saves.
-Follow [Move settings into the OMPS folder](#move-settings-into-the-omps-folder).
-An explicit `OMPS_REGISTRY` override remains supported, including the old filename.
-
-The versioned examples below describe historical paths used before this move.
-
-**0.1.0 to 0.2.0 is a breaking change.** Every agent in the mapping must now set `thinking`.
-Without it, OMPS rejects the whole registry, and no run starts.
-Allowed values are `off`, `minimal`, `low`, `medium`, `high`, `xhigh` and `max`.
-
-Before, in 0.1.0:
-
-```yaml
-version: 1
-agents:
-  reader:
-    persona: ./om-pi-subagents/personas/reader.md
-    tools: [read, grep, find, ls]
-```
-
-After, for 0.2.0:
-
-```yaml
-version: 1
-agents:
-  reader:
-    persona: ./om-pi-subagents/personas/reader.md
-    tools: [read, grep, find, ls]
-    thinking: off
-```
-
-1. Add `thinking` to each agent in `~/.pi/agent/om-pi-subagents.yaml`.
-2. Run `pi update npm:om-pi-subagents`.
-3. Start Pi, or run `/reload`.
-4. Run `/omps list` and check that each agent appears.
+**0.2.0 breaking change.** Every agent needs a `thinking` value: `off`, `minimal`, `low`, `medium`, `high`, `xhigh` or `max`. Without it OMPS rejects the whole file and no run starts.
 
 ## Move settings into the OMPS folder
 
-This manual procedure moves the default registry and its conventional persona folder.
-OMPS never moves, copies or rewrites these files. If you use a custom registry or persona folder,
-check its paths and adapt the procedure first. Record the installed version with `pi list` before upgrading.
+The default registry is now `<agent-dir>/omps/config.yaml`, with personas in `omps/personas/`.
+While only the old default file exists, OMPS blocks listing, launches and settings saves. OMPS never moves your files. An explicit `OMPS_REGISTRY` still works.
 
-### Stop and back up settings
-
-1. Run `/omps` in every parent session to find active runs.
-2. Cancel each owned subtree with `/omps cancel <run-id>`.
-3. Confirm cleanup with `/omps status <run-id>` before closing all affected Pi sessions.
-4. Resolve any cleanup failure before moving files.
-5. Create a private backup outside the agent directory:
-
-   ```sh
-   set -eu
-   umask 077
-   agent_dir="${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}"
-   backup_dir="$HOME/omps-backup-$(date +%Y%m%d-%H%M%S)"
-   mkdir -m 700 "$backup_dir"
-   cp -p "$agent_dir/om-pi-subagents.yaml" "$backup_dir/registry.yaml"
-   cp -Rp "$agent_dir/om-pi-subagents/personas" "$backup_dir/personas"
-   ```
-
-6. Compare the backup with the originals before continuing.
-
-Keep the backup private. It contains your persona instructions and operator settings.
-Saved runs stay in `omps/runs/`; this procedure leaves their content and ownership unchanged.
-
-### Move and edit the mapping
-
-Stop if the new registry exists, including a symbolic link, or if a persona filename collides.
-Compare both copies before proceeding. The script checks every name before moving any file.
+1. Run `/omps` in every parent session. Cancel each run with `/omps cancel <run-id>`.
+2. Run `/omps status <run-id>` to confirm cleanup, then close the sessions.
+3. Copy `om-pi-subagents.yaml` and `om-pi-subagents/personas/` to a private backup outside the agent directory.
+4. Run this script. It stops if any destination exists.
 
 <!-- migration-test: settings -->
 
@@ -251,85 +92,32 @@ done
 mv "$source" "$destination"
 ```
 
-1. Edit `omps/config.yaml` in your selected agent directory.
-2. Change each `persona: ./om-pi-subagents/personas/<name>.md` to `persona: ./personas/<name>.md`.
-3. Check relative `skills` and `extensions` paths, which also resolve from the YAML folder.
-4. Update those paths or use their existing absolute paths.
-5. Remove an old `OMPS_REGISTRY` override if you want the new default.
-6. Install the updated package, then start a fresh Pi session.
-7. Run `/omps list` and check that every agent appears.
-8. Run one small task and check its saved result.
+5. In `omps/config.yaml`, change each `persona: ./om-pi-subagents/personas/<name>.md` to `persona: ./personas/<name>.md`.
+6. Check relative `skills` and `extensions` paths. They resolve from the YAML folder.
+7. Start a fresh Pi session and run `/omps list`.
 
-Persona paths into `omps/runs/` are refused, including symbolic links.
-Keep trusted persona instructions in `omps/personas/`.
-Retain the backup until you confirm the new installation works. Ask before deleting it or any empty old folder.
-
-### Roll back the settings move
-
-1. Stop new sessions and confirm cleanup of every descendant.
-2. Install the version recorded before upgrading.
-3. Check that the old registry destination is absent, including symbolic links.
-4. If it exists, stop and compare it with the backup.
-5. Restore the backed-up registry to `<agent-dir>/om-pi-subagents.yaml`, preserving its file mode.
-6. Check that the old persona folder is empty before restoring its backed-up files.
-7. Stop and compare any colliding persona filenames before copying.
-8. Restore the previous environment overrides, then restart Pi and check its agent list.
-
-Keep the new registry, personas and run evidence until you decide what to preserve.
-An explicit `OMPS_REGISTRY=<agent-dir>/om-pi-subagents.yaml` can also select the restored old mapping
-with the current version. Its persona paths still resolve from the old YAML folder.
-Restoring the backup restores the previous bytes. It cannot resume tasks or restore former session ownership.
+To undo, stop all sessions and install the previous version. Check that the old registry destination is absent, then restore the backup to the old paths and keep its file mode. Stop and compare anything that already exists. Or set `OMPS_REGISTRY=<agent-dir>/om-pi-subagents.yaml` to select the restored mapping with the current version; its persona paths resolve from the old YAML folder.
 
 ## Migrate from OMPSS to OMPS
 
-This release changes the runtime namespace. Migration is manual; installation never rewrites operator files or saved sessions.
+The runtime namespace changed. Migration is manual.
 
-### Stop and back up first
+1. Cancel active runs with `/ompss cancel <run-id>`. Confirm with `/ompss status <run-id>`.
+2. Quit all affected Pi sessions.
+3. Back up your registry, personas, Pi settings and old run folders to a private folder. Include the file that `OMPSS_REGISTRY` selected, project `.pi/settings.json`, launcher configuration and any direct-copy extension folder.
+4. Apply the table below to YAML, personas, shells, launchers and CI. Update command references inside persona instructions.
 
-1. Use the old `/ompss` command to find active direct runs in every old parent session.
-2. Cancel each owned subtree with `/ompss cancel <run-id>`.
-3. Confirm cleanup through `/ompss status <run-id>` before closing those sessions.
-4. Resolve any cleanup failure before continuing. Quit all affected Pi sessions.
-5. Set `agent_dir` to `${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}` in your terminal.
-6. Create a private backup outside the agent directory, with mode `0700`.
-7. Copy your selected registry, persona folder, affected Pi settings and old run folders into that backup.
-8. Preserve file modes and verify the copies before changing the originals.
+| Old                                                  | New                       |
+| ---------------------------------------------------- | ------------------------- |
+| `ompss` in `tools` lists                             | `omps`                    |
+| `/ompss`, `/ompss-settings`                          | `/omps`, `/omps-settings` |
+| `OMPSS_REGISTRY`, `OMPSS_PI_BIN` and other `OMPSS_*` | `OMPS_*`                  |
+| `extensions/ompss/`                                  | `extensions/omps/`        |
+| `ompss/runs/`                                        | `omps/runs/`              |
 
-Back up the file selected by `OMPSS_REGISTRY` if you used an override. Include project `.pi/settings.json`,
-launcher configuration and any direct-copy extension folder that will move. Keep backups private because
-personas, tasks, saved output and Pi settings can contain sensitive text.
+Keep the `npm:om-pi-subagents` package entry, the skill name and `/subagents-settings`. Old variable names are ignored. OMPS refuses an old child marker. An old tool approval cannot enable `omps`.
 
-### Update operator configuration
-
-| Old interface                                       | New interface                  |
-| --------------------------------------------------- | ------------------------------ |
-| Exact `ompss` delegation tool approval              | Exact `omps` approval          |
-| `/ompss`, `/ompss-settings`                         | `/omps`, `/omps-settings`      |
-| `OMPSS_REGISTRY`, `OMPSS_PI_BIN`                    | `OMPS_REGISTRY`, `OMPS_PI_BIN` |
-| Other `OMPSS_*` launcher, process or test variables | Matching `OMPS_*` names        |
-| `extensions/ompss/` direct-copy folder              | `extensions/omps/`             |
-| `ompss/runs/` saved evidence                        | `omps/runs/` for new work      |
-
-1. Replace only exact `ompss` entries in the relevant YAML `tools` lists with `omps`.
-2. Update command references in your persona instructions and agent prompts.
-3. Rename configured environment variables in shells, launchers and CI settings.
-4. Keep `npm:om-pi-subagents` package entries unchanged.
-5. Keep the shipped `om-pi-subagents` skill name unchanged. For current registry paths, also follow [Move settings into the OMPS folder](#move-settings-into-the-omps-folder).
-6. Keep `/subagents-settings` if you use that generic alias.
-
-The independent `<config-dir>/pi-subagents/config.json` display fallback also stays in place.
-A valid visible-agent value remains effective while YAML omits `ui.maxVisibleAgents`.
-After restart, use `/omps-settings` to confirm its import into YAML if desired.
-Neither the import nor the rename changes todo preferences or memory data.
-
-Old environment names are ignored for configuration. An old child marker is refused.
-Old delegation approval cannot enable `omps`; unavailable approved tools fail readiness before task submission.
-Restart every affected session after updating. Mixed-version parents and children cannot share the new protocol.
-
-### Move a direct-copy installation, if used
-
-Run this only after backup and confirmed cleanup. The destination must be absent, including symbolic links.
-If it exists, stop and compare both copies. Keep both histories until you decide what to preserve.
+To move a direct-copy install, run this once the destination is absent:
 
 <!-- migration-test: extension -->
 
@@ -350,14 +138,9 @@ fi
 mv "$source" "$destination"
 ```
 
-Update explicit extension paths in global/project Pi settings and mapped resources after the move.
-A path such as `extensions/ompss/src/index.ts` becomes `extensions/omps/src/index.ts`.
-Package installations and the shipped skill name need no folder rename.
+Then update explicit extension paths in your Pi settings.
 
-### Move saved runs, if wanted
-
-New work never discovers or moves `ompss/runs/`. Leaving it untouched is supported.
-For a manual same-filesystem move, run this only after backup and confirmed cleanup:
+Saved runs may stay where they are. To move them, run this once the destination is absent:
 
 <!-- migration-test: runs -->
 
@@ -379,69 +162,29 @@ mkdir -p "$agent_dir/omps"
 mv "$source" "$destination"
 ```
 
-Do not merge overlapping session or run IDs. If both roots exist, compare them before transferring any session directory.
-Keep every evidence file byte-for-byte intact. `status.json`, configuration snapshots and logs can retain original
-absolute paths and old names. Moving folders preserves files; it cannot resume tasks or transfer ownership.
-The new inspector does not reconstruct arbitrary former sessions. Old transcript identifiers have no compatibility renderer.
+Moved runs cannot resume. Never merge overlapping session or run ids.
 
-### Check the migrated installation
+Finish: install the new release, start a fresh Pi session and run `/omps list`. Restart every affected session, because parents and children on different versions cannot talk.
+To roll back, restore the backup and the previous version, then move folders back only if the old paths are free.
 
-1. Install the renamed release after editing operator configuration.
-2. Start a fresh Pi session.
-3. Run `/omps list` and check exact tool approvals.
-4. Run `/omps` and `/omps-settings`.
-5. Run one disposable nested task if you configured delegation.
-6. Compare moved evidence bytes with the backup before retiring any copy.
+## Development
 
-### Roll back the namespace change
+See [MAINTAINING.md](https://github.com/cmdaltctr/om-pi-subagents/blob/main/docs/MAINTAINING.md).
 
-1. Stop new parent sessions and confirm cleanup of all their children.
-2. Restore the backed-up operator registry, persona instructions and affected Pi settings.
-3. Restore the previous package version and environment names.
-4. Move directories back only when the old destinations are absent, including symbolic links.
-5. If either destination exists, stop and preserve both histories before comparing them.
-6. Keep newly created OMPS evidence separate and leave historical file content unchanged.
-7. Restart Pi with the restored version and check its commands before launching work.
+## Problems
 
-Rollback never requires approving an already published npm version again.
+**`/omps` is missing.**
 
-## Set up development tools
-
-Run these commands from a development checkout:
-
-```sh
-bun install
-bun run setup:host
-bun run ci
-```
-
-Host setup downloads Pi 0.99.1 and typebox 1.3.27 into ignored `.pi-host/`.
-It uses Bun. Vite is a direct development dependency because automatic peer
-installation is disabled for the whole project.
-
-The gate checks formatting, lint, types and tests in that order.
-After committing a change, run `bun run ci:clean` to check a fresh clone of HEAD.
-See [AGENTS.md](../AGENTS.md) for commands and module boundaries.
-
-## Installation problems
-
-### `/omps` is missing
-
-1. Run `pi list` and check that `om-pi-subagents` is there. For a local copy, check that `src/index.ts` is inside `~/.pi/agent/extensions/omps/`.
+1. Run `pi list` and look for `om-pi-subagents`. For a local copy, check `~/.pi/agent/extensions/omps/src/index.ts`.
 2. Run `/reload`.
-3. Read any extension-loading error before retrying.
+3. Read any extension-loading error.
 
-### Host-package warnings appear
+**Host-package warnings.** Pi host packages must stay peer dependencies. Restore `peer = false` in `bunfig.toml` if you changed it.
 
-1. Check that Pi host packages remain peer dependencies in `package.json`.
-2. Restore `peer = false` in `bunfig.toml` if it was changed.
-3. Install again from the lockfile in a fresh checkout.
+**Registry empty or invalid.**
 
-### The registry is empty or invalid
+1. Read the field named in the error.
+2. Fix `~/.pi/agent/omps/config.yaml`. See [Set up agents](SETUP.md).
+3. Run `/omps list`.
 
-1. Check the exact field named in the error.
-2. Edit `~/.pi/agent/omps/config.yaml` using the supported fields in [Set up agents](SETUP.md).
-   For a missing `thinking` field, add `off`, `minimal`, `low`, `medium`, `high`, `xhigh` or `max`.
-3. Run `/omps list` again.
-
-A missing mapping file means no agents. An empty file is rejected with `version: required`. Invalid settings block new launches until corrected.
+A missing file means no agents. An empty file fails with `version: required`. Invalid settings block launches until you fix them.

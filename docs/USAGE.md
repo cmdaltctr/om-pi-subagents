@@ -1,428 +1,189 @@
 # How to use OMPS
 
-OMPS lets Pi hand a task to a specialist agent that you defined. The agent runs in the background as a separate Pi process. It can use only the tools you allowed for it. When it finishes, its answer comes back into your Pi conversation as a message. You can keep working while it runs.
+OMPS hands a task to an agent you defined. The agent runs in the background as its own Pi process with only the tools you allowed. Its answer returns to your conversation as a message. You can keep working meanwhile.
 
-## Contents
-
-- [Before you start](#before-you-start)
-- [Quick start](#quick-start)
-- [Proactive delegation](#proactive-delegation)
-- [Start a run](#start-a-run)
-- [At-mention launch](#at-mention-launch)
-- [While a run works](#while-a-run-works)
-- [Agent trees and inspection](#agent-trees-and-inspection)
-- [Getting the result](#getting-the-result)
-- [Run states](#run-states)
-- [Cancelling, quitting and reloading](#cancelling-quitting-and-reloading)
-- [Rules and limits](#rules-and-limits)
-- [Operator settings](#operator-settings)
-- [Run files](#run-files)
-- [Troubleshooting](#troubleshooting)
-
-For an older OMPSS installation, follow [manual migration and rollback](INSTALL.md#migrate-from-ompss-to-omps).
-Saved evidence can retain old path strings. Moving it never resumes tasks or restores former session ownership.
-
-## Before you start
-
-1. Install OMPS. See [Install](INSTALL.md).
-2. Map at least one agent in `~/.pi/agent/omps/config.yaml`. See [Set up agents](SETUP.md).
-
-The examples below use an agent called `reader` that may only read files.
+Before you start, [install OMPS](INSTALL.md) and [map at least one agent](SETUP.md). The examples use an agent called `reader` with read-only tools.
 
 ## Quick start
 
-1. Type `/omps list` in Pi. OMPS shows each mapped agent with its tool count:
+1. Type `/omps list`. Each mapped agent shows with its tool count, for example `reader: 4 tools (read-only)`.
+2. Type `/omps run reader Summarise the README`.
+3. Watch the `● Agents` tree above the editor.
+4. Read the result message when it arrives.
 
-   ```text
-   reader: 4 tools (read-only)
-   ```
-
-2. Start a run:
-
-   ```text
-   /omps run reader Summarise the README
-   ```
-
-3. Read the confirmation. It gives the run id and the folder for the run files:
-
-   ```text
-   Started run 3f2c9b1e-8a4d-4c7e-9b2a-1d5e6f7a8b9c (reader) in the background.
-   Files: ~/.pi/agent/omps/runs/<session-id>/3f2c9b1e-8a4d-4c7e-9b2a-1d5e6f7a8b9c
-   Check it with "omps status 3f2c9b1e-8a4d-4c7e-9b2a-1d5e6f7a8b9c". The result arrives as a follow-up message.
-   ```
-
-4. Watch the `● Agents` tree above the editor. It shows each running agent with no key press.
-5. Read the result message when it arrives in the conversation.
-
-Pi shows full paths in its output. This guide writes `~` for your home folder.
-
-## Proactive delegation
-
-OMPS supplies short delegation rules through the `omps` tool's prompt metadata.
-When that tool is active and the host includes its guidance in Pi's default system prompt,
-the rules reach the model on its first request and remain available on later requests.
-You can submit an ordinary task without mentioning subagents or loading a skill.
-
-For substantial tasks with separable work, the rules direct the model to:
-
-1. Call `omps list` to read fresh mappings.
-2. Select an agent with approved tools for a bounded investigation.
-3. Check current-session runs with `omps status` before adding work.
-4. Verify a safe working folder and avoid shared-file conflicts between parallel writers.
-5. Launch with a clear task and expected result.
-6. Wait for the separate result before relying on findings, then assess its evidence and status.
-
-The parent can continue independent work while waiting. It keeps responsibility for the final answer
-and its own task updates. Failed or partial results keep their labels.
-Use the run id from the launch acknowledgement to check progress.
-
-The rules tell the model to delegate review, audit or security work only when you ask for it.
-Ask for a review in your prompt when you want one.
-
-If mappings are missing, invalid or unsuitable, the rules direct the model to report the constraint
-and continue permitted local work where possible. They grant no permission to invent agents,
-expand tool approvals or edit operator settings. Concurrency limits, inherited depth ceilings and
-cleanup blocks still apply. A refused launch requires waiting or the documented recovery procedure;
-the rules authorise no repeated launch attempts or unauthorised limit increases.
-
-### Your control and simple tasks
-
-For simple requests with no useful separable work, the rules direct local work without requiring discovery or a launch.
-Tell the model `Work locally; do not use subagents` to request local work only.
-The rules direct the model to honour that restriction.
-Explicit `/omps run` and [at-mention launches](#at-mention-launch) keep their existing behaviour.
-
-The rules guide model choices. They do not guarantee compliance or require a fixed number of agents.
-Supplying guidance starts no child, scheduler or additional model request at session startup.
-Child models still come from their mappings or the immediate parent's model; guidance changes no model setting
-and adds no provider fallback.
-
-Run `/skill:om-pi-subagents` when you want detailed operational instructions.
-Loading that skill is optional for the short built-in rules and grants no tools.
-A child needs exact `omps` approval and a `delegates` list to delegate.
-
-### Prompt scope and host versions
-
-Pi controls which tool instructions reach the model. An inactive `omps` tool supplies no built-in guidance.
-A replacement system prompt or another extension can omit the rules; OMPS does not force them back in.
-
-A host-hidden declaration differs from an inactive tool: another tool can hide the declaration while leaving `omps` active.
-Pi 0.99.1, the pinned development host, retains the active tool's guidelines when its declaration is hidden.
-Pi 1.1.0 omits hidden tools from its default prompt's tool list and rules, so hiding `omps` can omit this guidance.
-Use the scope that applies to your installed host version.
-
-After updating OMPS, run `/reload` or start a new session to load the changed tool metadata.
-Let active runs finish first if you need their results: [reloading cancels active runs](#cancelling-quitting-and-reloading).
-Operator YAML and persona files stay unchanged.
+The confirmation gives the run id and the run folder. This guide writes `~` for your home folder.
 
 ## Start a run
 
-Use `/omps run`, or ask Pi's model to call the `omps` tool.
-Use `@<agent> <task>` as a shortcut in Pi's interactive terminal interface.
-All use the same launch rules and result messages.
+Three routes start a run. They share the same launch rules and result messages.
 
-### At-mention launch
-
-1. Open Pi's interactive terminal interface.
-2. Type `@` at the very start of the first editor line.
-3. Select a mapped agent, or type its name.
-4. Add a task after the space.
-5. Submit the line.
-
-For the mapped `reader` agent:
-
-```text
-@reader Summarise the README
-```
-
-Completion labels contain agent names only, without descriptions. Matching agent items appear above Pi's file items
-when both use the same text to replace. Pi's file items keep their order.
-Selecting an agent leaves exactly one space after its name, with the cursor ready for the task.
-OMPS offers no agents after other text, after leading spaces, or on later editor lines.
-
-Pi trims submissions before OMPS receives them. Submitting ` @reader Summarise the README`
-therefore launches `reader`, even though the leading space prevented agent completion while typing.
-
-OMPS launches through the same path as `/omps run`, in Pi's current working folder.
-It sends no parent model request to route the launch. The child still calls its model;
-the later result message can start a parent model turn as described in [Getting the result](#getting-the-result).
-Capacity or depth refusal shows the command's error. An admitted run that fails readiness keeps its acknowledgement
-and later failed result.
-
-| Submitted input                            | Outcome                                                            |
-| ------------------------------------------ | ------------------------------------------------------------------ |
-| `@reader Summarise the README`             | Launches mapped `reader`.                                          |
-| `@reader` or a whitespace-only task        | Shows usage; starts nothing and sends nothing to the model.        |
-| `@nobody do it`, when `nobody` is unmapped | Shows mapped names; starts nothing and sends nothing to the model. |
-| `@README.md summarise this`, when unmapped | Continues to Pi as a file reference.                               |
-| `@src/x.ts explain this`, when unmapped    | Continues to Pi as a file reference.                               |
-| `Please ask @reader to read this`          | Continues as ordinary text.                                        |
-| Bare `@`                                   | Continues to Pi.                                                   |
-
-An unmapped name containing `/` or `.` stays a file reference. For a bare directory name, use a path:
-`@./docs summarise these files`. An unknown bare `@docs` shows agent guidance, and a mapped `docs` takes the agent route.
-Pass-through text stays unchanged as OMPS receives it, after Pi's submission trimming.
-
-Each completion request and submission reads fresh mappings. A failed completion read keeps Pi's items and adds no agents.
-If the registry cannot be read on submission of an initial `@`, OMPS shows the error and sends nothing to the model.
-Fix the reported registry field, then retry.
-
-At-mention launch requires interactive input in terminal mode (`tui`). Input through RPC, another extension,
-or a non-terminal mode passes through without launching. Use `/omps run` or the `omps` tool for those clients.
+| Route           | Use it                                                       |
+| --------------- | ------------------------------------------------------------ |
+| `/omps run`     | You type a command.                                          |
+| `@agent task`   | You type in Pi's interactive terminal interface. See below.  |
+| The `omps` tool | Pi's model, or another agent that drives Pi, makes the call. |
 
 ### Slash commands
 
-| Command                    | What it does                                                         | Example                                       |
-| -------------------------- | -------------------------------------------------------------------- | --------------------------------------------- |
-| `/omps list`               | Reads the mapping file again and lists agents and their tools.       | `/omps list`                                  |
-| `/omps run <agent> <task>` | Starts one background run in Pi's current working folder.            | `/omps run reader Summarise the README`       |
-| `/omps` or `/omps status`  | Shows all runs of this session. Starts nothing and reads no mapping. | `/omps`                                       |
-| `/omps status <run-id>`    | Shows one run, its folder and any error.                             | `/omps status 3f2c9b1e-8a4d-...-1d5e6f7a8b9c` |
-| `/omps cancel <run-id>`    | Stops that run and every process it started.                         | `/omps cancel 3f2c9b1e-8a4d-...-1d5e6f7a8b9c` |
-| `/omps inspect [run-id]`   | Views retained nodes in this session without changing a run.         | `/omps inspect`                               |
-| `/omps fleet`              | Toggles or reports the session fleet without starting work.          | `/omps fleet`                                 |
+| Command                    | What it does                                                                        |
+| -------------------------- | ----------------------------------------------------------------------------------- |
+| `/omps list`               | Reads the mapping again. Lists agents and tool counts.                              |
+| `/omps run <agent> <task>` | Starts one background run in Pi's current working folder.                           |
+| `/omps` or `/omps status`  | Shows every run of this session.                                                    |
+| `/omps status <run-id>`    | Shows one run, its folder and any error.                                            |
+| `/omps cancel <run-id>`    | Stops that run and every process it started.                                        |
+| `/omps inspect [run-id]`   | Opens the inspector. See [Agent trees and inspection](#agent-trees-and-inspection). |
+| `/omps fleet`              | Switches the tree between expanded and collapsed for this session.                  |
 
-`/omps list` marks an agent as `write-capable` when it may use `bash`, `powershell`, `write` or `edit`. An agent with its own model shows it too:
-
-```text
-fixer: tools [read, edit, bash]; model my-provider/my-model; write-capable
-```
-
-The task is everything after the agent name. It can be long. A command that OMPS does not recognise shows this hint:
-
-```text
-Usage: /omps list | run <agent> <task> | status [run-id] | cancel <run-id> | inspect [run-id] | fleet
-```
+`/omps list` marks an agent `write-capable` when it may use `bash`, `powershell`, `write` or `edit`.
+The task is everything after the agent name. It cannot start with `/`.
 
 ### The `omps` tool
 
-Pi's model uses the `omps` tool. You can also give these examples to another agent that drives Pi. The tool takes these parameters:
-
-| Parameter | Used by            | Meaning                                                                         |
-| --------- | ------------------ | ------------------------------------------------------------------------------- |
-| `action`  | all                | One of `list`, `run`, `status`, `cancel`.                                       |
-| `agent`   | `run`              | The mapped agent name.                                                          |
-| `task`    | `run`              | What the agent must do.                                                         |
-| `cwd`     | `run` (optional)   | Absolute path of the working folder. Pi's current folder is the default.        |
-| `runId`   | `status`, `cancel` | The run id. Optional for `status`: without it, the tool lists all session runs. |
-
-List the mapped agents:
+| Parameter | Used by            | Meaning                                                            |
+| --------- | ------------------ | ------------------------------------------------------------------ |
+| `action`  | all                | `list`, `run`, `status` or `cancel`.                               |
+| `agent`   | `run`              | The mapped agent name.                                             |
+| `task`    | `run`              | What the agent must do.                                            |
+| `cwd`     | `run` (optional)   | Absolute path of an existing working folder. Default: Pi's folder. |
+| `runId`   | `status`, `cancel` | The run id. Without it, `status` lists all session runs.           |
 
 ```json
 { "action": "list" }
 ```
 
-Start the `reader` agent in another folder. Leave out `cwd` to use Pi's current folder:
-
 ```json
 { "action": "run", "agent": "reader", "task": "Summarise the README", "cwd": "/path/to/project" }
 ```
-
-Check one run:
 
 ```json
 { "action": "status", "runId": "3f2c9b1e-8a4d-4c7e-9b2a-1d5e6f7a8b9c" }
 ```
 
-Cancel one run:
-
 ```json
 { "action": "cancel", "runId": "3f2c9b1e-8a4d-4c7e-9b2a-1d5e6f7a8b9c" }
 ```
 
-Only the tool can set a different working folder. The slash command and at-mention launch use Pi's current folder.
+`run` returns at once. Only the tool can set `cwd`.
 
-The `run` action returns at once. It does not wait for the agent to answer.
+### At-mention launch
 
-## While a run works
+1. Open Pi's interactive terminal interface.
+2. Type `@` at the start of the first editor line.
+3. Select a mapped agent, or type its name.
+4. Add the task after the space, for example `@reader Summarise the README`.
+5. Submit the line.
 
-### The agent tree and the list
+The launch uses the `/omps run` path in Pi's current folder. No parent model request routes it. Completion lists agent names above Pi's file items.
 
-The `● Agents` tree above the editor shows every running direct agent, with no key press. Its look is adapted from [tintinweb/pi-subagents](https://github.com/tintinweb/pi-subagents) (MIT). Each running agent uses two lines:
+| Submitted input                        | Outcome                             |
+| -------------------------------------- | ----------------------------------- |
+| `@reader Summarise the README`         | Launches `reader`.                  |
+| `@reader` with no task                 | Shows usage. Starts nothing.        |
+| `@nobody do it` (unmapped)             | Shows mapped names. Starts nothing. |
+| `@README.md summarise this` (unmapped) | Passes to Pi as a file reference.   |
+| `Please ask @reader to read this`      | Passes through as ordinary text.    |
+
+An unmapped name with `/` or `.` stays a file reference. Use `@./docs` for a directory. If the mapping file has an error, OMPS shows it and sends nothing to the model.
+Only interactive terminal input launches. RPC and extension input pass through. Use `/omps run` or the `omps` tool there.
+
+## Let the model delegate
+
+The `omps` tool carries short delegation rules. When the tool is active and Pi's default system prompt includes tool guidance, the model sees them on its first request. You can give a task without mentioning subagents.
+
+For substantial tasks with separable work, the rules tell the model to:
+
+1. Call `omps list` for fresh mappings.
+2. Pick an agent whose approved tools fit a bounded investigation.
+3. Check `omps status` before adding runs.
+4. Use a safe working folder and avoid shared-file conflicts between parallel writers.
+5. Wait for the separate result before relying on it.
+
+The model delegates review, audit or security work only when you ask. Simple requests stay local. Say `Work locally; do not use subagents` to force that. The parent keeps the final answer and its own task updates.
+
+If mappings are missing or unsuitable, the model reports it and continues locally. The rules grant no tools, invent no agents and change no settings.
+Limits and cleanup blocks still apply.
+
+### Prompt scope and host versions
+
+The rules guide the model. They do not guarantee compliance and start no child or model request at session startup.
+An inactive `omps` tool supplies no guidance. A replacement system prompt can omit it.
+Pi 0.99.1 keeps an active tool's rules when its declaration is hidden. Pi 1.1.0 drops them, so hiding `omps` omits this guidance there.
+
+Run `/skill:om-pi-subagents` for detailed operating instructions. Loading it is optional and grants no tools.
+After updating OMPS, run `/reload` or start a new session. A reload cancels active runs.
+
+## Agent trees and inspection
+
+The `● Agents` tree above the editor shows running direct agents with no key press. It uses two lines per agent and at most 12 lines in total, running agents first:
 
 ```text
 ● Agents
 ├─ ⠹ reader  Map the API · 3 tool uses · 12.0s
 │    ⎿  reading 2 files…
-├─ ⠹ builder  Update validation · 5 tool uses · 18.4s
-│    ⎿  editing…
 └─ ✗ reviewer  Review changes · 1.2s error: provider error: quota
 ```
 
-| Part          | Meaning                                                                                                                                                                                          |
-| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `●` or `○`    | `●` while a run is active, `○` when only finished runs remain.                                                                                                                                   |
-| Spinner       | The agent is running. It moves every 80 ms.                                                                                                                                                      |
-| `N tool uses` | Task tool calls the agent has started.                                                                                                                                                           |
-| Elapsed time  | Time since the run started. Finished lines show the full duration.                                                                                                                               |
-| `⎿` line      | What the agent does now: `reading…`, `searching 3 patterns…`, `running command…` or another tool name. With no tool active it shows the first line of the visible answer so far, or `thinking…`. |
-| `✓`, `✗`, `■` | Completed, failed (with the start of the error) or cancelled.                                                                                                                                    |
-| `+N more (…)` | The tree is limited to 12 lines. Running agents come first, then finished ones.                                                                                                                  |
+- `⎿` shows the current tool, or the first line of the visible answer so far, or `thinking…`.
+- `✓` completed, `✗` failed with the start of the error, `■` cancelled.
+- A completed run stays until the next parent turn and at least 4 seconds. A failed or cancelled run stays until the second parent turn.
+- The tree never shows tool arguments, raw tool results, thinking or stderr. Clients without widgets use `/omps` and the status line (`omps: 2 active runs`).
 
-Finished agents stay in the tree for a short time:
+The tree design is adapted from [tintinweb/pi-subagents](https://github.com/tintinweb/pi-subagents) (MIT).
 
-- A completed run stays until the next parent turn starts and at least 4 seconds have passed.
-- A failed or cancelled run stays until the second parent turn starts.
+### Management list
 
-An optional Management list below the editor shows the same runs for navigation:
+A list below the editor shows the same runs. To use it with the default keys:
 
-```text
-  ↓ to manage
-  ○ reader  Map the API                                12s
-  ○ builder  Update validation                         18s
-```
-
-To navigate the list with the default keys:
-
-1. Make sure the editor owns focus and the prompt is empty.
-2. Press Down. The first agent is selected with `●` and the hint changes to `↑↓ select · enter inspect · esc back`.
-3. Press Up or Down to move to another agent.
+1. Empty the prompt and keep the editor focused.
+2. Press Down to select the first agent.
+3. Press Up or Down to move.
 4. Press Enter to inspect the selected agent.
 5. Press Escape to return to the prompt. The runs continue.
 
-Outside the list, Up recalls prompt history and Escape interrupts as usual. Typing ends selection and returns input to the editor. A dialog or overlay that owns focus keeps its keys. The list keeps a finished run for 4 seconds, and shows `↑ N more` and `↓ N more` when there are more runs than visible rows.
+Outside the list, Up and Escape keep their Pi actions. The list shows `ui.maxVisibleAgents` rows (default 5) with `↑ N more` markers.
 
-Set `ui.fleetView` in `/omps-settings` to change the starting view:
+| Setting                                | Effect                                                                          |
+| -------------------------------------- | ------------------------------------------------------------------------------- |
+| `ui.fleetView: expanded`               | Default. Tree plus list.                                                        |
+| `ui.fleetView: collapsed`              | Heading only, for example `● Agents · 5 running`.                               |
+| `ui.fleetView: off`                    | No widgets. `/omps` and `/omps inspect` still work.                             |
+| **Management list: Hide**              | Tree only. Same as `ui.showManagementList: false`. `/omps inspect` stays.       |
+| `navigationDownKey`, `navigationUpKey` | Default `down` and `up`. Another Pi key, or `off`. Edits apply after `/reload`. |
 
-| Value       | Effect                                                                          |
-| ----------- | ------------------------------------------------------------------------------- |
-| `expanded`  | Default. Shows the tree; the list appears when `ui.showManagementList` is true. |
-| `collapsed` | Shows only the tree heading, for example `● Agents · 5 running`. No list.       |
-| `off`       | Shows neither widget. `/omps`, `/omps status` and `/omps inspect` still work.   |
+A **Fleet view shortcut** in `/omps-settings` toggles the view like `/omps fleet`.
 
-`/omps fleet` switches between expanded and collapsed for the current session. A bound **Fleet view shortcut** does the same.
-Choose **Management list: Hide** in `/omps-settings`, or set `ui.showManagementList: false`, to keep the expanded tree alone.
-The preference defaults to true. Hiding the list ends selection, removes its hint and releases its navigation keys immediately.
-Showing it restores rows from retained evidence. Session fleet toggles preserve that saved preference.
-Every retained agent stays reachable through `/omps inspect` while the list is hidden.
+Custom keys that Pi already uses stay inactive. OMPS names the owning action and adds no fallback.
+Pi 1.0.4 binds Ctrl+Shift+Up and Ctrl+Shift+Down to `tui.altScreen.previousPrompt` and `tui.altScreen.nextPrompt`.
+OMPS never rewrites Pi keybindings. Follow the [manual remapping example](SETUP.md#management-navigation-keys), check `/hotkeys`, then run `/reload`. Some terminal programs consume modified arrows, so test your pair.
 
-`ui.navigationDownKey` and `ui.navigationUpKey` default to `down` and `up`. Either can be `off`.
-Hints use the active pair. Key edits apply after `/reload`; settings shows saved values alongside active keys until then.
-With the Down action off or inactive, keys cannot enter selection. Plain arrows pass through when you configure another pair.
-A focused Pi selector, settings screen or overlay keeps its keys. If editor focus cannot be verified, input passes through.
-
-Custom bindings that Pi owns remain inactive, with the owning action named and no plain-arrow fallback.
-In Pi 1.0.4, Ctrl+Shift+Up/Down belong to `tui.altScreen.previousPrompt` and `tui.altScreen.nextPrompt`.
-OMPS never rewrites Pi keybindings. Follow the [manual remapping example](SETUP.md#management-navigation-keys),
-keep other entries, check `/hotkeys`, then run `/reload`. Some terminals consume modified arrows;
-test your pair locally or choose other keys. Fleet and inspection shortcuts default to `off`; see [operator settings](#operator-settings).
-
-The widgets never show tool arguments, tool results, the agent's thinking or error logs. OMPS removes terminal control characters from the text. Saved answers appear in inspection and in the result message.
-
-Each observed run also carries two bounded pieces of display text:
-
-- A one-line task label: the submitted task, sanitised to a single line of at most 160 characters.
-- A provisional assistant preview: the most recent visible assistant text, sanitised with Markdown line breaks and indentation preserved, capped at 4 KiB of UTF-8. Oversized text is cut and marked `[preview truncated]`. Rapid updates are coalesced to at most five preview refreshes per second per run.
-
-Previews contain visible assistant text only. Tool arguments, raw tool results, hidden thinking, stderr, system history and authentication fields never enter display state. Terminal control characters and direction overrides are removed without changing the saved files.
-A preview is provisional. It never proves that a run completed, and it never replaces the saved final answer: `output.md` in the run folder remains the only authoritative result. A stale preview stays labelled provisional after a run ends.
-
-The visible-agent setting bounds the list rows, defaulting to five. Every active root stays reachable through a visible list
-or `/omps inspect`; hidden runs continue normally.
-The display bounds do not restrict launches; `/omps status` lists every direct owned run.
-Finishing one run leaves active siblings visible. Finished runs leave the tree and the list as described above. `/omps inspect` still opens finished runs after they leave. Old previews cannot replace newer work.
-
-### The status line
-
-The status line shows a short entry, for example `omps: reader running` or `omps: 2 active runs`.
-The entry clears only when no owned run remains active.
-
-### Checking with a command
-
-Some Pi clients do not show widgets. Use `/omps` or `/omps status` instead. A summary looks like this:
-
-```text
-run 3f2c9b1e-8a4d-4c7e-9b2a-1d5e6f7a8b9c: running
-  agent reader, directory /path/to/project
-  files ~/.pi/agent/omps/runs/<session-id>/3f2c9b1e-8a4d-4c7e-9b2a-1d5e6f7a8b9c
-```
-
-A session with no runs answers `No runs in this session.`
-
-OMPS opens no extra terminal tabs or panes, also in Orca. The agent has no terminal of its own. Pi talks to it through pipes in RPC mode (a machine-readable message format).
-
-## Agent trees and inspection
-
-Each launch leaves one compact acknowledgement row in the transcript, for example `OMPS: reader started (3f2c9b1e)`.
-It shows the agent, the short run id and the launch state. Pi's `app.tools.expand` action, Ctrl+O by default,
-reveals the acknowledgement text only. It never re-creates a live per-run tree, and other tool cards keep their normal expansion.
-
-The hierarchy lives in the agent tree, the list and the inspection modal. Identical agent names stay distinct through run ids.
-List rows are bounded by the visible-agent setting and the tree by 12 lines; the modal lists every retained node without that bound.
-Status counts still include all active direct children.
+### Inspect a run
 
 1. Run `/omps inspect` to open the picker of retained nodes.
-2. Move with Up/Down. Rows sit beneath their immediate parent, indented by depth.
-3. Fold with Left or unfold with Right. Folded rows stay retained.
-4. Press Enter to open details.
-5. Scroll with Up/Down, PageUp/PageDown or Home/End.
-6. Switch agents with Left/Right while details are open.
-7. Press Escape to return to the picker with its selection and folds intact.
-8. Press Escape again to return to Pi's editor.
+2. Move with Up and Down. Fold with Left, unfold with Right.
+3. Press Enter to open details.
+4. Scroll with Up, Down, PageUp, PageDown, Home or End.
+5. Press Left or Right to switch agents.
+6. Press Escape to return to the picker. Press Escape again to close.
 
-Every width uses one column. Both the picker and details keep a margin on all four sides when space permits:
+`/omps inspect <run-id>` and Enter on a list row open details directly.
+Every width uses a single-column layout. Fullscreen Pi supports picker clicks and mouse-wheel scrolling over the details. Regular mode uses the keyboard because the terminal owns mouse scrollback.
 
-- At widths of at least 40 columns, each side margin is 2 columns. Below 40 columns, side margins are zero.
-- At heights of at least 10 rows, the top and bottom margins are 1 blank row each. Below 10 rows, these margins are zero.
+Details show lineage, state, model, active tools, the task, a **Live answer · provisional** section and **Saved output**.
+The live answer is provisional: it holds at most 4 KiB, never proves completion and never replaces `output.md`. Failed or cancelled output stays labelled partial.
+Your reading position holds during updates. Reaching the bottom follows new content.
 
-The header, body and footer sit inside the margins. The footer hint keeps its row at heights of at least 2 rows.
-At height one, the picker shows the selected agent row and omits the footer.
+The inspector follows descendants down to great-grandchildren. Missing evidence stays labelled incomplete.
+Viewing a descendant gives no control. Only its immediate parent can use status or cancellation, and `/omps cancel <direct-run-id>` stops the whole subtree.
+It reads only `config.json` and `output.md` of the selected run, at most 64 KiB each. Persona files, authentication files, event logs and stderr stay unopened.
+Tasks and outputs can hold sensitive text, so check screenshots before sharing them.
+RPC clients receive bounded text instead of the modal.
 
-Long task summaries wrap below their agent row, with matching indentation. Each summary uses at most 3 lines.
-A summary shortened by that cap ends with an ellipsis. Open details to read the full retained task.
-Summaries stay hidden when the available content width is below 30 columns.
-Picker observation warnings wrap fully without a separate line cap or ellipsis; the available body still limits visible lines.
-
-A header identifies the selected agent, state and elapsed time.
-The scrollable body separates task, current activity, **Live answer · provisional** and **Saved output**.
-Each section heading has a blank line before and after it. A heading at the start of the body has no leading blank line.
-Answers use Pi's themed Markdown. The footer shows controls and the visible line range when content exceeds the viewport.
-Scrolling works while saved reads load or fail, including provisional-only answers.
-New content preserves your reading position. Reaching the bottom follows updates until you scroll upwards.
-Terminal duration freezes at the retained end time. With no observed tool, details say **No active tool observed**.
-Tool names and concurrent counts describe current activity; they provide no complete tool history.
-
-`/omps inspect <run-id>` and Enter on a management row open details directly; Escape closes without a picker step.
-Fullscreen mode supports picker-row clicks, including wrapped continuation lines, and mouse-wheel scrolling over the detail body.
-Regular mode uses keyboard input because the terminal owns mouse scrollback.
-The modal includes retained hidden descendants and completed short runs, and it updates while agents run.
-Resizing keeps the selected run. Closing the modal restores your editor draft and releases its pending reads; the run continues.
-An empty session answers `No runs to inspect in this session.` without reading the mapping or display preferences.
-
-Selected details show the lineage, state, known model, active tools, the submitted task, any provisional assistant preview
-and the saved output. The preview is live visible answer text labelled provisional; it never proves completion and never
-replaces `output.md`, which stays the only authoritative final answer. Failed or cancelled output stays labelled partial.
-
-### Observation and control
-
-Inspection can follow validated descendants down to great-grandchildren when nesting permits them.
-Snapshots keep immediate-parent ownership through each verified RPC connection.
-Out-of-order evidence waits within a bounded backlog. Missing evidence, dropped records and overflow produce incomplete labels.
-Recovered temporary gaps clear; permanent loss stays labelled. An ancestor's terminal state never invents a descendant result.
-
-Viewing a descendant provides no control authority. Status and cancellation still belong to its immediate parent.
-Use `/omps cancel <direct-run-id>` from that parent to stop its owned subtree.
-Inspection starts no process and sends no model turn. Results still arrive through the separate delivery path described below.
-Todo keeps its own widget, keys and stored preferences.
-
-### Private detail files
-
-The inspector reads only a selected node's validated `config.json` and `output.md`.
-It reads at most 64 KiB from each file, with one extra byte to detect truncation.
-Persona files, authentication files, raw event logs and stderr remain unopened.
-Terminal instructions and direction overrides are removed from displayed text.
-
-The detail area preserves full run ids, lineage and known model information.
-Missing files show unavailable information. Failed or cancelled output remains partial.
-Truncated output identifies its saved file. Open that file separately only when you need its full contents.
-Saved tasks and outputs can contain sensitive text. Avoid sharing inspector screenshots or RPC responses without checking them.
-
-Supported RPC clients receive bounded text, without terminal components or mouse input.
-Each response is capped at 64 KiB. JSON and print runs keep their existing result behaviour.
+Each launch leaves one compact acknowledgement row, for example `OMPS: reader started (3f2c9b1e)`. Pi's `app.tools.expand` action (Ctrl+O by default) reveals its text only.
 
 ## Getting the result
 
-When a run completes or fails, OMPS sends one message into the conversation:
+When a run ends, OMPS sends one message to the run's immediate parent:
 
 ```text
 OMPS run 3f2c9b1e-8a4d-4c7e-9b2a-1d5e6f7a8b9c (reader) completed.
@@ -431,54 +192,30 @@ Result:
 The README explains how to install OMPS and map agents...
 ```
 
-- A failed run adds an `Error:` line. If the agent wrote any text, the result starts with a `PARTIAL OUTPUT` note.
-- When no output was saved, the message says `No output was saved.`
-- The message starts a new turn, so Pi's model reads the result and can act on it.
-- If Pi is busy with a reply, the message waits until that reply ends.
-- The message holds at most 4000 characters of the result. A longer result ends with `[truncated; full text in .../output.md]`. Open `output.md` in the run folder for the full text.
+- A failed run adds an `Error:` line. Partial text starts with `PARTIAL OUTPUT`. With no saved output, the message says `No output was saved.`
+- The message starts a parent turn. It waits if Pi is busy.
+- It holds at most 4000 characters. Open `output.md` for the rest.
 - A cancelled run sends no message.
-- If the session ended before the message was sent, nothing is sent. `notification.json` in the run folder records the failure.
+- If the session ended first, nothing is sent. `notification.json` records why.
+- A delegating child waits for its owned runs and their delivery before its final answer.
+- A failed delivery leaves a completed run completed.
 
 ### Folded results and expansion keys
 
-Results use Pi's custom-message background in both folded and expanded views.
-Pi's dark theme gives this panel a purple background. Other themes use their own panel colour.
+Interactive Pi folds long results after eight lines, counted before wrapping. The heading, files line, `Result:` label, `Error:` line and `PARTIAL OUTPUT` note stay visible. The hint, shown in the warning colour, gives the hidden-line count and the keys.
 
-Interactive Pi folds long result messages by default. The heading, files line and `Result:` label stay visible.
-Any `Error:` line and `PARTIAL OUTPUT` note remain visible too. The fold shows the first eight other result lines.
-Lines are counted before wrapping, so a long line can occupy several screen rows.
-A short result shows in full without a hint.
+- Ctrl+Shift+E toggles every OMPS result in the session.
+- The host expansion key (Ctrl+O by default) toggles Pi's own state and also expands tool output.
+- A result folds only when both states are off.
 
-When lines are hidden, the hint shows their count, the active result shortcut and the host expansion key.
-The entire hint uses Pi's warning colour, yellow in the dark theme, including wrapped rows and key names.
-Pi's host action is `app.tools.expand`, Ctrl+O by default. The hint follows its current binding.
-If Pi cannot supply the key name, the hint says `expand with the host expansion key`.
-
-- Press Ctrl+Shift+E to toggle expansion for every OMPS result in the session, including later results.
-- Use the host expansion key to toggle Pi's expansion state, which also affects tool output and later results.
-- Each key toggles its own state. A result folds only when both expansion states are off.
-
-The result shortcut leaves unrelated tool output unchanged. Its session state resets when the session ends or Pi reloads.
-Choose **Result shortcut** in `/omps-settings` to change `ui.resultKey` or set it to `off`.
-Run `/reload` after saving. With the result key off or inactive, the host expansion action remains available.
-
-Ctrl+Shift+E needs extended-key reporting, which preserves modifiers in terminal input.
-Pi accepts kitty CSI-u and xterm `modifyOtherKeys` sequences.
-Without confirmed kitty support, OMPS warns that terminal support is unverified and keeps a conflict-free binding active.
-OMPS cannot reliably confirm `modifyOtherKeys` support. Raw Ctrl+E keeps Pi's move-to-line-end action.
-If Ctrl+Shift+E does nothing or moves the cursor, use the host key in the hint or choose another free result key.
-An effective Pi key conflict leaves the OMPS binding inactive and names the owning action; check `/hotkeys`.
-
-Folding changes only the terminal display. The model receives the same message text, including the existing 4000-character answer limit.
-`output.md` and `notification.json` stay unchanged. JSON, print and RPC result content keeps its existing behaviour.
+Change the key with **Result shortcut** in `/omps-settings` (`ui.resultKey`), then run `/reload`.
+Ctrl+Shift+E needs extended-key reporting (kitty CSI-u or xterm `modifyOtherKeys`). If it does nothing, use the host key from the hint. Raw Ctrl+E keeps Pi's line-end action.
+Folding changes only the display. The model, `output.md` and JSON, print and RPC output stay the same.
 
 ### Nested results and local todos
 
-Each result reaches the run's immediate parent, once and separately from other results.
-A delegating child waits for owned runs and delivery attempts before final settlement.
-It can then use the delivered results in its final answer. A failed delivery does not change a completed run's outcome.
-
-`om-pi-todo` works when its real extension and exact `todo` tool are explicitly mapped:
+A child with `omps` approval can start further agents. Each result reaches its immediate parent once.
+Todo works in a child only when you map the real extension and the exact `todo` tool. The child gets its own empty normal-mode list and never changes the parent's OpenSpec tasks. The parent updates its own todo after it verifies the work.
 
 ```yaml
 tools: [todo]
@@ -486,82 +223,128 @@ extensions:
   - /path/to/om-pi-todo/src/extension.ts
 ```
 
-Replace the extension path with its installed entry from `pi list` and that package's manifest.
-A child starts an empty normal-mode list, including when global preferences select OpenSpec mode.
-Its local ids can match sibling or parent ids without sharing tasks. Real todo reminders finish before accepted output.
-Child completion never updates the parent's OpenSpec tasks or changes global todo preferences.
-The parent must explicitly update its own todo when that work is verified.
-
-Run `/skill:om-pi-subagents` for the packaged operational instructions.
-A mapped child needs the skill explicitly, for example:
+To give a child these instructions, map the skill. Use the folder shown by `pi list`:
 
 ```yaml
 skills:
   - ~/.pi/agent/npm/node_modules/om-pi-subagents/skills/om-pi-subagents/SKILL.md
 ```
 
-Use the package folder shown by `pi list` if yours differs. Skill loading grants no tools.
-Add `omps` to that child's tools, and list its targets in `delegates`, only when you approve delegation.
+## Run states
+
+| State       | Meaning                                                                    | What to do                               |
+| ----------- | -------------------------------------------------------------------------- | ---------------------------------------- |
+| `starting`  | OMPS checks the guard, tools, model and working folder. Limit: 30 seconds. | Wait.                                    |
+| `running`   | The agent works on the task. Limit: 30 minutes in total.                   | Wait, or cancel.                         |
+| `stopping`  | OMPS stops the agent and everything it started.                            | Wait.                                    |
+| `completed` | Answer saved, clean exit, cleanup confirmed.                               | Read the result or `output.md`.          |
+| `failed`    | Something went wrong. Output after an error does not make a run pass.      | Run `/omps status <run-id>`. See below.  |
+| `cancelled` | You cancelled, or Pi quit, reloaded or changed session.                    | Partial text, if any, is in `output.md`. |
+
+## Cancel, quit and reload
+
+1. Find the run id with `/omps`.
+2. Type `/omps cancel <run-id>`.
+
+OMPS stops that owned subtree and leaves unrelated siblings running. Quitting Pi, `/reload` and a session switch cancel every active run and wait for its processes to stop. These runs send no result. `/omps status` lists only runs from the current load. OMPS cannot resume a run.
+
+## Limits and nesting
+
+### Configured limits and nesting
+
+Put optional `limits` beside `agents` in `omps/config.yaml`.
+
+| Field               | Default | Meaning                                    |
+| ------------------- | ------- | ------------------------------------------ |
+| `maxConcurrentRuns` | 1       | Active direct children per parent session. |
+| `maxDepth`          | 1       | Greatest depth. The root is depth 0.       |
+
+Omitted fields use the defaults. Depth zero disables new launches. Starting, running and stopping runs use slots. A launch over capacity fails at once and does not queue.
+
+To let an agent delegate, add `omps` to its `tools` and list its targets in `delegates`:
+
+```yaml
+agents:
+  builder:
+    persona: ./personas/builder.md
+    tools: [read, edit, write, bash, omps]
+    thinking: high
+    delegates: [writer]
+```
+
+`delegates` is required with `omps`. A launch outside the list fails before any process starts. A target keeps its own tools, so it can be write-capable.
+A branch keeps the list and depth ceiling it started with, and OMPS also reads fresh YAML. A target must pass both. Existing descendants continue when you lower a limit.
+`/omps list` shows each delegating agent's targets.
+
+Four slots through depth three can reach `4 + 16 + 64 = 84` descendants. OMPS sets no machine-wide budget. Give concurrent writers separate worktrees.
+
+### Blocked after a failed cleanup
+
+Sometimes OMPS cannot confirm that a run's processes stopped. The run fails and new launches stop with `no new run can start: run <run-id> may have left processes behind`. Spare capacity does not lift the block.
+
+1. Open `status.json` in the run folder and read `pid`.
+2. List the group with `pgrep -g <pid>`.
+3. Stop it with `kill -- -<pid>`.
+4. Check `ps` for other processes the agent started and stop them.
+5. Type `/reload` in Pi.
+
+### Tools, model and mapping
+
+- The agent can use only the exact tool names in its mapping. A call to any other tool is blocked and the run fails.
+- This guard is a rule inside Pi. It is no operating-system sandbox. Start agents with `bash`, `powershell`, `write` or `edit` in a safe folder, such as a separate worktree.
+- The agent uses Pi's current model unless the mapping names one. It always uses the mapping's `thinking` level. OMPS never falls back to another model.
+- Each launch reads the mapping again. A running run keeps its original settings. A mapping error blocks new launches until you fix it.
+
+## Operator settings
+
+1. Run `/omps-settings`. `/subagents-settings` is an alias.
+2. Select a setting.
+3. Enter the value.
+4. Read the destination and any warning, then confirm.
+5. Select Done.
+
+Native dialogs work in interactive Pi and supported RPC clients. The command starts no agent.
+
+| Menu item                           | Values                                  | YAML field                 |
+| ----------------------------------- | --------------------------------------- | -------------------------- |
+| Maximum nesting depth               | Whole number, 0 or more                 | `limits.maxDepth`          |
+| Parallel direct children per parent | Whole number, 1 or more                 | `limits.maxConcurrentRuns` |
+| Visible agents                      | 1 to 256. Default 5                     | `ui.maxVisibleAgents`      |
+| Fleet view                          | `expanded`, `collapsed`, `off`          | `ui.fleetView`             |
+| Management list                     | Show or Hide. Default Show              | `ui.showManagementList`    |
+| Management next / enter key         | Pi key or `off`. Default `down`         | `ui.navigationDownKey`     |
+| Management previous key             | Pi key or `off`. Default `up`           | `ui.navigationUpKey`       |
+| Fleet view shortcut                 | Pi key or `off`. Default `off`          | `ui.toggleKey`             |
+| Inspection shortcut                 | Pi key or `off`. Default `off`          | `ui.inspectKey`            |
+| Result shortcut                     | Pi key or `off`. Default `ctrl+shift+e` | `ui.resultKey`             |
+| Agent capabilities                  | Select an agent, then Memory or Todo    | That agent's YAML lists    |
+
+All fields live in the registry YAML. The menu shows its path, including any `OMPS_REGISTRY` override. Fleet view and Management list changes apply at once. Key and shortcut edits need `/reload`.
+OMPS never writes todo preferences or Pi's `settings.json`.
+
+Type keys as text, such as `ctrl+1`. Spell out the modifier instead of holding Ctrl. Settings accepts any letter case and converts `ctr`, `ctl`, `control` to `ctrl`, `opt`, `option` to `alt`, and `cmd`, `command`, `win` to `super`. It rejects `meta`, Tab and Ctrl+I.
+The confirmation shows the converted key. YAML stores it, and manual edits must use strict Pi names.
+Settings checks conflicts with Pi bindings before saving and names the owning action. Enabled OMPS keys must differ.
+On macOS, Option+O types `ø` unless the terminal sends Option as Alt. See [Restore the Alt keys](SETUP.md#restore-the-alt-keys).
+
+Cancelling or declining leaves a setting unchanged. A missing registry is created only after you confirm, with `agents: {}`. It gets mode `0600` in a `0700` folder. A malformed file must be fixed first. After a save conflict, reopen settings.
+An old visible-agent value in `<config-dir>/pi-subagents/config.json` works as a read-only fallback until YAML sets the field. The menu offers an import. `<config-dir>` is `$XDG_CONFIG_HOME` when that is an absolute path, else `~/.config`.
 
 ### Optional child capabilities
 
-Memory and Todo default to Off for a new mapping. Existing explicit mappings remain in effect.
-The parent keeps its own extension settings and OpenSpec tasks. Each descendant uses its
-own mapping, even when its immediate parent has either capability enabled.
+Memory and Todo are off for new mappings. Each agent has its own switch. A child never inherits its parent's. The full integration guide is [Todo and memory](INTEGRATIONS.md).
 
-1. Install `om-memory-system` or `om-pi-todo` separately if needed.
+1. Install the package if needed: `pi install npm:om-memory-system` or `pi install npm:om-pi-todo`.
 2. Run `/omps-settings` and choose **Agent capabilities**.
-3. Choose an existing agent, then **Memory** or **Todo**.
-4. Choose **Enable**, or **Enable with shipped skill** for Memory when you also need `omms-memory`.
-5. Choose a package folder if OMPS finds several valid installations.
-6. Enter an installed package folder or published extension entry if detection offers the fallback prompt.
-7. Review the exact list changes and YAML destination before confirming.
+3. Choose an agent, then **Memory** or **Todo**.
+4. Choose **Enable**, or **Enable with shipped skill** for Memory with `omms-memory`.
+5. Choose a package folder if several match, or enter one if asked.
+6. Check the resources and YAML destination, then confirm.
 
-OMPS first reads `packages` in `<agent-dir>/settings.json`.
-The agent directory defaults to `~/.pi/agent`; `PI_CODING_AGENT_DIR` selects another directory.
-One valid package skips the path prompt. Several distinct package folders require your choice.
-With no usable match, OMPS shows installation guidance and offers manual entry.
-Cancelling a package choice or the fallback prompt leaves YAML unchanged.
+OMPS reads `packages` in `<agent-dir>/settings.json` (default `~/.pi/agent`, or `PI_CODING_AGENT_DIR`). It loads no extension and installs nothing.
+Detection skips `~`, `file://`, git and URL sources. Enter the installed path by hand for those, for an unlisted checkout, or when Pi settings are unreadable. Cancelling leaves YAML unchanged.
 
-Detection accepts string sources and objects with a string `source`.
-Matching `npm:om-memory-system` and `npm:om-pi-todo` entries resolve under `<agent-dir>/npm/node_modules/`.
-A version, range or tag suffix selects the same installed package folder.
-Absolute local paths are checked directly; relative paths resolve from the agent directory.
-Repeated sources and symbolic links to the same package folder count as one installation.
-
-Parent `autoload: false` and resource filters, such as `extensions: []`, do not hide valid candidates.
-Your confirmation approves the child's resources separately. Parent settings stay unchanged.
-Detection reads metadata and checks filesystem paths without importing, executing or loading either extension.
-
-**Manual path fallback**
-
-Detection skips sources beginning with `~`, `file://`, git sources and URLs.
-An unlisted checkout, project-only package or legacy global npm install also needs manual entry.
-Missing, unreadable or invalid Pi settings use this fallback. Unusable package entries are skipped.
-
-1. Use `pi list` to locate the installed package.
-2. Enter its absolute package folder or published Pi extension entry path in the prompt.
-3. Review the exact resources and YAML destination.
-4. Confirm the save, or cancel to leave YAML unchanged.
-
-For a skipped source, supply its installed filesystem path in place of the source string.
-If the package is absent, install the required sibling separately, then reopen `/omps-settings`:
-
-```sh
-pi install npm:om-memory-system
-```
-
-For Todo:
-
-```sh
-pi install npm:om-pi-todo
-```
-
-OMPS runs neither command and writes nothing to Pi's settings.
-Both detection and manual entry validate the package name and its published `pi.extensions` metadata.
-**Enable with shipped skill** also requires the published `omms-memory` skill; select another package if it is missing.
-The confirmed edit adds `memory` or `todo` to `tools`, and the selected entry to `extensions`.
-No separate permission flag or sibling configuration block is needed:
+The confirmed edit adds the tool to `tools` and the extension to `extensions`:
 
 ```yaml
 agents:
@@ -575,310 +358,59 @@ agents:
       - /path/to/om-memory-system/skills/omms-memory/SKILL.md
 ```
 
-Use the installed entry shown in your package manifest; the example path is a placeholder.
-`memory` grants the **whole** tool, including write and portability modes. Grant it only
-when the child needs those operations. Memory recall and settled capture belong to OMMS;
-child tasks belong to the real todo extension. OMPS stores neither sibling's state.
+Approving `memory` grants the whole tool, including write and portability modes. OMMS owns recall and capture. The todo extension owns child tasks.
 
-**On (configured)** means the entry and exact tool are mapped; it does not prove backend
-health. **Partial** means an incomplete or ambiguous mapping. Check the agent's YAML lists
-and correct an unrecognised wrapper by hand. A missing package, cancelled edit or changed
-YAML leaves the file unchanged. Reopen settings after a save conflict.
-Choose **Disable** to remove recognised sibling entries, mapped skills and matching tool
-approval together. Future launches have no memory hooks or child todo bootstrap. An
-admitted child keeps its original resources. Other agents and parent extensions stay as they were.
+- **On (configured)** means the entry and tool are mapped. It does not prove the backend works.
+- **Partial** means the mapping is incomplete or unclear. Fix the YAML lists by hand.
+- **Disable** removes the extension, skill and tool together for future launches.
 
-For a handoff, the parent searches its own memory and chooses a bounded task. Give the child
-only verified context. After the result arrives, the parent checks the saved output and
-completion state before updating its own todo or recording useful knowledge in memory.
-A provisional preview or a child's capture does not prove a completed run.
-
-## Run states
-
-| State       | What it means                                                                                            | What to do                                                                               |
-| ----------- | -------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| `starting`  | OMPS starts the agent process. It checks the guard, the tools, the model and the working folder first.   | Wait. Start-up has 30 seconds.                                                           |
-| `running`   | The agent accepted the task and works on it.                                                             | Wait, or cancel it.                                                                      |
-| `stopping`  | The run has an outcome. OMPS stops the agent process and everything it started.                          | Wait.                                                                                    |
-| `completed` | The answer is saved, the agent process exited cleanly and OMPS confirmed that all its processes stopped. | Read the result message or `output.md`.                                                  |
-| `failed`    | Something went wrong. Output that exists after an error does not make a run pass.                        | Run `/omps status <run-id>` and read the error. See [Troubleshooting](#troubleshooting). |
-| `cancelled` | You cancelled the run, or Pi quit, reloaded or changed session.                                          | Nothing. If the agent wrote any text, it is in `output.md`, labelled partial.            |
-
-## Cancelling, quitting and reloading
-
-1. Find the run id with `/omps`.
-2. Type `/omps cancel <run-id>`.
-
-OMPS answers `Run <run-id> is stopping.` It stops that owned subtree, including descendants in separate process groups.
-Unrelated siblings keep running. An ended run answers `Run <run-id> is already <state>.`
-
-When you quit Pi, reload with `/reload`, or switch to another session, OMPS closes admission and cancels every active direct run and its subtree. It waits until the processes stop. No agent outlives the Pi session that started it. These runs send no result message.
-
-`/omps status` lists only runs from the current session since OMPS last loaded. After a reload, a restart or a session switch, older runs no longer show. Their files stay in the run folder. OMPS cannot resume a run after a restart.
-
-## Rules and limits
-
-### Configured limits and nesting
-
-Put optional `limits` beside `agents` in `omps/config.yaml`.
-
-| Field               | Accepted values             | Default | Meaning                                   |
-| ------------------- | --------------------------- | ------- | ----------------------------------------- |
-| `maxConcurrentRuns` | Safe integers of at least 1 | 1       | Active direct children per parent session |
-| `maxDepth`          | Safe integers of at least 0 | 1       | Greatest depth from root depth zero       |
-
-A safe integer is a whole number JavaScript can represent exactly. Omitted limits use the defaults.
-No additional fixed cap applies. Depth zero disables launches while list and status remain available.
-
-```text
-root: depth 0
-  child: depth 1
-    grandchild: depth 2
-      great-grandchild: depth 3
-```
-
-Approve `omps` in a target's `tools` to let it delegate, and list the agents it may start in `delegates`.
-It uses the same canonical registry, its own direct slots and the immediate parent's model unless its mapping sets another model.
-Each target keeps its own tool permissions. A listed target can be write-capable.
-
-```yaml
-agents:
-  builder:
-    persona: ./personas/builder.md
-    tools: [read, edit, write, bash, omps]
-    thinking: high
-    delegates: [writer]
-```
-
-`delegates` is required with `omps`. A launch outside the list fails before any process starts:
-
-```text
-builder cannot launch "reviewer": agents.builder.delegates allows writer.
-```
-
-A branch keeps the list it started with, and OMPS also reads fresh YAML. A target must be in both.
-Removing a target from the file stops new launches of it from running branches.
-Adding a target reaches only branches that start afterwards. Running descendants continue.
-The root session is not limited by any list.
-`/omps list` shows each delegating agent's targets. Inside a restricted child, `omps list` shows only the targets it may start.
-
-A branch retains its inherited depth ceiling. Nested launches use the smaller of that ceiling and fresh YAML.
-Raising depth affects new root branches; lowering it stops new deeper launches without cancelling existing descendants.
-Changing concurrency affects the next launch. A lower limit leaves existing runs alive until capacity becomes available.
-
-Starting, running and stopping runs consume slots. Excess requests fail immediately rather than queue:
-
-```text
-session capacity reached (limits.maxConcurrentRuns: 4); active runs: <ids>. Wait for a run, cancel it, or edit limits.maxConcurrentRuns in YAML.
-```
-
-A capacity of four through depth three can reach `4 + 16 + 64 = 84` descendants.
-There is no machine-wide budget. Concurrent writers need separate safe working directories or worktrees.
-
-### Operator settings
-
-1. Run `/omps-settings` with no arguments. `/subagents-settings` is an alias of the same menu.
-2. Select a setting from the menu.
-3. Enter a whole number for limits and visible rows, or type shortcut text such as `ctrl+1`.
-4. Read the value, destination and any load warning.
-5. Confirm the save, or decline it.
-6. Select Done to close the menu.
-
-Native selection, input and confirmation dialogs work in interactive Pi and supported RPC clients.
-The command starts no agent or model request. Clients without dialogs receive an error before any settings file access.
-
-| Menu item                           | Validation                                            | Save destination                        |
-| ----------------------------------- | ----------------------------------------------------- | --------------------------------------- |
-| Maximum nesting depth               | Safe integer of at least 0; root depth is 0           | `limits.maxDepth` in registry YAML      |
-| Parallel direct children per parent | Safe integer of at least 1                            | `limits.maxConcurrentRuns` in that YAML |
-| Visible agents                      | Safe integer from 1 to 256; default 5                 | `ui.maxVisibleAgents` in that YAML      |
-| Fleet view                          | `expanded`, `collapsed` or `off`; default `expanded`  | `ui.fleetView` in that YAML             |
-| Management list                     | Show/Hide; default Show                               | `ui.showManagementList` in that YAML    |
-| Management next / enter key         | Pi key specification or `off`; default `down`         | `ui.navigationDownKey` in that YAML     |
-| Management previous key             | Pi key specification or `off`; default `up`           | `ui.navigationUpKey` in that YAML       |
-| Fleet view shortcut                 | Pi key specification or `off`; default `off`          | `ui.toggleKey` in that YAML             |
-| Inspection shortcut                 | Pi key specification or `off`; default `off`          | `ui.inspectKey` in that YAML            |
-| Result shortcut                     | Pi key specification or `off`; default `ctrl+shift+e` | `ui.resultKey` in that YAML             |
-| Agent capabilities                  | Select an agent, then Memory or Todo                  | That agent's existing YAML lists        |
-| Import legacy visible agents        | Offered while a valid legacy value applies            | `ui.maxVisibleAgents` in that YAML      |
-
-Parallel agents and direct children share the same per-parent limit.
-The menu shows the selected registry path, including any `OMPS_REGISTRY` override, and labels
-the source of the effective visible-agent value: YAML, the legacy display file or the default.
-OMPS does not write todo preferences or Pi's `settings.json`.
-
-A saved fleet view applies at once and replaces any session toggle. Management-list visibility also repaints immediately.
-Navigation-key and shortcut edits, including Result shortcut, need `/reload`.
-
-Type the shortcut as text, for example `ctrl+1`. Spell out the modifier instead of holding Ctrl while entering the key.
-Common modifiers are `ctrl`, `shift` and `alt`; `super` is also a valid modifier name.
-Separate a modifier and key with `+`. Type `off` to disable a key.
-Settings accepts any letter case and spaces around `+`. It converts these modifier spellings:
-
-| Typed modifier                   | Saved modifier |
-| -------------------------------- | -------------- |
-| `ctrl`, `ctr`, `ctl`, `control`  | `ctrl`         |
-| `shift`                          | `shift`        |
-| `alt`, `opt`, `option`           | `alt`          |
-| `super`, `cmd`, `command`, `win` | `super`        |
-
-For `Control + 1`, the confirmation shows both your text and `ctrl+1`. YAML stores `ctrl+1` after confirmation.
-Unknown modifiers, including `meta`, are rejected. Manual YAML edits must use strict Pi modifier names.
-
-Shortcut keys are lowercase Pi key specifications, such as `alt+o`. Tab and Ctrl+I are refused.
-Settings checks effective Pi bindings before confirmation and saving, using the same policy as shortcut registration.
-A conflict names the owning actions and points to `keybindings.json`, `/hotkeys` and `/reload`.
-All enabled OMPS keys must differ after modifier normalisation. Each key can be `off`.
-Default Down/Up retain their scoped editor/list use; custom navigation keys must be free of effective Pi actions.
-Fleet and inspection shortcuts default to `off`. The result shortcut defaults to `ctrl+shift+e`.
-On macOS, Option+O can type `ø` unless the terminal sends Option as Alt.
-Set the terminal's Option behaviour before using an Alt shortcut, or choose another key.
-See [Restore the Alt keys](SETUP.md#restore-the-alt-keys) for terminal settings and the old `alt+o` and `alt+i` bindings.
-[TDR-007](https://github.com/cmdaltctr/om-pi-subagents/blob/main/docs/tdr/007-macos-option-key-and-pi-modifier-order.md) records the existing platform finding.
-
-Shortcuts bind when an interactive session starts. A saved shortcut needs `/reload` before it
-becomes active; the menu shows the saved and the active binding until then. A visible-agent
-save repaints the display at once.
-
-Older OMPS versions kept visible agents in `<config-dir>/pi-subagents/config.json`, selected by
-absolute `XDG_CONFIG_HOME` and otherwise `~/.config`. That file is now a read-only fallback:
-while YAML omits `ui.maxVisibleAgents`, its valid value still applies and is labelled `legacy`.
-Malformed legacy data is diagnosed and the default applies. The import entry writes the shown
-value into YAML after confirmation. YAML wins once it declares the field, and the legacy file
-is never written or deleted.
-
-Cancelling an input or declining confirmation changes nothing for that setting.
-Earlier confirmed saves remain in effect. Confirming creation of a missing registry creates version one with `agents: {}`.
-The default destination is `<agent-dir>/omps/config.yaml`. A new `omps/` folder uses mode `0700`; the file uses `0600`.
-Settings creates no persona folder. When only the old registry exists, settings shows migration commands and offers no save.
-YAML comments, agent mappings, resource paths and the other limit remain intact after an edit.
-
-Malformed or unreadable files must be corrected before saving.
-A file changed by another session or editor causes a conflict: reopen settings before saving.
-Writes use private temporary files and atomic replacement. A failed write leaves the destination and display cache unchanged.
-Short-lived locks apply to individual destinations and allow concurrent Pi sessions.
-
-New launches read saved execution limits afresh. Lower capacity leaves admitted work running until a slot becomes available.
-Depth zero blocks new launches. Raising depth applies to new branches; an existing branch retains its inherited ceiling.
-Each parent has its own capacity, so nested branching can multiply process and provider load.
-
-### Blocked after a failed cleanup
-
-Unconfirmed descendant cleanup also fails ancestor runs. Spare capacity cannot bypass the block.
-Status and cancellation remain available for the owner's other runs.
-
-Sometimes OMPS cannot confirm that all processes of a run stopped. The run then fails, and the session refuses new runs with:
-
-```text
-no new run can start: run <run-id> may have left processes behind (<cause>). Stop them by hand, then reload Pi.
-```
-
-To recover:
-
-1. Open `status.json` in the run folder.
-2. Read the `pid` value. This is the agent's process id. It is also the id of its process group.
-3. List the processes in that group with `pgrep -g <pid>`.
-4. Stop the group with `kill -- -<pid>`.
-5. Check with `ps` for other processes the agent started, and stop them.
-6. Type `/reload` in Pi.
-
-### The task
-
-- A task is required.
-- A task cannot start with `/`. Pi would run it as a slash command. Reword the task.
-
-### Working folder
-
-- The slash command and at-mention launch use Pi's current working folder.
-- The tool's `cwd` must be an absolute path to a folder that exists.
-
-### Tools
-
-The agent can use only the exact tool names in its mapping. OMPS checks every tool call when it runs. A call to any other tool is blocked and the run fails at once.
-
-This check is a rule inside Pi. It is not an operating-system sandbox. An agent with `bash`, `powershell`, `write` or `edit` can change files with your permissions. Start such an agent in a folder that is safe to change, for example a separate git worktree. Provider extensions that you list in the mapping also run with your permissions.
-
-### Model and thinking
-
-The agent uses Pi's current model, unless its mapping names another model. It always uses the `thinking` level from its mapping, not Pi's level. OMPS does not switch to another model when the first one fails.
-
-### Mapping changes
-
-Each launch reads the mapping file again. An edit takes effect at the next launch. A run that already started keeps its original settings. If the mapping file has an error, OMPS refuses new launches until you fix it. See [Set up agents](SETUP.md).
-
-### Time limits
-
-| Limit                          | Value      |
-| ------------------------------ | ---------- |
-| Start-up, before the task goes | 30 seconds |
-| Whole run, start-up included   | 30 minutes |
-
-A run that passes a limit fails.
-
-### Not supported
-
-OMPS has no councils, scheduling, automatic worktrees or provider fallback.
+For a handoff, the parent searches its memory and gives the child only verified context. The parent checks saved output and completion state before it updates its todo or memory. A provisional preview or a child's capture proves nothing.
 
 ## Run files
 
-OMPS saves each run in its own folder:
+Each run saves to `~/.pi/agent/omps/runs/<session-id>/<run-id>/`, or under `$PI_CODING_AGENT_DIR` when set.
 
-```text
-~/.pi/agent/omps/runs/<session-id>/<run-id>/
-```
+| File                | Holds                                                                |
+| ------------------- | -------------------------------------------------------------------- |
+| `config.json`       | Agent settings, task, working folder, start time.                    |
+| `persona.md`        | The persona text the run started with.                               |
+| `status.json`       | State, timestamps, error, `pid`, model.                              |
+| `events.jsonl`      | Every message from the agent process, one JSON object per line.      |
+| `stderr.log`        | Error output from the agent process.                                 |
+| `output.md`         | The full final answer. Starts with `PARTIAL OUTPUT` after a failure. |
+| `notification.json` | Whether the result message reached Pi, and why not if it failed.     |
 
-If you set `PI_CODING_AGENT_DIR`, the folder is `$PI_CODING_AGENT_DIR/omps/runs/` instead. The confirmation message and `/omps status` show the exact path.
-
-| File                | What it holds                                                                           | Use it to                          |
-| ------------------- | --------------------------------------------------------------------------------------- | ---------------------------------- |
-| `config.json`       | The agent settings, the task, the working folder and the start time.                    | Check what the run started with.   |
-| `persona.md`        | The persona text the run started with.                                                  | Check the agent's instructions.    |
-| `status.json`       | State, timestamps, error, the agent's process id (`pid`) and the model it used.         | Find the state, error or process.  |
-| `events.jsonl`      | Every message from the agent process, one JSON object for each line.                    | See each step and tool call.       |
-| `stderr.log`        | Error output from the agent process.                                                    | Find start-up and provider errors. |
-| `output.md`         | The full final answer. After a failed or cancelled run it starts with `PARTIAL OUTPUT`. | Read the complete answer.          |
-| `notification.json` | Whether the result message reached Pi, and the reason if not.                           | Find out why no message came.      |
-
-A run that never got output has no `output.md`. A cancelled run has no `notification.json`.
-
-Only your user can read these files. The folders have mode `0700` and the files `0600`. OMPS removes known credential fields from `events.jsonl` and `stderr.log`. Tasks, personas and answers can still hold sensitive text. OMPS never deletes run folders, also not when you [uninstall](UNINSTALL.md) it. Delete old ones yourself.
+Only your user can read these files (folders `0700`, files `0600`). OMPS removes known credential fields from the logs. Tasks, personas and answers can still hold sensitive text. OMPS never deletes run folders, so delete old ones yourself.
 
 ## Troubleshooting
 
-| You see                                                            | Cause                                                                                                       | Fix                                                                                                                |
-| ------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| `/omps` is not a known command                                     | OMPS did not load.                                                                                          | See [Install](INSTALL.md).                                                                                         |
-| `No personas mapped.`                                              | The mapping file has no agents, or does not exist.                                                          | Map an agent. See [Set up agents](SETUP.md).                                                                       |
-| An `OMPS:` error about the mapping file                            | The mapping file has an error. New launches stay blocked.                                                   | Fix the field the error names. See [Set up agents](SETUP.md).                                                      |
-| `config.yaml: OMPS now reads ... Move your settings:`              | Only the old default registry exists. Listing, launches and settings saves stay blocked.                    | Follow [Move settings into the OMPS folder](INSTALL.md#move-settings-into-the-omps-folder), then run `/omps list`. |
-| `agents.<name>.persona: ... resolves inside the OMPS run folder`   | The persona points to saved run evidence, directly or through a symbolic link.                              | Move trusted instructions into `omps/personas/` and update the `persona:` line.                                    |
-| `unknown agent "<name>"; mapped agents: ...`                       | The agent name is wrong.                                                                                    | Use a name from `/omps list`.                                                                                      |
-| `Usage: /omps list \| run <agent> <task> \| ...`                   | OMPS did not recognise the command, for example a run with no task.                                         | Check the command against the [table](#slash-commands).                                                            |
-| `task is required`                                                 | The tool call had no task.                                                                                  | Add a task.                                                                                                        |
-| `the task cannot start with a slash, ...`                          | The task starts with `/`.                                                                                   | Reword the task.                                                                                                   |
-| `cwd must be an absolute path: ...`                                | The tool's `cwd` is a relative path.                                                                        | Give the full path.                                                                                                |
-| `cwd does not exist or is not a directory: ...`                    | The folder is missing.                                                                                      | Check the path.                                                                                                    |
-| `session capacity reached ...`                                     | Configured direct-child slots are full.                                                                     | Wait, cancel an owned run, or change `limits.maxConcurrentRuns` in YAML.                                           |
-| `no new run can start: run ... may have left processes behind`     | OMPS could not confirm that a run's processes stopped.                                                      | Follow [Blocked after a failed cleanup](#blocked-after-a-failed-cleanup).                                          |
-| `unknown run: <run-id>`                                            | The id is wrong, or the run belongs to another session or an earlier load.                                  | Use an id from `/omps`. For an older run, read its run folder.                                                     |
-| `child is not ready: tool "<name>" is not registered`              | The name is wrong or the MCP server is missing. Pi 1.0 MCP names use `_` for `-`.                           | Fix the name (`_` for `-`) and the server. See [Set up agents](SETUP.md#tools).                                    |
-| `tool "mcp" does not exist; the obsolete MCP proxy was removed...` | The mapping lists the old `mcp` tool.                                                                       | Use native names such as `mcp__<server>__<tool>`.                                                                  |
-| `child is not ready: model ... is not in the model registry`       | The agent process does not know the model.                                                                  | Check the model name. For a custom provider, list its extension in the mapping.                                    |
-| `child is not ready: model ... has no configured authentication`   | No credentials for that provider.                                                                           | Set up credentials for that provider in Pi.                                                                        |
-| `child is not ready: no model is selected`                         | Pi has no model and the mapping names none.                                                                 | Select a model in Pi, or set `model` in the mapping.                                                               |
-| `child was not ready within 32000 ms`                              | Start-up took too long, for example a slow MCP server.                                                      | Read `stderr.log`. Try again.                                                                                      |
-| `permission violation: <tool> is not approved`                     | The agent tried a tool that is not in its list.                                                             | Add the tool to the mapping if you trust it, or change the persona or task.                                        |
-| `provider error: ...` or `provider failed after retries: ...`      | The model provider refused or failed, for example no credentials or no account balance.                     | Check your provider account and network.                                                                           |
-| `the response was cut off (stop reason length)`                    | The answer was too long for the model.                                                                      | Ask for a shorter answer, or split the task.                                                                       |
-| `run exceeded the total deadline of 1800000 ms`                    | The run took more than 30 minutes.                                                                          | Split the task into smaller runs.                                                                                  |
-| `result message not delivered: the owning session has ended`       | The session ended before the run finished.                                                                  | Read `output.md` in the run folder.                                                                                |
-| No agent tree shows                                                | `ui.fleetView` is `off`, the runs have finished and left the tree, or your Pi client does not show widgets. | Set `ui.fleetView` in `/omps-settings`, or use `/omps` and the status line.                                        |
+For any failed run, type `/omps status <run-id>`, read the error, then check `stderr.log` and `events.jsonl` in the run folder.
 
-Slash command errors start with `OMPS:`. Tool errors go to Pi's model without that prefix.
+| You see                                                | Fix                                                                                         |
+| ------------------------------------------------------ | ------------------------------------------------------------------------------------------- |
+| `/omps` is not a known command                         | OMPS did not load. See [Install](INSTALL.md).                                               |
+| `No personas mapped.`                                  | Map an agent. See [Set up agents](SETUP.md).                                                |
+| An `OMPS:` error about the mapping file                | Fix the field it names. New launches stay blocked until then.                               |
+| `OMPS now reads ... Move your settings:`               | Follow [Move settings into the OMPS folder](INSTALL.md#move-settings-into-the-omps-folder). |
+| `... resolves inside the OMPS run folder`              | Move the persona into `omps/personas/` and update the `persona:` line.                      |
+| `unknown agent "<name>"`                               | Use a name from `/omps list`.                                                               |
+| `task is required` or `cannot start with a slash`      | Add a task, or reword it.                                                                   |
+| `cwd must be an absolute path` or `cwd does not exist` | Give the full path of an existing folder.                                                   |
+| `session capacity reached ...`                         | Wait, cancel a run, or raise `limits.maxConcurrentRuns`.                                    |
+| `no new run can start: ... left processes behind`      | Follow [Blocked after a failed cleanup](#blocked-after-a-failed-cleanup).                   |
+| `unknown run: <run-id>`                                | Use an id from `/omps`. Older runs are in their run folder.                                 |
+| `tool "<name>" is not registered`                      | Fix the name and the MCP server. Pi 1.0 names use `_` for `-`. See [Tools](SETUP.md#tools). |
+| `tool "mcp" does not exist ...`                        | Use native names such as `mcp__<server>__<tool>`.                                           |
+| `model ... is not in the model registry`               | Check the model name. For a custom provider, list its extension.                            |
+| `model ... has no configured authentication`           | Set up credentials for the provider in Pi.                                                  |
+| `no model is selected`                                 | Select a model in Pi, or set `model` in the mapping.                                        |
+| `No runs to inspect in this session.`                  | Start a run first. `/omps inspect` shows only runs from the current session.                |
+| `child was not ready within 32000 ms`                  | Read `stderr.log`, then try again.                                                          |
+| `permission violation: <tool> is not approved`         | Add the tool to the mapping if you trust it, or change the task.                            |
+| `provider error: ...`                                  | Check your provider account and network.                                                    |
+| `the response was cut off (stop reason length)`        | Ask for a shorter answer, or split the task.                                                |
+| `run exceeded the total deadline of 1800000 ms`        | Split the task into smaller runs.                                                           |
+| `result message not delivered: the owning session ...` | Read `output.md` in the run folder.                                                         |
+| No agent tree shows                                    | Check `ui.fleetView`, whether the run left the tree, or use `/omps`.                        |
 
-For any failed run:
-
-1. Type `/omps status <run-id>`.
-2. Read the error line.
-3. Open `stderr.log` and `events.jsonl` in the run folder for more detail.
-4. Fix the cause before you start another run.
+Slash command errors start with `OMPS:`. Tool errors go to the model without that prefix.

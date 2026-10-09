@@ -72,6 +72,6 @@ Leave that pull request's source unchanged.
 - [Release auto-merge workflow](../../.github/workflows/release-auto-merge.yml)
 - [Release pull request guard](../../scripts/release-pr-guard.mjs)
 - [Release and staging workflow](../../.github/workflows/release.yml)
-- [Maintainer release instructions](../../README.md#release-maintainers)
+- [Maintainer release instructions](../MAINTAINING.md#release)
 - [OMMS source workflow](https://github.com/cmdaltctr/omms/blob/main/.github/workflows/release-auto-merge.yml)
 - [OMMS source guard](https://github.com/cmdaltctr/omms/blob/main/scripts/release-pr-guard.mjs)
