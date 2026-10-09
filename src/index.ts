@@ -311,8 +311,15 @@ export function registerOmps(
 		name: "omps",
 		label: "omps",
 		description:
-			"Run mapped subagents in the background within configured per-session limits, check progress, or cancel an owned subtree. Results arrive separately as follow-up messages.",
-		promptSnippet: "omps: run a mapped subagent in the background (actions: list, run, status, cancel)",
+			"Discover mapped subagents for proactive delegation of substantial separable work. Run them in the background within configured per-session limits, check progress, or cancel an owned subtree. Results arrive separately as follow-up messages.",
+		promptSnippet: "Delegate substantial separable work to mapped subagents (actions: list, run, status, cancel)",
+		promptGuidelines: [
+			"For substantial tasks with separable work, use fresh omps list output and proactively delegate suitable bounded investigation or review. Give a clear task and expected result.",
+			"Keep simple tasks local, with no discovery requirement and no fixed launch count. Honour explicit user restrictions on using subagents.",
+			"Select only freshly listed mappings with suitable approved tools. Check omps status for the current session before adding more runs, then launch through omps. Report empty, invalid or unsuitable mappings and continue permitted local work where possible. Never invent agents, change settings or grant tools without permission.",
+			"Verify the working folder before launch. Give parallel writers separate files or isolated worktrees to avoid shared-file conflicts. Respect configured concurrency, inherited depth ceilings and cleanup blocking. Honour launch refusals and follow existing waiting or recovery guidance; never repeatedly retry or raise limits without permission.",
+			"A run id acknowledges launch; it is not a result. Await the separately delivered result before relying on findings. Assess findings against the task and available evidence; preserve failed or partial labels. The parent remains responsible for the final answer and parent task updates. Child completion alone cannot mark a parent OpenSpec task complete. Continue independent work while waiting.",
+		],
 		parameters: PARAMETERS as never,
 		renderResult: (result, { expanded }, _theme, _context) => {
 			const text = result.content

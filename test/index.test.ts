@@ -1,7 +1,36 @@
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+const fileSpies = vi.hoisted(() => ({
+	readFile: vi.fn(),
+	realpath: vi.fn(),
+	readFileSync: vi.fn(),
+	existsSync: vi.fn(),
+	mkdir: vi.fn(),
+	writeFile: vi.fn(),
+}));
+
+vi.mock("node:fs/promises", async (importOriginal) => {
+	const actual = await importOriginal<typeof import("node:fs/promises")>();
+	for (const name of ["readFile", "realpath", "mkdir", "writeFile"] as const)
+		fileSpies[name].mockImplementation(actual[name]);
+	return {
+		...actual,
+		readFile: fileSpies.readFile,
+		realpath: fileSpies.realpath,
+		mkdir: fileSpies.mkdir,
+		writeFile: fileSpies.writeFile,
+	};
+});
+
+vi.mock("node:fs", async (importOriginal) => {
+	const actual = await importOriginal<typeof import("node:fs")>();
+	fileSpies.readFileSync.mockImplementation(actual.readFileSync);
+	fileSpies.existsSync.mockImplementation(actual.existsSync);
+	return { ...actual, readFileSync: fileSpies.readFileSync, existsSync: fileSpies.existsSync };
+});
 
 const processSpies = vi.hoisted(() => ({
 	spawn: vi.fn(),
@@ -15,7 +44,13 @@ const processSpies = vi.hoisted(() => ({
 
 vi.mock("node:child_process", () => processSpies);
 
-import omps, { registerOmps, resolvePiBin, resolveRegistryPath, SessionBinding } from "../src/index.ts";
+import omps, {
+	registerOmps,
+	registerRuntime,
+	resolvePiBin,
+	resolveRegistryPath,
+	SessionBinding,
+} from "../src/index.ts";
 import type { OmpsService } from "../src/service.ts";
 
 type Notify = (message: string, level: string) => void;
@@ -27,6 +62,9 @@ type Ctx = {
 };
 type Tool = {
 	name: string;
+	description: string;
+	promptSnippet?: string;
+	promptGuidelines?: string[];
 	parameters: any;
 	execute: (
 		id: string,
@@ -74,7 +112,96 @@ function fakeService() {
 }
 
 beforeEach(() => {
-	for (const spy of Object.values(processSpies)) spy.mockClear();
+	vi.stubEnv("OMPS_CHILD", "");
+	vi.stubEnv("OMPS_REGISTRY", undefined);
+	for (const spy of [...Object.values(processSpies), ...Object.values(fileSpies)]) spy.mockClear();
+});
+afterEach(() => vi.unstubAllEnvs());
+
+const policy = () => loadExtension().tools.get("omps")!.promptGuidelines?.join("\n") ?? "";
+
+describe("delegation prompt policy", () => {
+	it("discovers fresh mappings and proactively delegates substantial separable work", () => {
+		expect(policy()).toMatch(/substantial tasks with separable work/);
+		expect(policy()).toMatch(/fresh omps list/);
+		expect(policy()).toMatch(/proactively delegate.*bounded investigation or review/);
+		expect(policy()).toMatch(/clear task and expected result/);
+	});
+
+	it("keeps simple tasks local and honours explicit user restrictions without a quota", () => {
+		expect(policy()).toMatch(/Keep simple tasks local/);
+		expect(policy()).toMatch(/Honour explicit user restrictions.*subagents/);
+		expect(policy()).toMatch(/no fixed launch count/);
+	});
+
+	it("checks approved tools and current-session status before adding runs", () => {
+		expect(policy()).toMatch(/only freshly listed mappings.*approved tools/);
+		expect(policy()).toMatch(/omps status.*current session.*more runs/);
+		expect(policy()).toMatch(/launch through omps/);
+	});
+
+	it("reports missing, invalid or unsuitable mappings without expanding permissions", () => {
+		expect(policy()).toMatch(/empty, invalid or unsuitable mappings/);
+		expect(policy()).toMatch(/continue permitted local work/);
+		expect(policy()).toMatch(/invent agents/);
+		expect(policy()).toMatch(/change settings or grant tools without permission/);
+	});
+
+	it("verifies working folders and prevents parallel writers sharing files", () => {
+		expect(policy()).toMatch(/Verify the working folder/);
+		expect(policy()).toMatch(/parallel writers.*shared-file conflicts/);
+	});
+
+	it("honours admission refusals and recovery without launch loops or raised limits", () => {
+		expect(policy()).toMatch(/configured concurrency.*inherited depth ceilings.*cleanup blocking/);
+		expect(policy()).toMatch(/Honour launch refusals.*waiting or recovery guidance/);
+		expect(policy()).toMatch(/never repeatedly retry or raise limits without permission/);
+	});
+
+	it("awaits separate results, assesses evidence and retains parent responsibility", () => {
+		expect(policy()).toMatch(/run id acknowledges launch.*not a result/);
+		expect(policy()).toMatch(/Await the separately delivered result before relying/);
+		expect(policy()).toMatch(/Assess findings against the task and available evidence/);
+		expect(policy()).toMatch(/preserve failed or partial labels/);
+		expect(policy()).toMatch(/parent remains responsible.*final answer.*parent task updates/);
+		expect(policy()).toMatch(/Child completion alone.*OpenSpec task complete/);
+		expect(policy()).toMatch(/Continue independent work while waiting/);
+	});
+
+	it("keeps the policy concise and portable", () => {
+		const tool = loadExtension().tools.get("omps")!;
+		expect(tool.promptGuidelines?.length).toBeGreaterThan(0);
+		expect(policy().split(/\s+/).length).toBeGreaterThanOrEqual(150);
+		expect(policy().split(/\s+/).length).toBeLessThanOrEqual(250);
+		expect(policy()).not.toMatch(/\/Users\/|\/home\/|a-build|a-review|claude|gpt-/i);
+		expect(tool.description).toMatch(/proactive delegation/);
+		expect(tool.promptSnippet).toMatch(/substantial separable work/);
+	});
+
+	it.each(["missing", "malformed"])(
+		"registers static policy with a %s registry without file access or a runtime, including RPC startup",
+		async (state) => {
+			const directory = mkdtempSync(join(tmpdir(), "omps-registration-"));
+			const registry = join(directory, "config.yaml");
+			if (state === "malformed") writeFileSync(registry, "agents: [");
+			vi.stubEnv("OMPS_REGISTRY", registry);
+			try {
+				let currentRuntime: ReturnType<typeof registerRuntime> | undefined;
+				const { tools, handlers } = loadExtension((pi) => {
+					currentRuntime = registerRuntime(pi);
+				});
+				expect(currentRuntime!()).toBeUndefined();
+				await handlers.get("session_start")!({}, { ...ctx(), mode: "rpc" } as Ctx);
+				expect(currentRuntime!()).toBeUndefined();
+				for (const [name, spy] of Object.entries({ ...fileSpies, ...processSpies }))
+					expect(spy, name).not.toHaveBeenCalled();
+				expect(tools.get("omps")!.promptGuidelines?.length).toBeGreaterThan(0);
+			} finally {
+				vi.unstubAllEnvs();
+				rmSync(directory, { recursive: true, force: true });
+			}
+		},
+	);
 });
 
 describe("registration", () => {

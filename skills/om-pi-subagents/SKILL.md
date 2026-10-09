@@ -1,6 +1,6 @@
 ---
 name: om-pi-subagents
-description: Configure and operate OMPS mapped Pi subagents. Use for interactive at-mention launches, compact fleet navigation, descendant inspection, /omps-settings, per-agent Memory and Todo controls, YAML limits, parallel or nested delegation, result handoff, subtree cancellation, cleanup failures, and parent/child ownership.
+description: Configure and operate OMPS mapped Pi subagents. Use for proactive delegation of substantial tasks with separable investigation or review, interactive at-mention launches, compact fleet navigation, descendant inspection, /omps-settings, per-agent Memory and Todo controls, YAML limits, parallel or nested delegation, result handoff, subtree cancellation, cleanup failures, and parent/child ownership.
 license: MIT
 compatibility: Pi with om-pi-subagents installed and operator-managed mappings.
 ---
@@ -16,6 +16,29 @@ and saved evidence in `omps/runs/`. Map personas as `./personas/<name>.md`.
 blocks listing, launches and settings saves with migration commands. Ask the operator to follow
 [the migration guide](../../docs/INSTALL.md#move-settings-into-the-omps-folder).
 Never move operator files automatically or map persona instructions from run evidence.
+
+## Choose useful work proactively
+
+For substantial tasks with separable work, discover mapped agents and proactively delegate a suitable bounded investigation or review.
+Give each child a clear task and expected result. Delegate without waiting for a user reminder.
+Keep simple tasks local. Honour explicit user requests to avoid subagents.
+Do not require discovery or a launch for every request, or a fixed number of subagents.
+
+Select only from fresh `omps list` output and match the task to the target's approved tools.
+Check current-session `status` before adding runs. Report an empty, invalid or unsuitable mapping;
+continue permitted local work where possible. Never invent agents, grant tools or change settings without permission.
+Verify the working folder and avoid shared-file conflicts between parallel writers.
+Respect configured concurrency, inherited depth ceilings and cleanup blocks.
+Follow the waiting or recovery guidance below without repeated launch attempts or unauthorised limit changes.
+
+Wait for the separate result before relying on findings. Assess it against the task and available evidence;
+retain failed or partial labels. The parent owns the final answer and parent task updates.
+Continue independent work while a child runs.
+
+Pi supplies short built-in rules in its default system prompt when `omps` is active and the host includes its guidance,
+without loading this skill. Replacement prompts or omitted tool guidance can leave these rules out.
+Guidance does not guarantee model compliance. The model chooses launches; OMPS starts no child or model request at session startup.
+Loading this skill grants no tools.
 
 ## Discover before delegating
 

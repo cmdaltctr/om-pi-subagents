@@ -12,6 +12,22 @@ import { PI_BIN, startPi, type PiFixture } from "./fixtures/pi-rpc.ts";
 import { fixtureLineage } from "./fixtures/lineage.ts";
 
 const GUARD = new URL("../src/child-guard.ts", import.meta.url).pathname;
+const POLICY_MARKER = "For substantial tasks with separable work";
+
+const promptText = (request: { messages?: Array<{ role: string; content: unknown }> }) =>
+	(request.messages ?? [])
+		.filter((message) => message.role === "system" || message.role === "developer")
+		.map((message) =>
+			typeof message.content === "string"
+				? message.content
+				: Array.isArray(message.content)
+					? message.content
+							.filter((block) => block.type === "text")
+							.map((block) => block.text)
+							.join("\n")
+					: "",
+		)
+		.join("\n");
 
 const AMBIENT_EXTENSION = `
 export default function (pi) {
@@ -108,19 +124,60 @@ describe("child launched by OMPS", () => {
 		await pi.send({ type: "prompt", message: "do the task" });
 		await pi.waitFor((record) => record.type === "agent_settled");
 
-		const [request] = pi.model.requests as Array<{ tools?: Array<{ function: { name: string } }> }>;
+		const [request] = pi.model.requests as Array<{
+			tools?: Array<{ function: { name: string } }>;
+			messages: Array<{ role: string; content: unknown }>;
+		}>;
 		expect(request.tools!.map((tool) => tool.function.name).sort()).toEqual(["grep", "read"]);
+		expect(promptText(request)).not.toContain(POLICY_MARKER);
+		expect(promptText(request)).not.toContain("Await the separately delivered result");
 		const text = JSON.stringify(request);
 		expect(text).toContain("PERSONA-MARKER-42");
 		expect(text).toContain("PROJECT-CONTEXT-MARKER-77");
 		expect(text).not.toContain("ambient_tool");
 	});
 
+	it("supplies the default-prompt policy only to an exactly approved managed delegator", async () => {
+		pi = await startChild({ tools: ["read", "omps"] });
+		await pi.send({ type: "prompt", message: `/${PREFLIGHT_COMMAND}` });
+		const ready = pi.records.find((record) => record.entry?.customType === READY_ENTRY);
+		expect(ready!.entry.data).toMatchObject({ token: "token-9", tools: ["read", "omps"], model: "fake/counter" });
+		expect(pi.model.requests).toHaveLength(0);
+		await pi.send({ type: "prompt", message: "explain the project" });
+		await pi.waitFor((record) => record.type === "agent_settled");
+		const [request] = pi.model.requests as Array<{
+			tools?: Array<{ function: { name: string } }>;
+			messages: Array<{ role: string; content: unknown }>;
+		}>;
+		expect(request.tools!.map((tool) => tool.function.name).sort()).toEqual(["omps", "read"]);
+		const text = promptText(request);
+		for (const rule of [
+			POLICY_MARKER,
+			"fresh omps list",
+			"Keep simple tasks local",
+			"suitable approved tools",
+			"inherited depth ceilings",
+			"Await the separately delivered result",
+			"parent task updates",
+		])
+			expect(text).toContain(rule);
+		expect(text.match(/For substantial tasks with separable work/g)).toHaveLength(1);
+		expect(text).toContain("PERSONA-MARKER-42");
+		expect(text).toContain("PROJECT-CONTEXT-MARKER-77");
+		expect(text).not.toContain("ambient_tool");
+		expect(pi.model.requests).toHaveLength(1);
+		expect(pi.records.filter((record) => record.type.startsWith("tool_execution_"))).toEqual([]);
+	});
+
 	it("grants no tools for an empty tool list", async () => {
 		pi = await startChild({ tools: [] });
 		await pi.send({ type: "prompt", message: "do the task" });
 		await pi.waitFor((record) => record.type === "agent_settled");
-		const [request] = pi.model.requests as Array<{ tools?: unknown[] }>;
+		const [request] = pi.model.requests as Array<{
+			tools?: unknown[];
+			messages: Array<{ role: string; content: unknown }>;
+		}>;
 		expect(request.tools ?? []).toEqual([]);
+		expect(promptText(request)).not.toContain(POLICY_MARKER);
 	});
 });
