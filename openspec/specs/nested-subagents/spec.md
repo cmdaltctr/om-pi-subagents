@@ -55,7 +55,7 @@ Omitted models SHALL inherit from the immediate parent. Ambient resources MUST r
 
 #### Scenario: Delegation is approved
 
-- **WHEN** a child whose tools include `omps` requests a valid mapped target within both limits
+- **WHEN** a child whose tools include `omps` requests a mapped target that is in its `delegates` list, within both limits
 - **THEN** the target starts in that child's session ownership and requested working directory
 - **AND** it uses the same operator registry selected for the parent
 
@@ -71,7 +71,7 @@ Omitted models SHALL inherit from the immediate parent. Ambient resources MUST r
 
 #### Scenario: The target has different approved tools
 
-- **WHEN** a delegating persona selects an operator-mapped target with write-capable tools
+- **WHEN** a delegating persona selects a listed, operator-mapped target with write-capable tools
 - **THEN** the target uses its own approved tools
 - **AND** listings and documentation identify delegation as a capability that can indirectly change files
 
