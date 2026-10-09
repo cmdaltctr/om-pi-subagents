@@ -193,7 +193,7 @@ describe.skipIf(!PI_AVAILABLE)("saved limits through fresh real launches", () =>
 				await writeFile(
 					// nosemgrep: AIK_ts_generic_path_traversal -- Seed a constant registry filename in the disposable fixture directory.
 					join(agentDir, "omps/config.yaml"),
-					`version: 1\nlimits: { maxDepth: ${ceiling}, maxConcurrentRuns: 4 }\nagents:\n  worker:\n    persona: ./personas/worker.md\n    tools: [omps]\n    thinking: off\n`,
+					`version: 1\nlimits: { maxDepth: ${ceiling}, maxConcurrentRuns: 4 }\nagents:\n  delegator:\n    persona: ./personas/delegator.md\n    tools: [omps]\n    thinking: off\n    delegates: [worker]\n  worker:\n    persona: ./personas/worker.md\n    tools: [omps]\n    thinking: off\n    delegates: [worker]\n`,
 				);
 				// nosemgrep: AIK_ts_generic_path_traversal -- Canonicalise only the synthetic registry just written by this fixture.
 				registryPath = await realpath(join(agentDir, "omps/config.yaml"));
@@ -216,7 +216,7 @@ describe.skipIf(!PI_AVAILABLE)("saved limits through fresh real launches", () =>
 					runToken: "settings-token",
 					piBin: PI_BIN,
 					parentModel: "fake/counter",
-					lineage: { ...fixtureLineage(registryPath), maxDepth: ceiling },
+					lineage: { ...fixtureLineage(registryPath), maxDepth: ceiling, agent: "delegator", delegates: ["worker"] },
 				}),
 		});
 		try {

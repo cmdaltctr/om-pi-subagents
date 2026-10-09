@@ -33,7 +33,8 @@ function expectPolicy(text: string): void {
 	for (const obligation of [
 		/substantial tasks with separable work/,
 		/fresh omps list/,
-		/proactively delegate.*bounded investigation or review/,
+		/proactively delegate suitable bounded investigation\./,
+		/Delegate review, audit or security work only when the user asks for it/,
 		/clear task and expected result/,
 		/Keep simple tasks local/,
 		/Honour explicit user restrictions.*subagents/,

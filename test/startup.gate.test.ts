@@ -68,6 +68,17 @@ describe("runGate", () => {
 		);
 	});
 
+	it("rejects readiness whose lineage has no valid agent, before any task is sent", async () => {
+		const { agent: _agent, ...withoutAgent } = fixtureLineage();
+		const entry = {
+			type: "entry_appended",
+			entry: { customType: READY_ENTRY, data: { ...readyEntry.entry.data, lineage: withoutAgent } },
+		};
+		await expect(
+			runGate(input, scripted({ commands: [guardCommand], prompt: handled }, [entry]), 1000, fail),
+		).rejects.toThrow(/lineage agent must be a valid agent name/);
+	});
+
 	it("rejects an extension error seen during start-up", async () => {
 		const records = [readyEntry, { type: "extension_error", error: "bad handler" }];
 		await expect(

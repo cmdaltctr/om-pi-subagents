@@ -83,7 +83,7 @@ describe.skipIf(!PI_AVAILABLE)("real configured limit scenarios", () => {
 				await writeFixturePersona(agentDir, "worker.md", "DEEP-WORKER-MARKER");
 				await writeFile(
 					join(agentDir, "omps/config.yaml"),
-					"version: 1\nlimits:\n  maxConcurrentRuns: 4\n  maxDepth: 5\nagents:\n  worker:\n    persona: ./personas/worker.md\n    tools: [omps]\n    thinking: off\n",
+					"version: 1\nlimits:\n  maxConcurrentRuns: 4\n  maxDepth: 5\nagents:\n  worker:\n    persona: ./personas/worker.md\n    tools: [omps]\n    thinking: off\n    delegates: [worker]\n",
 				);
 			},
 		});

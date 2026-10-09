@@ -11,6 +11,7 @@ const lineage = {
 	maxDepth: 3,
 	rootSessionId: "root",
 	runId: "child",
+	agent: "reader",
 };
 const input = { guardPath: "/ext/guard.ts", runToken: "token", cwd: tmpdir(), lineage } as LaunchInput;
 const fail = (message: string) => new StartupError(message);

@@ -169,9 +169,11 @@ export async function runGate(
 	const parsed = parseReadiness(entry.entry.data, input.runToken);
 	if ("error" in parsed) throw fail(`malformed readiness: ${parsed.error}`);
 	if (!parsed.readiness.ok) throw fail(`child is not ready: ${parsed.readiness.problems.join("; ")}`);
-	for (const key of ["registryPath", "depth", "maxDepth", "rootSessionId", "runId", "parentRunId"] as const) {
+	for (const key of ["registryPath", "depth", "maxDepth", "rootSessionId", "runId", "parentRunId", "agent"] as const) {
 		if (parsed.readiness.lineage?.[key] !== input.lineage[key]) throw fail(`child reports different lineage.${key}`);
 	}
+	if (JSON.stringify(parsed.readiness.lineage?.delegates) !== JSON.stringify(input.lineage.delegates))
+		throw fail("child reports different lineage.delegates");
 
 	if ((await realpath(parsed.readiness.cwd)) !== (await realpath(input.cwd))) {
 		throw fail(`child reports working directory ${parsed.readiness.cwd}, expected ${input.cwd}`);

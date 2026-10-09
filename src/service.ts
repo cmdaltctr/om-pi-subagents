@@ -4,6 +4,7 @@ import { stat } from "node:fs/promises";
 import { isAbsolute } from "node:path";
 import type { AgentSnapshot, RegistryStore } from "./config.ts";
 import type { RunManager, RunView } from "./runs.ts";
+import { allowedTargets, assertMayLaunch } from "./delegation-targets.ts";
 import type { ChildLineage } from "./protocol.ts";
 
 /** Tools that change files or run commands. A persona holding one is listed as write-capable. */
@@ -36,13 +37,16 @@ const describeAgent = (agent: AgentSnapshot, form: ListForm): string => {
 	const delegation = agent.tools.includes("omps");
 	if (form === "compact") {
 		const count = `${agent.tools.length} tool${agent.tools.length === 1 ? "" : "s"}`;
-		const extras = [agent.model ? `model ${agent.model}` : "", delegation ? "delegation-capable" : ""].filter(Boolean);
+		const reach = agent.delegates ? `: ${agent.delegates.join(", ")}` : "";
+		const extras = [agent.model ? `model ${agent.model}` : "", delegation ? `delegation-capable${reach}` : ""].filter(
+			Boolean,
+		);
 		return `${agent.name}: ${count} (${writeCapable ? "write-capable" : "read-only"})${extras.map((extra) => `; ${extra}`).join("")}`;
 	}
 	const parts = [`tools [${agent.tools.join(", ")}]`];
 	if (agent.model) parts.push(`model ${agent.model}`);
 	if (writeCapable) parts.push("write-capable");
-	if (delegation) parts.push("delegation-capable (can select write-capable targets)");
+	if (delegation) parts.push(`delegation-capable${agent.delegates ? ` (targets: ${agent.delegates.join(", ")})` : ""}`);
 	return `${agent.name}: ${parts.join("; ")}`;
 };
 
@@ -79,9 +83,12 @@ export function createService({ registry, manager, directoryFor, flush, delivery
 		/** Both list forms from one registry read, so the model's text and the compact render agree. */
 		async listForms(): Promise<Record<ListForm, string>> {
 			const snapshot = await registry.refresh();
-			const agents = [...snapshot.agents.values()];
+			// A restricted child sees only what it may start, so the model is not offered refused targets.
+			const reachable = branch ? new Set(allowedTargets(branch, snapshot.agents)) : undefined;
+			const agents = [...snapshot.agents.values()].filter((agent) => !reachable || reachable.has(agent.name));
+			const none = branch ? "No mapped agent can be launched from here." : "No personas mapped.";
 			const render = (form: ListForm) =>
-				agents.length === 0 ? "No personas mapped." : agents.map((agent) => describeAgent(agent, form)).join("\n");
+				agents.length === 0 ? none : agents.map((agent) => describeAgent(agent, form)).join("\n");
 			return { full: render("full"), compact: render("compact") };
 		},
 
@@ -99,6 +106,8 @@ export function createService({ registry, manager, directoryFor, flush, delivery
 			if (task === "") throw new Error("task is required");
 			if (task.startsWith("/"))
 				throw new Error("the task cannot start with a slash, because it would run as a slash command");
+			// Checked before depth, so the operator sees the more specific reason first.
+			if (branch) assertMayLaunch(branch, snapshot.agents, input.agent);
 			const currentDepth = branch?.depth ?? 0;
 			const depth = currentDepth + 1;
 			const maxDepth = Math.min(branch?.maxDepth ?? snapshot.limits.maxDepth, snapshot.limits.maxDepth);
@@ -106,18 +115,21 @@ export function createService({ registry, manager, directoryFor, flush, delivery
 				throw new Error(
 					`Cannot launch: current depth ${currentDepth}, attempted depth ${depth}, limits.maxDepth ${maxDepth}. Use a shallower parent or start a new branch after editing YAML.`,
 				);
+			const target = snapshot.agents.get(input.agent)!;
 			const nesting = Object.freeze({
 				registryPath: snapshot.registryPath,
 				depth,
 				maxDepth,
 				rootSessionId: branch?.rootSessionId ?? owner,
+				agent: target.name,
+				...(target.delegates ? { delegates: target.delegates } : {}),
 				...(branch ? { parentRunId: branch.runId } : {}),
 			});
 			const cwd = input.cwd ?? context.cwd;
 			await assertDirectory(cwd);
 
 			const run = manager.start(owner, {
-				agent: snapshot.agents.get(input.agent)!,
+				agent: target,
 				limits: snapshot.limits,
 				nesting,
 				task,

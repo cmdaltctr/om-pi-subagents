@@ -308,3 +308,58 @@ describe("skills and extensions", () => {
 		await expectRejected(await config(`${valid}    extensions: [./ext/none.ts]\n`), /agents\.reader\.extensions/);
 	});
 });
+
+describe("delegation targets", () => {
+	async function delegating(builderLines: string): Promise<string> {
+		await write(dir, "personas/builder.md", "Build.");
+		await write(dir, "personas/writer.md", "Write.");
+		await write(
+			dir,
+			"config.yaml",
+			`version: 1\nagents:\n  builder:\n    persona: ./personas/builder.md\n    thinking: off\n${builderLines}  writer:\n    persona: ./personas/writer.md\n    tools: [read]\n    thinking: off\n`,
+		);
+		return join(dir, "config.yaml");
+	}
+
+	it("requires a list when omps is approved", async () => {
+		await expectRejected(
+			await delegating("    tools: [read, omps]\n"),
+			/agents\.builder\.delegates: required when tools include omps; add delegates: \[\.\.\.\] listing the agents this agent may launch, or remove omps/,
+		);
+	});
+
+	it("rejects a value that is not a list", async () => {
+		await expectRejected(
+			await delegating("    tools: [omps]\n    delegates: writer\n"),
+			/agents\.builder\.delegates: must be a list of agent names/,
+		);
+	});
+
+	it("rejects an invalid agent name", async () => {
+		await expectRejected(
+			await delegating("    tools: [omps]\n    delegates: [Writer]\n"),
+			/agents\.builder\.delegates: "Writer" is not a valid agent name/,
+		);
+	});
+
+	it("rejects an empty list", async () => {
+		await expectRejected(
+			await delegating("    tools: [omps]\n    delegates: []\n"),
+			/agents\.builder\.delegates: must not be empty; remove omps to disable delegation/,
+		);
+	});
+
+	it("rejects an entry that names an unmapped agent", async () => {
+		await expectRejected(
+			await delegating("    tools: [omps]\n    delegates: [writer, a-missing]\n"),
+			/agents\.builder\.delegates: "a-missing" is not a mapped agent/,
+		);
+	});
+
+	it("rejects a list on an agent that does not approve omps", async () => {
+		await expectRejected(
+			await delegating("    tools: [read]\n    delegates: [writer]\n"),
+			/agents\.builder\.delegates: requires the exact omps tool/,
+		);
+	});
+});

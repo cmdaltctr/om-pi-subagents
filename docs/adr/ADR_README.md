@@ -23,6 +23,7 @@ This directory records significant architectural decisions made during developme
 | [016](./016-fold-result-messages-and-bind-ctrl-shift-e.md)                      | Fold result messages and bind Ctrl+Shift+E                      | 2026-10-08 | Accepted                            |
 | [017](./017-launch-agents-directly-from-an-at-mention.md)                       | Launch agents directly from an at-mention                       | 2026-10-08 | Accepted                            |
 | [018](./018-supply-delegation-guidance-through-tool-metadata.md)                | Supply delegation guidance through tool metadata                | 2026-10-09 | Accepted                            |
+| [019](./019-limit-delegation-targets-per-agent.md)                              | Limit delegation targets per agent                              | 2026-10-09 | Accepted                            |
 
 ## Convention
 

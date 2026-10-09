@@ -30,13 +30,16 @@ describe("the shipped OMPS skill guides proactive task selection", () => {
 
 	it("routes substantial separable work to proactive delegation", () => {
 		const description = /^description: (.+)$/m.exec(skill)?.[1] ?? "";
-		expect(description).toMatch(/proactive delegation.*substantial tasks.*separable investigation or review/i);
+		expect(description).toMatch(/proactive delegation.*substantial tasks.*separable investigation/i);
+		expect(description).not.toMatch(/investigation or review/i);
 	});
 
 	it("delegates bounded work without reminders while keeping simple or restricted work local", () => {
 		expect(selection).toMatch(
-			/substantial tasks with separable work[\s\S]*proactively delegate[\s\S]*bounded investigation or review/i,
+			/substantial tasks with separable work[\s\S]*proactively delegate[\s\S]*bounded investigation\./i,
 		);
+		expect(selection).toMatch(/delegate review, audit or security work only when the user asks for it/i);
+		expect(selection).not.toMatch(/investigation or review/i);
 		expect(selection).toMatch(/clear task and expected result/i);
 		expect(selection).toMatch(/without waiting for a user reminder/i);
 		expect(selection).toMatch(/keep simple tasks local/i);

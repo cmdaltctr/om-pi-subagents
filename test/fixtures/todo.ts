@@ -34,6 +34,9 @@ export async function startTodoChild(
 		extensions?: string[];
 		mode?: "normal" | "openspec";
 		maxDepth?: number;
+		/** The mapped agent this child claims to be, when it must launch others. */
+		agent?: string;
+		delegates?: string[];
 		seed?: WorkspaceOptions["seed"];
 	} = {},
 ) {
@@ -64,7 +67,12 @@ export async function startTodoChild(
 				piBin: PI_BIN,
 				parentModel: "fake/counter",
 				startupDeadlineMs: 2000,
-				lineage: { ...fixtureLineage(fixtureRegistryPath(agentDir)), maxDepth: options.maxDepth ?? 1 },
+				lineage: {
+					...fixtureLineage(fixtureRegistryPath(agentDir)),
+					maxDepth: options.maxDepth ?? 1,
+					...(options.agent ? { agent: options.agent } : {}),
+					...(options.delegates ? { delegates: options.delegates } : {}),
+				},
 			}),
 	});
 }
