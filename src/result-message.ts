@@ -1,5 +1,6 @@
+import { stripVTControlCharacters } from "node:util";
 import { keyHint, type ExtensionAPI, type ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { Text } from "@earendil-works/pi-tui";
+import { Box, Text } from "@earendil-works/pi-tui";
 import { RESULT_MESSAGE } from "./notify.ts";
 import { collapseResult, RESULT_LINE_LIMIT } from "./result-render.ts";
 
@@ -60,12 +61,14 @@ export function registerResultMessages(
 	expanded: () => boolean,
 	activeKey: () => string | undefined,
 ): void {
-	pi.registerMessageRenderer(RESULT_MESSAGE, (message, options) => {
+	pi.registerMessageRenderer(RESULT_MESSAGE, (message, options, theme) => {
 		// Read session state inside render: the host retains the returned component between redraws.
 		return {
 			invalidate() {},
 			render(width) {
+				if (width <= 0) return [];
 				let text = "OMPS: result content unavailable";
+				let foldHint: string | undefined;
 				try {
 					text =
 						typeof message.content === "string"
@@ -79,19 +82,24 @@ export function registerResultMessages(
 						if (folded.hidden > 0) {
 							let hint = "expand with the host expansion key";
 							try {
-								hint = keyHint("app.tools.expand", "to expand") || hint;
+								hint = stripVTControlCharacters(keyHint("app.tools.expand", "to expand")) || hint;
 							} catch {
 								/* The fallback stays useful when the host cannot supply its key hint. */
 							}
 							const key = activeKey();
 							if (key && key !== "off") hint = `${key} to expand; ${hint}`;
-							text = `${folded.head.join("\n")}\n… ${folded.hidden} more lines (${hint})`;
+							text = folded.head.join("\n");
+							foldHint = `… ${folded.hidden} more lines (${hint})`;
 						}
 					}
 				} catch {
 					/* Unexpected content or host state must not interrupt the transcript. */
 				}
-				return new Text(text, 0, 0).render(width);
+				const padding = Math.min(options.outputPad, Math.max(0, Math.floor((width - 1) / 2)));
+				const box = new Box(padding, 1, (line) => theme.bg("customMessageBg", line));
+				box.addChild(new Text(text, 0, 0));
+				if (foldHint) box.addChild(new Text(theme.fg("warning", foldHint), 0, 0));
+				return box.render(width);
 			},
 		};
 	});

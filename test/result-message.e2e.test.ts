@@ -163,6 +163,30 @@ describe.skipIf(!available)("result messages through real Pi rendering and dispa
 
 	const mutations = [
 		{
+			name: "panel background",
+			file: "result-message.ts",
+			before: '(line) => theme.bg("customMessageBg", line)',
+			after: "(line) => line",
+			scenario: "historical",
+			failure: "result rows must use the custom-message background",
+		},
+		{
+			name: "hint foreground",
+			file: "result-message.ts",
+			before: 'theme.fg("warning", foldHint)',
+			after: "foldHint",
+			scenario: "historical",
+			failure: "the entire fold hint must use the warning foreground",
+		},
+		{
+			name: "host hint colour removal",
+			file: "result-message.ts",
+			before: 'stripVTControlCharacters(keyHint("app.tools.expand", "to expand"))',
+			after: 'keyHint("app.tools.expand", "to expand")',
+			scenario: "historical",
+			failure: "the entire fold hint must use the warning foreground",
+		},
+		{
 			name: "fold",
 			file: "result-render.ts",
 			before: "RESULT_LINE_LIMIT = 8",
