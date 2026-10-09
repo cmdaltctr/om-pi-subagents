@@ -10,6 +10,7 @@ const modules = resolve(hostModules);
 const load = (name, file) => import(pathToFileURL(join(modules, name, file)).href);
 const sdk = await load("@earendil-works/pi-coding-agent", "dist/index.js");
 const tui = await load("@earendil-works/pi-tui", "dist/index.js");
+const themeState = await load("@earendil-works/pi-coding-agent", "dist/modes/interactive/theme/theme.js");
 const { InteractiveMode } = await load("@earendil-works/pi-coding-agent", "dist/modes/interactive/interactive-mode.js");
 const { default: omps } = await import(pathToFileURL(source).href);
 
@@ -38,6 +39,7 @@ class MemoryTerminal {
 	clearScreen() {}
 	setTitle() {}
 	setProgress() {}
+	setProgramStatus() {}
 }
 
 const cwd = process.cwd();
@@ -100,8 +102,8 @@ const unsubscribe = session.subscribe((event) => {
 	if (event.type === "agent_settled") settled++;
 });
 const sleep = (ms) => new Promise((done) => setTimeout(done, ms));
-const frame = () =>
-	(host.renderer.previousLines ?? host.renderer.previousScreen).map(stripVTControlCharacters).join("\n");
+const paintedRows = () => host.renderer.previousLines ?? host.renderer.previousScreen;
+const frame = () => paintedRows().map(stripVTControlCharacters).join("\n");
 const messages = () =>
 	session.messages.filter((message) => message.role === "custom" && message.customType === "omps-result");
 const waitFor = async (condition, description) => {
@@ -113,6 +115,25 @@ const waitFor = async (condition, description) => {
 const cards = () => host.chatContainer.children.filter((component) => component.message?.customType === "omps-result");
 const hookPresent = () =>
 	host.extensionWidgetsAbove.has("omps-result-render") || host.extensionWidgetsBelow.has("omps-result-render");
+const styled = () => {
+	const rows = paintedRows().filter((row) => /OMPS run |result line \d/.test(stripVTControlCharacters(row)));
+	assert(rows.length > 0, "result rows must be present for colour checks");
+	for (const row of rows) {
+		assert(
+			row.includes(themeState.theme.getBgAnsi("customMessageBg")),
+			"result rows must use the custom-message background",
+		);
+		assert(!row.includes(themeState.theme.getFgAnsi("warning")), "the result body must not inherit the hint colour");
+	}
+	for (const row of paintedRows().filter((line) => line.includes("12 more lines"))) {
+		const hint = stripVTControlCharacters(row).trim();
+		assert(row.includes(themeState.theme.getBgAnsi("customMessageBg")), "fold hints must keep the panel background");
+		assert(
+			row.includes(`${themeState.theme.getFgAnsi("warning")}${hint}\x1b[39m`),
+			"the entire fold hint must use the warning foreground",
+		);
+	}
+};
 const folded = (names) => {
 	const painted = frame();
 	for (const name of names) {
@@ -128,11 +149,13 @@ const folded = (names) => {
 		names.length,
 		"each retained result needs its own fold hint",
 	);
+	styled();
 };
 const expanded = (names) => {
 	for (const name of names)
 		assert(frame().includes(`${name} result line 20`), `native repaint must expand retained ${name}`);
 	assert(!frame().includes("12 more lines"), "expanded results must remove their fold hint");
+	styled();
 };
 const key = async (data) => {
 	terminal.input(data);
@@ -184,6 +207,36 @@ try {
 	assert(frame().toLowerCase().includes(hostHint), "the hint must name Pi's effective host expansion key");
 	const retained = cards();
 	assert.equal(retained.length, 2, "native CustomMessageComponents must retain both results");
+	if (scenario === "historical") {
+		const oldBackground = themeState.theme.getBgAnsi("customMessageBg");
+		const oldWarning = themeState.theme.getFgAnsi("warning");
+		assert(themeState.setTheme("light").success, "the host must load its light theme");
+		await sleep(160);
+		folded(["ONE", "TWO"]);
+		assert.notEqual(themeState.theme.getBgAnsi("customMessageBg"), oldBackground);
+		assert.notEqual(themeState.theme.getFgAnsi("warning"), oldWarning);
+		for (const row of paintedRows().filter((line) => line.includes("12 more lines"))) {
+			assert(!row.includes(oldBackground), "theme redraw must remove the old panel background");
+			assert(!row.includes(oldWarning), "theme redraw must remove the old hint foreground");
+		}
+		for (const card of cards()) {
+			const rows = card.render(24);
+			const start = rows.findIndex((row) => stripVTControlCharacters(row).includes("…"));
+			assert(start >= 0, "narrow results must retain a fold hint");
+			const hintRows = rows.slice(start, -1);
+			assert(hintRows.length > 1, "narrow fold hints must wrap");
+			for (const row of hintRows) {
+				assert(tui.visibleWidth(row) <= 24, "narrow hint rows must fit their width");
+				assert(row.includes(themeState.theme.getBgAnsi("customMessageBg")), "wrapped hints must keep the background");
+				assert(row.includes(themeState.theme.getFgAnsi("warning")), "wrapped hints must keep the warning foreground");
+			}
+		}
+		assert(themeState.setTheme("dark").success);
+		await sleep(160);
+		folded(["ONE", "TWO"]);
+		for (const [index, card] of cards().entries())
+			assert.strictEqual(card, retained[index], "theme redraw must retain native message components");
+	}
 	const initialTurns = turns;
 	const initialMessages = session.messages.length;
 	const active = !["host", "off", "conflict"].includes(scenario);

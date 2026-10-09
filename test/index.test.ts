@@ -90,15 +90,17 @@ describe("registration", () => {
 			...Array.from({ length: 20 }, (_, index) => `answer ${index + 1}`),
 		].join("\n");
 		const message = { customType: "omps-result", content };
-		const collapsed = renderer(message, { expanded: false, outputPad: 0 }, {}).render(120).join("\n");
+		const theme = { fg: (_colour: string, text: string) => text, bg: (_colour: string, text: string) => text };
+		const collapsed = renderer(message, { expanded: false, outputPad: 0 }, theme).render(120).join("\n");
 		expect(collapsed).toContain("12 more lines");
 		expect(collapsed).toMatch(/expand/);
 		expect(collapsed).toContain("answer 8");
 		expect(collapsed).not.toContain("answer 9");
-		const expanded = renderer(message, { expanded: true, outputPad: 0 }, {})
+		const expanded = renderer(message, { expanded: true, outputPad: 0 }, theme)
 			.render(120)
 			.map((line: string) => line.trimEnd())
-			.join("\n");
+			.join("\n")
+			.trim();
 		expect(expanded).toBe(content);
 	});
 
