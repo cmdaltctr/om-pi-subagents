@@ -69,7 +69,7 @@ describe("tooling agrees with the documentation", () => {
 	});
 
 	it("documents default-off per-agent capability edits and ownership using existing YAML lists", () => {
-		for (const path of ["README.md", "docs/SETUP.md", "docs/USAGE.md"]) {
+		for (const path of ["docs/SETUP.md", "docs/USAGE.md"]) {
 			const text = read(path);
 			expect(text, path).toContain("Agent capabilities");
 			expect(text, path).toMatch(/Off|off/);
@@ -104,12 +104,13 @@ describe("tooling agrees with the documentation", () => {
 	});
 
 	it("documents every script with its exact command", () => {
-		expect(read("README.md")).toContain("! bun run release:approve");
-		expect(read("README.md")).toContain("bun run release:approve <stage-uuid>");
-		expect(read("README.md")).toContain("npm 11.15 or newer");
-		expect(read("README.md")).toContain("pi update npm:om-pi-subagents");
+		expect(read("docs/MAINTAINING.md")).toContain("! bun run release:approve");
+		expect(read("docs/MAINTAINING.md")).toContain("bun run release:approve <stage-uuid>");
+		expect(read("docs/MAINTAINING.md")).toContain("npm 11.15 or newer");
+		expect(read("docs/MAINTAINING.md")).toContain("pi update npm:om-pi-subagents");
 		expect(pkg.scripts["release:approve"]).toBe("./scripts/release-approve.sh");
-		for (const name of Object.keys(pkg.scripts)) expect(read("README.md"), name).toContain(`\`bun run ${name}\``);
+		for (const name of Object.keys(pkg.scripts))
+			expect(read("docs/MAINTAINING.md"), name).toContain(`\`bun run ${name}\``);
 		expect(pkg.scripts.ci.split(" && ")).toEqual(steps.map((step) => `bun run ${step}`));
 		expect(pkg.scripts.lint).toBe("oxlint --deny-warnings");
 		expect(pkg.scripts.prepare).toBe("husky || true");
@@ -129,7 +130,7 @@ describe("tooling agrees with the documentation", () => {
 
 	it("documents the accepted development-only advisory and keeps production audits unfiltered", () => {
 		expect(pkg.scripts.audit).toBe("bun audit --prod && bun audit --ignore GHSA-vfj7-8cjw-p6xm");
-		const warning = read("README.md").match(/^> \[!CAUTION\]\n(?:>.*\n)+/m)?.[0];
+		const warning = read("docs/MAINTAINING.md").match(/^> \[!CAUTION\]\n(?:>.*\n)+/m)?.[0];
 		expect(warning).toContain("braces@3.0.3");
 		expect(warning).toContain("GHSA-vfj7-8cjw-p6xm");
 		expect(warning).toContain("No patched release exists");

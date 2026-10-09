@@ -6,7 +6,7 @@ const read = (path: string) => readFile(new URL(`../${path}`, import.meta.url), 
 
 // Public guides must keep command access visible when operators hide management navigation.
 describe("fleet refinement guidance", () => {
-	it.each(["README.md", "docs/SETUP.md", "docs/USAGE.md", "skills/om-pi-subagents/SKILL.md"])(
+	it.each(["docs/SETUP.md", "docs/USAGE.md", "skills/om-pi-subagents/SKILL.md"])(
 		"documents independent list visibility and effective keys in %s",
 		async (path) => {
 			const text = await read(path);
@@ -49,7 +49,7 @@ describe("fleet refinement guidance", () => {
 		});
 	});
 
-	it.each(["README.md", "docs/USAGE.md", "skills/om-pi-subagents/SKILL.md"])(
+	it.each(["docs/USAGE.md", "skills/om-pi-subagents/SKILL.md"])(
 		"describes picker/detail controls and provisional limits in %s",
 		async (path) => {
 			const text = await read(path);
