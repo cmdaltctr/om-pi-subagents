@@ -70,6 +70,7 @@ describe("the package is ready to publish", () => {
 			"docs/INSTALL.md",
 			"docs/SETUP.md",
 			"docs/USAGE.md",
+			"docs/INTEGRATIONS.md",
 			"docs/UNINSTALL.md",
 			"skills/om-pi-subagents/SKILL.md",
 			"docs/assets/om-pi-subagents-logo.svg",
