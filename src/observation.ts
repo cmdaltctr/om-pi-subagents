@@ -137,7 +137,7 @@ export class ObservationStore {
 		const roots = this.owners.get(run.owner) ?? new Map<string, Tree>();
 		const registered: Tree = {
 			owner: run.owner,
-			lineage: Object.freeze({ ...nesting, runId: run.id }),
+			lineage: Object.freeze({ ...nesting, agent: run.agent, runId: run.id }),
 			nodes: new Map([[run.id, entry]]),
 			pending: new Map(),
 			reasons: new Set(),

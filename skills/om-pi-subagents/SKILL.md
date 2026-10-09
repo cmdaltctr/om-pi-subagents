@@ -1,6 +1,6 @@
 ---
 name: om-pi-subagents
-description: Configure and operate OMPS mapped Pi subagents. Use for proactive delegation of substantial tasks with separable investigation or review, interactive at-mention launches, compact fleet navigation, descendant inspection, /omps-settings, per-agent Memory and Todo controls, YAML limits, parallel or nested delegation, result handoff, subtree cancellation, cleanup failures, and parent/child ownership.
+description: Configure and operate OMPS mapped Pi subagents. Use for proactive delegation of substantial tasks with separable investigation, interactive at-mention launches, compact fleet navigation, descendant inspection, /omps-settings, per-agent Memory and Todo controls, YAML limits, parallel or nested delegation, result handoff, subtree cancellation, cleanup failures, and parent/child ownership.
 license: MIT
 compatibility: Pi with om-pi-subagents installed and operator-managed mappings.
 ---
@@ -19,8 +19,9 @@ Never move operator files automatically or map persona instructions from run evi
 
 ## Choose useful work proactively
 
-For substantial tasks with separable work, discover mapped agents and proactively delegate a suitable bounded investigation or review.
+For substantial tasks with separable work, discover mapped agents and proactively delegate a suitable bounded investigation.
 Give each child a clear task and expected result. Delegate without waiting for a user reminder.
+Delegate review, audit or security work only when the user asks for it. You may suggest one.
 Keep simple tasks local. Honour explicit user requests to avoid subagents.
 Do not require discovery or a launch for every request, or a fixed number of subagents.
 
@@ -108,7 +109,11 @@ There is no machine-wide budget; branching can multiply the provider and process
 The root is depth zero. `maxDepth: 0` disables launches while listing and status remain available.
 Each launch adds one depth. A branch keeps its inherited depth ceiling and also respects fresh YAML.
 Raising depth permits new root branches; it does not expand an existing branch's permission.
-Nesting requires exact `omps` approval in the delegator's mapping.
+Nesting requires exact `omps` approval and a `delegates` list in the delegator's mapping.
+A nested launch must name an agent in that list, in both the list the branch started with and fresh YAML.
+A refusal names the agent, the target and the allowed targets; it starts no process. Do not retry the same target.
+The `omps list` result inside a restricted child shows only the targets it may start.
+Ask the operator to edit `delegates` in YAML when a needed target is missing; you cannot change it.
 
 ## Operator settings
 

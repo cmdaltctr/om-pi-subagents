@@ -17,6 +17,8 @@ export interface Persisted {
 
 export interface SupervisedOptions {
 	tools?: string[];
+	/** Targets the launched agent may start. Required by config whenever `tools` includes `omps`. */
+	delegates?: string[];
 	limits?: RunLimits;
 	script?: (cwd: string) => Turn[];
 	extensions?: string[];
@@ -93,6 +95,7 @@ export function supervisedHarness() {
 				thinking: "off",
 				skills: [],
 				extensions: options.extensions ?? [],
+				...(options.delegates ? { delegates: options.delegates } : {}),
 			};
 
 			return {

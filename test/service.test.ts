@@ -4,7 +4,9 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createRegistryStore } from "../src/config.ts";
 import { RunManager, type RunOutcome, type Supervisor, type SupervisorHooks } from "../src/runs.ts";
+import type { ChildLineage } from "../src/protocol.ts";
 import { createService } from "../src/service.ts";
+import { fixtureLineage } from "./fixtures/lineage.ts";
 
 let root: string;
 let dir: string;
@@ -35,7 +37,10 @@ afterEach(() => rm(root, { recursive: true, force: true }));
 const writeYaml = (text: string) => writeFile(join(dir, "config.yaml"), text);
 const tick = () => new Promise((done) => setImmediate(done));
 
-function setup(deliveryOf?: (runId: string) => { delivered: boolean; error?: string } | undefined) {
+function setup(
+	deliveryOf?: (runId: string) => { delivered: boolean; error?: string } | undefined,
+	branch?: ChildLineage,
+) {
 	const calls: Array<{
 		hooks: SupervisorHooks;
 		settle: (outcome: RunOutcome) => void;
@@ -50,17 +55,18 @@ function setup(deliveryOf?: (runId: string) => { delivered: boolean; error?: str
 		manager,
 		directoryFor: (owner, runId) => `/runs/${owner}/${runId}`,
 		deliveryOf,
+		branch,
 	});
 	return { service, manager, supervisor, calls };
 }
 
 describe("list", () => {
-	it("identifies approved delegation as capable of reaching write-enabled targets", async () => {
+	it("shows the targets that approved delegation may reach", async () => {
 		await writeYaml(
-			"version: 1\nagents:\n  delegator:\n    persona: ./personas/reader.md\n    tools: [omps]\n    thinking: off\n",
+			"version: 1\nagents:\n  delegator:\n    persona: ./personas/reader.md\n    tools: [omps]\n    thinking: off\n    delegates: [delegator]\n",
 		);
 		const text = await setup().service.list();
-		expect(text).toMatch(/delegator.*delegation-capable.*write-capable targets/);
+		expect(text).toMatch(/delegator.*delegation-capable \(targets: delegator\)/);
 	});
 
 	it("shows each mapped name with its tools and flags write-capable personas", async () => {
@@ -231,5 +237,140 @@ describe("status shows a failed result message", () => {
 	it("says nothing when it was delivered or is unknown", async () => {
 		expect(await finish({ delivered: true })).not.toMatch(/not delivered/);
 		expect(await finish(undefined)).not.toMatch(/not delivered/);
+	});
+});
+
+describe("delegation targets", () => {
+	const yaml = (builderTargets: string) => `version: 1
+limits: { maxDepth: 3, maxConcurrentRuns: 4 }
+agents:
+  builder:
+    persona: ./personas/reader.md
+    tools: [read, omps]
+    thinking: off
+    delegates: ${builderTargets}
+  writer:
+    persona: ./personas/writer.md
+    tools: [read, bash]
+    thinking: off
+  reader:
+    persona: ./personas/reader.md
+    tools: [read]
+    thinking: off
+  reviewer:
+    persona: ./personas/reader.md
+    tools: [read]
+    thinking: off
+`;
+	/** The lineage a running `builder` child received, with the list captured at its start. */
+	const child = (delegates: readonly string[], overrides: Partial<ChildLineage> = {}): ChildLineage => ({
+		...fixtureLineage(join(dir, "config.yaml")),
+		maxDepth: 3,
+		agent: "builder",
+		delegates,
+		...overrides,
+	});
+	const launch = (service: ReturnType<typeof setup>["service"], agent: string) =>
+		service.run("s1", { agent, task: "t" }, context);
+
+	it("starts a target in both the captured and the fresh list", async () => {
+		await writeYaml(yaml("[writer]"));
+		const { service, calls } = setup(undefined, child(["writer"]));
+		await launch(service, "writer");
+		expect(calls).toHaveLength(1);
+		expect(calls[0].request.agent.name).toBe("writer");
+	});
+
+	it("refuses a target outside the list before any process starts", async () => {
+		await writeYaml(yaml("[writer]"));
+		const { service, supervisor } = setup(undefined, child(["writer"]));
+		await expect(launch(service, "reviewer")).rejects.toThrow(
+			'builder cannot launch "reviewer": agents.builder.delegates allows writer.',
+		);
+		expect(supervisor).not.toHaveBeenCalled();
+	});
+
+	it("names every allowed target in the refusal", async () => {
+		await writeYaml(yaml("[writer, reader]"));
+		const { service } = setup(undefined, child(["writer", "reader"]));
+		await expect(launch(service, "reviewer")).rejects.toThrow(/allows writer, reader\./);
+	});
+
+	it("refuses a target the operator removed from the list during the run", async () => {
+		await writeYaml(yaml("[writer]"));
+		const { service, supervisor } = setup(undefined, child(["writer", "reader"]));
+		await expect(launch(service, "reader")).rejects.toThrow(/builder cannot launch "reader"/);
+		expect(supervisor).not.toHaveBeenCalled();
+	});
+
+	it("does not widen a captured list when the operator adds a target during the run", async () => {
+		await writeYaml(yaml("[writer, reviewer]"));
+		const { service, supervisor } = setup(undefined, child(["writer"]));
+		await expect(launch(service, "reviewer")).rejects.toThrow(/builder cannot launch "reviewer"/);
+		expect(supervisor).not.toHaveBeenCalled();
+	});
+
+	it("lets a child started after the edit launch the added target", async () => {
+		await writeYaml(yaml("[writer, reviewer]"));
+		const { service, calls } = setup(undefined, child(["writer", "reviewer"]));
+		await launch(service, "reviewer");
+		expect(calls).toHaveLength(1);
+	});
+
+	it("refuses every launch when the delegating agent is no longer mapped", async () => {
+		await writeYaml(yaml("[writer]"));
+		const { service, supervisor } = setup(undefined, child(["writer"], { agent: "gone" }));
+		await expect(launch(service, "writer")).rejects.toThrow(/gone is no longer mapped/);
+		expect(supervisor).not.toHaveBeenCalled();
+	});
+
+	it("does not limit launches from the root session", async () => {
+		await writeYaml(yaml("[writer]"));
+		const { service, calls } = setup();
+		await launch(service, "reviewer");
+		expect(calls).toHaveLength(1);
+	});
+
+	it("reports the disallowed target before the depth limit", async () => {
+		await writeYaml(yaml("[writer]"));
+		const { service } = setup(undefined, child(["writer"], { depth: 3, parentRunId: "parent" }));
+		await expect(launch(service, "reviewer")).rejects.toThrow(/builder cannot launch "reviewer"/);
+	});
+
+	it("shows each delegating agent's targets in the full root listing", async () => {
+		await writeYaml(yaml("[writer, reader]"));
+		const line = (await setup().service.list("full")).split("\n").find((text) => text.startsWith("builder:"))!;
+		expect(line).toContain("delegation-capable (targets: writer, reader)");
+		expect(line).not.toContain("can select write-capable targets");
+	});
+
+	it("shows the targets in the compact root listing", async () => {
+		await writeYaml(yaml("[writer]"));
+		const line = (await setup().service.list("compact")).split("\n").find((text) => text.startsWith("builder:"))!;
+		expect(line).toBe("builder: 2 tools (read-only); delegation-capable: writer");
+	});
+
+	it("lists only the targets a restricted child may launch", async () => {
+		await writeYaml(yaml("[writer, reader]"));
+		const { service } = setup(undefined, child(["writer"]));
+		const names = (await service.list("full")).split("\n").map((text) => text.split(":")[0]);
+		expect(names).toEqual(["writer"]);
+		expect(await service.list("compact")).toMatch(/^writer:/);
+	});
+
+	it("lists no target for a child whose agent is no longer mapped", async () => {
+		await writeYaml(yaml("[writer]"));
+		const { service } = setup(undefined, child(["writer"], { agent: "gone" }));
+		expect(await service.list("full")).toBe("No mapped agent can be launched from here.");
+	});
+
+	it("records the launched agent and its captured list in the launch record", async () => {
+		await writeYaml(yaml("[writer, reader]"));
+		const { service, calls } = setup();
+		await launch(service, "builder");
+		expect(calls[0].request.nesting).toMatchObject({ agent: "builder", delegates: ["writer", "reader"] });
+		await launch(service, "reviewer");
+		expect(calls[1].request.nesting?.agent).toBe("reviewer");
+		expect(calls[1].request.nesting?.delegates).toBeUndefined();
 	});
 });

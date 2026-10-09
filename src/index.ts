@@ -314,7 +314,7 @@ export function registerOmps(
 			"Discover mapped subagents for proactive delegation of substantial separable work. Run them in the background within configured per-session limits, check progress, or cancel an owned subtree. Results arrive separately as follow-up messages.",
 		promptSnippet: "Delegate substantial separable work to mapped subagents (actions: list, run, status, cancel)",
 		promptGuidelines: [
-			"For substantial tasks with separable work, use fresh omps list output and proactively delegate suitable bounded investigation or review. Give a clear task and expected result.",
+			"For substantial tasks with separable work, use fresh omps list output and proactively delegate suitable bounded investigation. Give a clear task and expected result. Delegate review, audit or security work only when the user asks for it.",
 			"Keep simple tasks local, with no discovery requirement and no fixed launch count. Honour explicit user restrictions on using subagents.",
 			"Select only freshly listed mappings with suitable approved tools. Check omps status for the current session before adding more runs, then launch through omps. Report empty, invalid or unsuitable mappings and continue permitted local work where possible. Never invent agents, change settings or grant tools without permission.",
 			"Verify the working folder before launch. Give parallel writers separate files or isolated worktrees to avoid shared-file conflicts. Respect configured concurrency, inherited depth ceilings and cleanup blocking. Honour launch refusals and follow existing waiting or recovery guidance; never repeatedly retry or raise limits without permission.",

@@ -27,6 +27,7 @@ async function startHost(injected = false, failedSubscription = false): Promise<
 						.map(
 							(name) =>
 								`  ${name}:\n    persona: ./personas/${name}.md\n    tools: [${name === "leaf" ? "write" : "omps"}]\n    thinking: off\n` +
+								(name === "leaf" ? "" : "    delegates: [delegator, middle, leaf]\n") +
 								(injected && name === "delegator" ? `    extensions: [${JSON.stringify(emitter)}]\n` : "") +
 								(failedSubscription && name === "middle"
 									? `    extensions: [${JSON.stringify(brokenSubscription)}]\n`

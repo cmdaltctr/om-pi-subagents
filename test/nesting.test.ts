@@ -14,6 +14,8 @@ const lineage = {
 	maxDepth: 3,
 	rootSessionId: "root",
 	runId: "child",
+	agent: "reader",
+	delegates: ["reader"],
 };
 const policy = { tools: ["omps"], startupDeadlineMs: 1000, lineage };
 const agent = {
@@ -122,7 +124,7 @@ afterEach(() => rm(root, { recursive: true, force: true }));
 async function service(maxDepth: number, branch?: typeof lineage) {
 	await writeFile(
 		join(dir, "config.yaml"),
-		`version: 1\nlimits:\n  maxConcurrentRuns: 4\n  maxDepth: ${maxDepth}\nagents:\n  reader:\n    persona: ./personas/reader.md\n    tools: [write]\n    thinking: off\n`,
+		`version: 1\nlimits:\n  maxConcurrentRuns: 4\n  maxDepth: ${maxDepth}\nagents:\n  reader:\n    persona: ./personas/reader.md\n    tools: [write, omps]\n    thinking: off\n    delegates: [reader]\n`,
 	);
 	const requests: Parameters<Supervisor>[1][] = [];
 	const supervisor = vi.fn<Supervisor>((_view, request) => {
@@ -153,6 +155,8 @@ describe("depth admission", () => {
 			depth: 1,
 			maxDepth: 3,
 			rootSessionId: "root",
+			agent: "reader",
+			delegates: ["reader"],
 		});
 		expect(setup.manager.list("root")[0].nesting).toEqual(setup.requests[0].nesting);
 	});
@@ -173,7 +177,7 @@ describe("depth admission", () => {
 		expect(setup.requests[0]).toMatchObject({
 			nesting: { depth: 2, maxDepth: 4, rootSessionId: "root", parentRunId: "child" },
 			parent: { model: "fake/child" },
-			agent: { tools: ["write"] },
+			agent: { tools: ["write", "omps"] },
 		});
 	});
 

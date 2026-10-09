@@ -96,6 +96,9 @@ export function createSupervisor(deps: SupervisorDeps): Supervisor {
 							maxDepth: request.limits?.maxDepth ?? 1,
 							rootSessionId: run.owner,
 						}),
+						// The launched snapshot is the source of truth for who the child is and whom it may launch.
+						agent: request.agent.name,
+						...(request.agent.delegates ? { delegates: request.agent.delegates } : {}),
 						runId: run.id,
 					},
 					piBin: deps.piBin,

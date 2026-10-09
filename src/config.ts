@@ -3,6 +3,7 @@ import { readFile, realpath, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
 import { isAlias, parseDocument, visit } from "yaml";
+import { checkDelegateTargets, readDelegates } from "./delegation-targets.ts";
 import { registryMigrationMessage, resolveAgentDir } from "./registry-path.ts";
 
 /** Immutable launch inputs for one agent: persona text plus validated settings. */
@@ -15,6 +16,8 @@ export interface AgentSnapshot {
 	readonly thinking: string;
 	readonly skills: readonly string[];
 	readonly extensions: readonly string[];
+	/** Agents this agent may launch through `omps`. Present exactly when `tools` approves `omps`. */
+	readonly delegates?: readonly string[];
 }
 
 export type Registry = ReadonlyMap<string, AgentSnapshot>;
@@ -81,7 +84,7 @@ const MAX_FILE_BYTES = 256 * 1024;
 const NAME_PATTERN = /^[a-z][a-z0-9-]{0,63}$/;
 const TOOL_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_.-]*$/;
 const THINKING_LEVELS = ["off", "minimal", "low", "medium", "high", "xhigh", "max"];
-const AGENT_FIELDS = ["persona", "tools", "model", "thinking", "skills", "extensions"];
+const AGENT_FIELDS = ["persona", "tools", "model", "thinking", "skills", "extensions", "delegates"];
 const UI_FIELDS: readonly (keyof UiSettings)[] = [
 	"maxVisibleAgents",
 	"fleetView",
@@ -158,6 +161,7 @@ export async function loadRegistry(yamlPath: string): Promise<ConfigurationSnaps
 	for (const [name, raw] of Object.entries(data.agents)) {
 		registry.set(name, await buildSnapshot(name, raw, yamlDir));
 	}
+	checkDelegateTargets(registry);
 	return configurationSnapshot(registry, limits, ui, await realpath(yamlPath));
 }
 
@@ -418,16 +422,19 @@ async function buildSnapshot(name: string, raw: unknown, yamlDir: string): Promi
 	if (typeof thinking !== "string" || !THINKING_LEVELS.includes(thinking)) {
 		throw new RegistryError(`${at}.thinking`, `must be one of ${THINKING_LEVELS.join(", ")}`);
 	}
+	const approved = Object.freeze(validateTools(`${at}.tools`, tools));
+	const delegates = readDelegates(at, approved, raw.delegates);
 	const personaFile = await readPersona(`${at}.persona`, persona, yamlDir);
 	return Object.freeze({
 		name,
 		personaPath: personaFile.path,
 		persona: personaFile.text,
-		tools: Object.freeze(validateTools(`${at}.tools`, tools)),
+		tools: approved,
 		model: model as string | undefined,
 		thinking,
 		skills: Object.freeze(await resolveResources(`${at}.skills`, raw.skills, yamlDir, "file")),
 		extensions: Object.freeze(await resolveResources(`${at}.extensions`, raw.extensions, yamlDir, "any")),
+		...(delegates ? { delegates } : {}),
 	});
 }
 

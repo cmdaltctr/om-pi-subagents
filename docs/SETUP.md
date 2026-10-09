@@ -461,11 +461,41 @@ tools:
 - The old tool name `mcp` no longer exists. Use the native `mcp__<server>__<tool>` names.
 - After a Pi update from 0.99 to 1.0, change the hyphens in your MCP tool names to underscores. If you do not, runs fail with `tool "..." is not registered`.
 - A tool from an extension needs its explicit `extensions` entry.
-- Approving the exact `omps` tool loads OMPS's managed delegator. It can select targets with their own tool permissions.
+- Approving the exact `omps` tool loads OMPS's managed delegator. It needs a `delegates` list; see [`delegates`](#delegates). Each target keeps its own tool permissions.
 - Approving `todo` requires the real todo extension too. OMPS seeds only the child's normal-mode list.
 - Approving `memory` requires the real OMMS extension; its whole tool includes write and portability modes.
 
 Before the task is sent, OMPS checks that every listed tool exists in the child. A missing tool stops the run before the model sees the task.
+
+### `delegates`
+
+`delegates` lists the agents that this agent may launch through `omps`. It is required whenever `tools` includes `omps`.
+
+```yaml
+agents:
+  builder:
+    persona: ./personas/builder.md
+    tools: [read, edit, write, bash, omps]
+    thinking: high
+    delegates: [writer, explorer]
+```
+
+- Each entry must be a mapped agent in the same file.
+- The list must not be empty. To stop an agent delegating, remove `omps` from its `tools`.
+- `delegates` without `omps` in `tools` is an error.
+- A mapping with `omps` and no `delegates` is an error. Add the list or remove `omps`.
+- The root session is not limited by any `delegates` list.
+- A running branch keeps the list it started with. OMPS also reads your YAML on every launch. A target must be in both lists, so editing the file can narrow a running branch but never widen it.
+
+A refused launch starts no process. The error names the agent, the target and the allowed targets:
+
+```text
+builder cannot launch "reviewer": agents.builder.delegates allows writer, explorer.
+```
+
+**Upgrading.** Earlier versions let an agent with `omps` launch any mapped agent. After you upgrade, OMPS refuses to load a config where such an agent has no `delegates` list. Add the list to each mapping that approves `omps`.
+
+`delegates` limits `omps` launches only. An agent with `bash` or `write` can still change files. OMPS is a tool guard, not an operating-system sandbox.
 
 ### `thinking`
 

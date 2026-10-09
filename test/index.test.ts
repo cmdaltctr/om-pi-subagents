@@ -124,8 +124,13 @@ describe("delegation prompt policy", () => {
 	it("discovers fresh mappings and proactively delegates substantial separable work", () => {
 		expect(policy()).toMatch(/substantial tasks with separable work/);
 		expect(policy()).toMatch(/fresh omps list/);
-		expect(policy()).toMatch(/proactively delegate.*bounded investigation or review/);
+		expect(policy()).toMatch(/proactively delegate suitable bounded investigation\./);
 		expect(policy()).toMatch(/clear task and expected result/);
+	});
+
+	it("delegates review, audit or security work only when the user asks", () => {
+		expect(policy()).toMatch(/Delegate review, audit or security work only when the user asks for it/);
+		expect(policy()).not.toMatch(/investigation or review/);
 	});
 
 	it("keeps simple tasks local and honours explicit user restrictions without a quota", () => {

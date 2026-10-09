@@ -41,6 +41,7 @@ async function nested(faultyPs = false, holdLeaf = false): Promise<Supervised> {
 	const run = await harness.setup({
 		deps: { env },
 		tools: ["omps"],
+		delegates: ["middle", "leaf"],
 		limits: { maxConcurrentRuns: 4, maxDepth: 3 },
 		seed: async ({ agentDir }) => {
 			await writeFixturePersona(agentDir, "middle.md", "MIDDLE-PERSONA-MARKER");
@@ -52,10 +53,16 @@ limits:
   maxConcurrentRuns: 4
   maxDepth: 3
 agents:
+  agent:
+    persona: ./personas/middle.md
+    tools: [omps]
+    thinking: off
+    delegates: [middle, leaf]
   middle:
     persona: ./personas/middle.md
     tools: [omps]
     thinking: off
+    delegates: [middle, leaf]
   leaf:
     persona: ./personas/leaf.md
     tools: [mcp__fixture__lookup]

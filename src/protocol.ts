@@ -9,10 +9,19 @@ export interface Nesting {
 	readonly maxDepth: number;
 	readonly rootSessionId: string;
 	readonly parentRunId?: string;
+	/** The mapped agent this run starts. Run records saved before this field existed lack it. */
+	readonly agent?: string;
+	/** Agents this run may launch, frozen at its start. Absent when its mapping does not approve `omps`. */
+	readonly delegates?: readonly string[];
 }
 
+/** Mapped agent names: lowercase, digits and hyphens. */
+export const AGENT_NAME_PATTERN = /^[a-z][a-z0-9-]{0,63}$/;
+
+/** What a live child receives. It always knows its own agent name, so it can find its mapping. */
 export interface ChildLineage extends Nesting {
 	readonly runId: string;
+	readonly agent: string;
 }
 
 export const PREFLIGHT_COMMAND = "omps-child-preflight";
@@ -49,13 +58,24 @@ function parseLineage(value: unknown): ChildLineage | string {
 	if (!id(data.rootSessionId) || !id(data.runId)) return "lineage session and run ids are invalid";
 	if (data.depth === 1 ? data.parentRunId !== undefined : !id(data.parentRunId))
 		return "lineage parentRunId is inconsistent with depth";
+	if (typeof data.agent !== "string" || !AGENT_NAME_PATTERN.test(data.agent))
+		return "lineage agent must be a valid agent name";
+	if (
+		data.delegates !== undefined &&
+		(!Array.isArray(data.delegates) ||
+			data.delegates.length === 0 ||
+			!data.delegates.every((name) => typeof name === "string" && AGENT_NAME_PATTERN.test(name)))
+	)
+		return "lineage delegates must be a non-empty list of valid agent names";
 	return Object.freeze({
 		registryPath: data.registryPath,
 		depth: data.depth,
 		maxDepth: data.maxDepth,
 		rootSessionId: data.rootSessionId,
 		runId: data.runId,
+		agent: data.agent,
 		...(data.parentRunId !== undefined ? { parentRunId: data.parentRunId as string } : {}),
+		...(data.delegates !== undefined ? { delegates: Object.freeze([...(data.delegates as string[])]) } : {}),
 	});
 }
 

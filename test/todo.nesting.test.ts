@@ -13,6 +13,8 @@ describe.skipIf(!PI_AVAILABLE)("real todo lists during parallel nested settlemen
 			tools: ["omps", "todo"],
 			mode: "openspec",
 			maxDepth: 3,
+			agent: "delegate",
+			delegates: ["delegate", "leaf"],
 			seed: async ({ agentDir }) => {
 				await writeFixturePersona(agentDir, "delegate.md", "TODO-DELEGATE-PERSONA-MARKER");
 				await writeFixturePersona(agentDir, "leaf.md", "TODO-LEAF-PERSONA-MARKER");
@@ -27,6 +29,7 @@ agents:
     persona: ./personas/delegate.md
     tools: [omps, todo]
     thinking: off
+    delegates: [delegate, leaf]
     extensions: [${JSON.stringify(extension)}]
   leaf:
     persona: ./personas/leaf.md

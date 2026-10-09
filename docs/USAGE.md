@@ -66,7 +66,7 @@ You can submit an ordinary task without mentioning subagents or loading a skill.
 For substantial tasks with separable work, the rules direct the model to:
 
 1. Call `omps list` to read fresh mappings.
-2. Select an agent with approved tools for a bounded investigation or review.
+2. Select an agent with approved tools for a bounded investigation.
 3. Check current-session runs with `omps status` before adding work.
 4. Verify a safe working folder and avoid shared-file conflicts between parallel writers.
 5. Launch with a clear task and expected result.
@@ -75,6 +75,9 @@ For substantial tasks with separable work, the rules direct the model to:
 The parent can continue independent work while waiting. It keeps responsibility for the final answer
 and its own task updates. Failed or partial results keep their labels.
 Use the run id from the launch acknowledgement to check progress.
+
+The rules tell the model to delegate review, audit or security work only when you ask for it.
+Ask for a review in your prompt when you want one.
 
 If mappings are missing, invalid or unsuitable, the rules direct the model to report the constraint
 and continue permitted local work where possible. They grant no permission to invent agents,
@@ -96,7 +99,7 @@ and adds no provider fallback.
 
 Run `/skill:om-pi-subagents` when you want detailed operational instructions.
 Loading that skill is optional for the short built-in rules and grants no tools.
-A child needs exact `omps` approval to delegate.
+A child needs exact `omps` approval and a `delegates` list to delegate.
 
 ### Prompt scope and host versions
 
@@ -498,7 +501,7 @@ skills:
 ```
 
 Use the package folder shown by `pi list` if yours differs. Skill loading grants no tools.
-Add `omps` to that child's tools only when you approve delegation.
+Add `omps` to that child's tools, and list its targets in `delegates`, only when you approve delegation.
 
 ### Optional child capabilities
 
@@ -634,9 +637,30 @@ root: depth 0
       great-grandchild: depth 3
 ```
 
-Approve `omps` in a target's `tools` to let it delegate. It uses the same canonical registry,
-its own direct slots and the immediate parent's model unless its mapping sets another model.
-Each target keeps its own tool permissions. A delegator can select a write-capable target.
+Approve `omps` in a target's `tools` to let it delegate, and list the agents it may start in `delegates`.
+It uses the same canonical registry, its own direct slots and the immediate parent's model unless its mapping sets another model.
+Each target keeps its own tool permissions. A listed target can be write-capable.
+
+```yaml
+agents:
+  builder:
+    persona: ./personas/builder.md
+    tools: [read, edit, write, bash, omps]
+    thinking: high
+    delegates: [writer]
+```
+
+`delegates` is required with `omps`. A launch outside the list fails before any process starts:
+
+```text
+builder cannot launch "reviewer": agents.builder.delegates allows writer.
+```
+
+A branch keeps the list it started with, and OMPS also reads fresh YAML. A target must be in both.
+Removing a target from the file stops new launches of it from running branches.
+Adding a target reaches only branches that start afterwards. Running descendants continue.
+The root session is not limited by any list.
+`/omps list` shows each delegating agent's targets. Inside a restricted child, `omps list` shows only the targets it may start.
 
 A branch retains its inherited depth ceiling. Nested launches use the smaller of that ceiling and fresh YAML.
 Raising depth affects new root branches; lowering it stops new deeper launches without cancelling existing descendants.

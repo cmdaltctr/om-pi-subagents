@@ -18,7 +18,7 @@ async function startManaged(maxDepth: number, tools = ["omps"]) {
 			await writeFixturePersona(agentDir, "writer.md", "WRITER-PERSONA-MARKER");
 			await writeFile(
 				join(agentDir, "omps/config.yaml"),
-				`version: 1\nlimits:\n  maxConcurrentRuns: 4\n  maxDepth: ${maxDepth}\nagents:\n  writer:\n    persona: ./personas/writer.md\n    tools: [write]\n    thinking: off\n`,
+				`version: 1\nlimits:\n  maxConcurrentRuns: 4\n  maxDepth: ${maxDepth}\nagents:\n  delegator:\n    persona: ./personas/delegator.md\n    tools: [omps]\n    thinking: off\n    delegates: [writer]\n  writer:\n    persona: ./personas/writer.md\n    tools: [write]\n    thinking: off\n`,
 			);
 			registryPath = await realpath(join(agentDir, "omps/config.yaml"));
 		},
@@ -39,7 +39,7 @@ async function startManaged(maxDepth: number, tools = ["omps"]) {
 				runToken: "token",
 				piBin: PI_BIN,
 				parentModel: "fake/counter",
-				lineage: { ...fixtureLineage(registryPath), maxDepth },
+				lineage: { ...fixtureLineage(registryPath), maxDepth, agent: "delegator", delegates: ["writer"] },
 			}),
 	});
 }

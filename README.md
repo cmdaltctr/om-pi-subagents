@@ -172,7 +172,8 @@ short delegation rules from the first model request. They remain available on la
 Loading `/skill:om-pi-subagents` is optional for these rules and grants no tools.
 
 The rules tell the model to call `omps list` before substantial tasks with separable work,
-then delegate a suitable bounded investigation or review to a freshly listed agent with approved tools.
+then delegate a suitable bounded investigation to a freshly listed agent with approved tools.
+They tell the model to delegate review, audit or security work only when you ask for it.
 They direct the model to keep simple requests local and honour explicit restrictions on delegation.
 Tell the model `Work locally; do not use subagents` when you want local work only.
 The rules also require current-session status and a safe working folder before adding runs,
@@ -203,8 +204,20 @@ agents: {}
 ```
 
 The root is depth zero. Depth three allows children, grandchildren and great-grandchildren.
-A child can delegate only when its mapping approves the exact `omps` tool.
-Each target keeps its own tools, so delegation can reach write-capable targets.
+A child can delegate only when its mapping approves the exact `omps` tool and lists its targets in `delegates`:
+
+```yaml
+agents:
+  builder:
+    persona: ./personas/builder.md
+    tools: [read, edit, write, bash, omps]
+    thinking: high
+    delegates: [writer]
+```
+
+OMPS refuses any other launch from `builder` before it starts a process.
+`delegates` is required whenever a mapping approves `omps`. A mapping with `omps` and no list fails validation.
+Each target keeps its own tools, so a listed target can still be write-capable.
 
 Limits have no additional fixed ceiling. Four slots through depth three can create
 `4 + 16 + 64 = 84` descendants. Use separate safe worktrees for concurrent writers.
@@ -444,7 +457,7 @@ sandbox.
 - An agent with a write-capable tool runs with your file permissions. Start it
   in a feature worktree or another directory that is safe to change.
 - Sessions have separate direct-child slots. OMPS sets no combined machine or provider budget.
-- `/omps list` marks approved `omps` targets as `delegation-capable`, including their ability to select write-capable targets.
+- `/omps list` shows the targets of each delegating agent, for example `delegation-capable: writer`. A target keeps its own tools, so it can be write-capable.
 
 ## Provider extensions
 

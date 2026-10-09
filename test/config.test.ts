@@ -315,3 +315,35 @@ describe("persona snapshot", () => {
 		expect(second.persona).toBe("Version two.");
 	});
 });
+
+describe("delegation targets", () => {
+	const delegator = (targets: string) => `version: 1
+agents:
+  builder:
+    persona: ./personas/builder.md
+    tools: [read, omps]
+    thinking: off
+    delegates: ${targets}
+  writer:
+    persona: ./personas/writer.md
+    tools: [read]
+    thinking: off
+`;
+
+	beforeEach(async () => {
+		await write("personas/builder.md", "Build.");
+		await write("personas/writer.md", "Write.");
+	});
+
+	it("freezes the allowed targets on the snapshot", async () => {
+		await write("config.yaml", delegator("[writer, builder]"));
+		const builder = (await loadRegistry(yamlPath())).agents.get("builder");
+		expect(builder?.delegates).toEqual(["writer", "builder"]);
+		expect(Object.isFrozen(builder?.delegates)).toBe(true);
+	});
+
+	it("needs no list for an agent that does not approve omps", async () => {
+		await write("config.yaml", delegator("[writer]"));
+		expect((await loadRegistry(yamlPath())).agents.get("writer")?.delegates).toBeUndefined();
+	});
+});
