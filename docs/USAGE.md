@@ -438,12 +438,16 @@ The README explains how to install OMPS and map agents...
 
 ### Folded results and expansion keys
 
+Results use Pi's custom-message background in both folded and expanded views.
+Pi's dark theme gives this panel a purple background. Other themes use their own panel colour.
+
 Interactive Pi folds long result messages by default. The heading, files line and `Result:` label stay visible.
 Any `Error:` line and `PARTIAL OUTPUT` note remain visible too. The fold shows the first eight other result lines.
 Lines are counted before wrapping, so a long line can occupy several screen rows.
 A short result shows in full without a hint.
 
 When lines are hidden, the hint shows their count, the active result shortcut and the host expansion key.
+The entire hint uses Pi's warning colour, yellow in the dark theme, including wrapped rows and key names.
 Pi's host action is `app.tools.expand`, Ctrl+O by default. The hint follows its current binding.
 If Pi cannot supply the key name, the hint says `expand with the host expansion key`.
 

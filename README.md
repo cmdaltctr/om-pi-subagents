@@ -352,6 +352,9 @@ truncated output shows its saved location. See [inspection](docs/USAGE.md#agent-
 
 ### Result messages
 
+Results use Pi's custom-message panel, with the warning colour for the fold hint.
+In the dark theme, the panel is purple and the hint is yellow. Other themes use their own colours.
+
 Interactive Pi folds long results after eight answer lines. The heading, files line and `Result:` label remain visible.
 Errors and partial-output notes stay visible too. Short results have no fold hint.
 The hint shows the hidden-line count, the active Result shortcut and always the host expansion key as a fallback.

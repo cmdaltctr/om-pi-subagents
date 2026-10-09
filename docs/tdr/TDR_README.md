@@ -23,6 +23,8 @@ TDRs record implementation-level findings: platform workarounds, debugging resul
 | [012](./012-at-mention-autocomplete-on-pi.md)                         | At-mention autocomplete on Pi                         | 2026-10-08 | Accepted (application partly superseded by 013) |
 | [013](./013-replace-the-whole-agent-completion-token.md)              | Replace the whole agent completion token              | 2026-10-08 | Accepted                                        |
 
+| [014](./014-restore-result-panel-and-hint-colours.md) | Restore result panel and hint colours | 2026-10-08 | Accepted |
+
 ## Status values
 
 - **Proposed**: under discussion
