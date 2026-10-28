@@ -53,13 +53,13 @@ Commit OpenSpec artifacts with the code change they describe. Commit the archive
 
 ## Commands and prerequisites
 
-Run commands from the repository root. Use Bun 1.4.2 and Node.js 22.12 or newer. Network access is required for installs.
+Run commands from the repository root. Use Bun 1.4.2 and Node.js 22.19 or newer. Network access is required for installs.
 
 1. Ask before installing dependencies.
 2. Run `bun install`.
 3. Run `bun run setup:host`.
 
-`bunfig.toml` disables automatic peer installation. `.pi-host/` holds Pi 0.99.1 and typebox 1.3.27 outside project dependencies.
+`bunfig.toml` disables automatic peer installation. `.pi-host/` holds Pi 1.4.0 and typebox 1.3.27 outside project dependencies.
 
 | Purpose               | Command                         | Prerequisites                                   |
 | --------------------- | ------------------------------- | ----------------------------------------------- |

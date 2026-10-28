@@ -26,6 +26,16 @@ export async function createTodoViewerHost(modules, mode, directory) {
 		"@earendil-works/pi-coding-agent",
 		"dist/modes/interactive/components/custom-entry.js",
 	);
+	// Pi 1.4.0 keeps dialogs on a host stack instead of the removed extensionSelector and
+	// extensionInput fields, so the fixture detects dialogs by the focused component class.
+	const { ExtensionSelectorComponent } = await load(
+		"@earendil-works/pi-coding-agent",
+		"dist/modes/interactive/components/extension-selector.js",
+	);
+	const { ExtensionInputComponent } = await load(
+		"@earendil-works/pi-coding-agent",
+		"dist/modes/interactive/components/extension-input.js",
+	);
 	const { KeybindingsManager } = await load("@earendil-works/pi-coding-agent", "dist/core/keybindings.js");
 	const { SessionManager } = await load("@earendil-works/pi-coding-agent", "dist/core/session-manager.js");
 	const { initTheme, getEditorTheme } = await load(
@@ -74,6 +84,9 @@ export async function createTodoViewerHost(modules, mode, directory) {
 		extensionWidgetsBelow: new Map(),
 		// The real terminal-input listener path needs its subscription set on the host.
 		extensionTerminalInputSubscriptions: new Set(),
+		// Pi 1.4.0 queues dialogs on this stack and reports blocked state through programStatus.
+		extensionDialogs: [],
+		programStatus: { setBlocked() {} },
 		toolOutputExpanded: false,
 		isBashMode: false,
 		footerDataProvider: { setExtensionStatus() {} },
@@ -98,14 +111,14 @@ export async function createTodoViewerHost(modules, mode, directory) {
 		assert(predicate(), `Timed out waiting for ${label}`);
 	};
 	const choose = async (index) => {
-		await wait(() => host.extensionSelector, "native selector");
+		await wait(() => ui.getFocusedComponent() instanceof ExtensionSelectorComponent, "native selector");
 		for (let row = 0; row < index; row++) terminal.input("\x1b[B");
 		terminal.input("\r");
 		await flush();
 	};
 	const edit = async (index, value, confirm = true) => {
 		await choose(index);
-		await wait(() => host.extensionInput, "native input");
+		await wait(() => ui.getFocusedComponent() instanceof ExtensionInputComponent, "native input");
 		terminal.input(value);
 		terminal.input("\r");
 		await flush();

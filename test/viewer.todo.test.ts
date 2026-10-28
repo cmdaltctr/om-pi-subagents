@@ -16,7 +16,7 @@ describe.skipIf(!PI_AVAILABLE)("real managed todo child during operator UI actio
 });
 
 const hosts = [
-	{ version: "0.99.1", modules: process.env.PI_HOST_MODULES ?? resolve(".pi-host/node_modules") },
+	{ version: "1.4.0", modules: process.env.PI_HOST_MODULES ?? resolve(".pi-host/node_modules") },
 	{ version: "1.0.4", modules: process.env.OMPS_CURRENT_HOST_MODULES },
 ];
 

@@ -1,4 +1,4 @@
-// The supervisor against the real Pi 0.99.1 CLI: lifecycle, deadlines, cancellation and cleanup.
+// The supervisor against the real Pi 1.4.0 CLI: lifecycle, deadlines, cancellation and cleanup.
 import { afterEach, describe as suite, expect, it } from "vitest";
 import { PI_AVAILABLE } from "./fixtures/pi-rpc.ts";
 const describe = suite.skipIf(!PI_AVAILABLE);

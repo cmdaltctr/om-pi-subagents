@@ -1,4 +1,4 @@
-// Permission canaries against the real Pi 0.99.1 CLI. A scripted model attempts forbidden calls;
+// Permission canaries against the real Pi 1.4.0 CLI. A scripted model attempts forbidden calls;
 // the tests then look for any effect: a file on disk or a call that reached the MCP server.
 import { existsSync } from "node:fs";
 import { join } from "node:path";

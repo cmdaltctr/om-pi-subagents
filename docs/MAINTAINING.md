@@ -4,7 +4,7 @@ This page is for maintainers. Read [AGENTS.md](../AGENTS.md) before you change t
 
 ## Develop
 
-Use Bun 1.4.2 and Node.js 22.12 or newer. Run these from the repository root:
+Use Bun 1.4.2 and Node.js 22.19 or newer. Run these from the repository root:
 
 ```sh
 bun install
