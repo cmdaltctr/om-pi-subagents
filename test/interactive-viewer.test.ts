@@ -5,7 +5,7 @@ import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const hosts = [
-	{ version: "0.99.1", modules: process.env.PI_HOST_MODULES ?? resolve(".pi-host/node_modules") },
+	{ version: "1.4.0", modules: process.env.PI_HOST_MODULES ?? resolve(".pi-host/node_modules") },
 	{ version: "1.0.4", modules: process.env.OMPS_CURRENT_HOST_MODULES },
 ];
 for (const host of hosts)

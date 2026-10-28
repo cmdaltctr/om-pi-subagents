@@ -142,7 +142,7 @@ describe("tooling agrees with the documentation", () => {
 		expect(read("bunfig.toml")).toMatch(/^peer = false$/m);
 		for (const name of Object.keys(pkg.peerDependencies)) expect(pkg.dependencies).not.toHaveProperty(name);
 		const setup = read("scripts/setup-host.sh");
-		expect(setup).toContain('PI_HOST_VERSION="${PI_HOST_VERSION:-0.99.1}"');
+		expect(setup).toContain('PI_HOST_VERSION="${PI_HOST_VERSION:-1.4.0}"');
 		expect(setup).toContain('TYPEBOX_VERSION="${TYPEBOX_VERSION:-1.3.27}"');
 		expect(setup).toContain("bun add");
 		expect(read(".gitignore")).toContain(".pi-host/");

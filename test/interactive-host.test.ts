@@ -19,7 +19,7 @@ function findCurrentModules(): string | undefined {
 
 const currentModules = findCurrentModules();
 const hosts = [
-	{ version: "0.99.1", modules: pinnedModules },
+	{ version: "1.4.0", modules: pinnedModules },
 	{ version: "1.0.4", modules: currentModules },
 ];
 

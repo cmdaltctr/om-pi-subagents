@@ -1,4 +1,4 @@
-// Contract tests against the real Pi 0.99.1 CLI in RPC mode. No live model and no real
+// Contract tests against the real Pi 1.4.0 CLI in RPC mode. No live model and no real
 // credentials: the model is a local counting server and the MCP server is a local fixture.
 import { afterEach, describe as suite, expect, it } from "vitest";
 import { PI_AVAILABLE } from "./fixtures/pi-rpc.ts";

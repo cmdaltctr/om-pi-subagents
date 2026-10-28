@@ -11,7 +11,7 @@ export function runAtMentionNative(script: string, scenario?: string): Record<st
 		const modules = resolve(process.env.PI_HOST_MODULES ?? ".pi-host/node_modules");
 		expect(
 			JSON.parse(readFileSync(join(modules, "@earendil-works/pi-coding-agent/package.json"), "utf8")).version,
-		).toBe("0.99.1");
+		).toBe("1.4.0");
 		const config = join(directory, "tsconfig.json");
 		writeFileSync(
 			config,

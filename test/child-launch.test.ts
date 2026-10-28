@@ -1,4 +1,4 @@
-// A real Pi 0.99.1 child started by OMPS's own launcher, in an agent directory full of ambient resources.
+// A real Pi 1.4.0 child started by OMPS's own launcher, in an agent directory full of ambient resources.
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { afterEach, describe as suite, expect, it } from "vitest";

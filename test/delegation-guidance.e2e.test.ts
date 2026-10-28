@@ -171,12 +171,9 @@ describePi("delegation guidance in real Pi requests", () => {
 		);
 		const first = await request(pi);
 		expect(first.tools?.map((tool) => tool.function.name)).not.toContain("omps");
-		// Pi 0.99.1 hides the declaration but retains active-tool rules. Pi 1.1.0 omits both.
+		// Pi 0.99.1 hides the declaration but retains active-tool rules. Pi 1.1.0 and newer omit both.
 		if (version === "0.99.1") expectPolicy(promptText(first));
-		else {
-			expect(version).toBe("1.1.0");
-			expect(promptText(first)).not.toContain("For substantial tasks with separable work");
-		}
+		else expect(promptText(first)).not.toContain("For substantial tasks with separable work");
 	});
 
 	it("starts no run or model request during RPC startup", async () => {

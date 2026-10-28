@@ -1,4 +1,4 @@
-// Start-up gate against the real Pi 0.99.1 CLI. Every failure must leave the fake model with zero requests.
+// Start-up gate against the real Pi 1.4.0 CLI. Every failure must leave the fake model with zero requests.
 import { chmod, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
