@@ -117,7 +117,7 @@ describe("tooling agrees with the documentation", () => {
 	});
 
 	it("declares Vitest's Vite peer directly when automatic peers are disabled", () => {
-		expect(pkg.devDependencies.vite).toBe("8.3.1");
+		expect(pkg.devDependencies.vite).toBe("8.3.5");
 	});
 
 	it("pins the OpenSpec CLI used by the real todo compatibility tests", () => {
